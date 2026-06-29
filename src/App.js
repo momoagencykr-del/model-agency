@@ -1,4 +1,5 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { loadFromSheets, saveToSheets } from "./sheetsApi";
 
 const MODEL_META_INIT = {
   폴린: { nameKr: "폴린", nameEn: "Pauline", fullName: "GUILLET PAULINE MANON LEA", nationality: "프랑스", agencyAF: 0.3, modelAF: 0.3, account: "하나 545-910326-40107", regNo: "" },
@@ -37,6 +38,22 @@ function formatRegNo(val) {
   const digits = val.replace(/\D/g, "").slice(0, 13);
   if (digits.length <= 6) return digits;
   return digits.slice(0, 6) + "-" + digits.slice(6);
+}
+
+function SaveStatus({ status }) {
+  const map = {
+    idle: null,
+    saving: { text: "저장 중...", bg: "#fef3c7", color: "#92400e" },
+    saved: { text: "✅ 저장됨", bg: "#d1fae5", color: "#065f46" },
+    error: { text: "❌ 저장 실패", bg: "#fee2e2", color: "#991b1b" },
+  };
+  const s = map[status];
+  if (!s) return null;
+  return (
+    <span style={{ fontSize: 11, background: s.bg, color: s.color, fontWeight: 700, padding: "3px 10px", borderRadius: 20 }}>
+      {s.text}
+    </span>
+  );
 }
 
 function EntryForm({ af, label, onAdd }) {
@@ -191,7 +208,6 @@ function ModelDetail({ model, meta, data, addEntry, removeEntry }) {
 
 function TaxSummaryRow({ model, meta, inc, tax, final, monthData, editingRegNo, regNoInput, onStartEdit, onCommitEdit, onRegNoInput }) {
   const [expanded, setExpanded] = useState(false);
-
   const allEntries = [
     ...monthData.agency.map(e => ({ ...e, type: "agency", af: meta.agencyAF, typeLabel: "① 에이전시" })),
     ...monthData.self.map(e => ({ ...e, type: "self", af: meta.modelAF, typeLabel: "② 모델직접" })),
@@ -202,18 +218,8 @@ function TaxSummaryRow({ model, meta, inc, tax, final, monthData, editingRegNo, 
       <tr style={{ borderBottom: expanded ? "none" : "1px solid #f8fafc", background: expanded ? "#f8f9ff" : "white", opacity: final === 0 ? 0.3 : 1 }}>
         <td style={{ padding: "10px 14px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <button
-              onClick={() => allEntries.length > 0 && setExpanded(v => !v)}
-              style={{
-                width: 22, height: 22, borderRadius: 6, border: "1px solid #e2e8f0",
-                background: allEntries.length > 0 ? "#f1f5f9" : "#f8fafc",
-                cursor: allEntries.length > 0 ? "pointer" : "default",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                flexShrink: 0, transition: "transform 0.2s",
-                transform: expanded ? "rotate(0deg)" : "rotate(-90deg)",
-                color: allEntries.length > 0 ? "#64748b" : "#cbd5e1", fontSize: 10,
-              }}
-            >▼</button>
+            <button onClick={() => allEntries.length > 0 && setExpanded(v => !v)}
+              style={{ width: 22, height: 22, borderRadius: 6, border: "1px solid #e2e8f0", background: allEntries.length > 0 ? "#f1f5f9" : "#f8fafc", cursor: allEntries.length > 0 ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "transform 0.2s", transform: expanded ? "rotate(0deg)" : "rotate(-90deg)", color: allEntries.length > 0 ? "#64748b" : "#cbd5e1", fontSize: 10 }}>▼</button>
             <div>
               <div style={{ fontWeight: 800, color: "#1e293b" }}>{meta.nameKr}</div>
               <div style={{ fontSize: 11, color: "#94a3b8" }}>{meta.fullName}</div>
@@ -223,11 +229,7 @@ function TaxSummaryRow({ model, meta, inc, tax, final, monthData, editingRegNo, 
         <td style={{ padding: "10px 14px", color: "#64748b", fontSize: 12 }}>{meta.nationality}</td>
         <td style={{ padding: "10px 14px" }}>
           {editingRegNo === model ? (
-            <input autoFocus value={regNoInput}
-              onChange={e => onRegNoInput(formatRegNo(e.target.value))}
-              onBlur={() => onCommitEdit(model)}
-              onKeyDown={e => e.key === "Enter" && onCommitEdit(model)}
-              placeholder="000000-0000000" maxLength={14}
+            <input autoFocus value={regNoInput} onChange={e => onRegNoInput(formatRegNo(e.target.value))} onBlur={() => onCommitEdit(model)} onKeyDown={e => e.key === "Enter" && onCommitEdit(model)} placeholder="000000-0000000" maxLength={14}
               style={{ border: "2px solid #f59e0b", borderRadius: 6, padding: "4px 8px", fontSize: 12, width: 130, outline: "none", fontFamily: "monospace" }} />
           ) : (
             <button onClick={() => onStartEdit(model, meta.regNo)}
@@ -244,9 +246,7 @@ function TaxSummaryRow({ model, meta, inc, tax, final, monthData, editingRegNo, 
         <tr>
           <td colSpan={6} style={{ padding: 0, background: "#f8f9ff", borderBottom: "1px solid #e2e8f0" }}>
             <div style={{ padding: "12px 16px 16px 52px" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
-                세부 촬영 내역 ({allEntries.length}건)
-              </div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>세부 촬영 내역 ({allEntries.length}건)</div>
               <table style={{ width: "100%", fontSize: 11, borderCollapse: "collapse" }}>
                 <thead>
                   <tr style={{ color: "#94a3b8", borderBottom: "1px solid #e2e8f0" }}>
@@ -261,9 +261,7 @@ function TaxSummaryRow({ model, meta, inc, tax, final, monthData, editingRegNo, 
                     return (
                       <tr key={e.id} style={{ borderBottom: "1px solid #eef2ff" }}>
                         <td style={{ padding: "6px 8px" }}>
-                          <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 10, background: e.type === "agency" ? "#eef2ff" : "#f5f3ff", color: e.type === "agency" ? "#4f46e5" : "#7c3aed" }}>
-                            {e.typeLabel}
-                          </span>
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 10, background: e.type === "agency" ? "#eef2ff" : "#f5f3ff", color: e.type === "agency" ? "#4f46e5" : "#7c3aed" }}>{e.typeLabel}</span>
                         </td>
                         <td style={{ padding: "6px 8px", fontWeight: 600, color: "#334155" }}>{e.brand || "-"}</td>
                         <td style={{ padding: "6px 8px", textAlign: "right", color: "#475569" }}>{fmt(c.inc)}</td>
@@ -324,10 +322,7 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo }) {
         <h2 style={{ fontSize: 18, fontWeight: 900, color: "#1e293b", margin: 0 }}>월별 세무 요약</h2>
         <div style={{ display: "flex", gap: 4, marginLeft: "auto", flexWrap: "wrap" }}>
           {MONTHS.map(m => (
-            <button key={m} onClick={() => setMonth(m)} style={{
-              padding: "5px 10px", borderRadius: 7, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700,
-              background: month === m ? "#4f46e5" : "#f1f5f9", color: month === m ? "#fff" : "#64748b"
-            }}>{m}</button>
+            <button key={m} onClick={() => setMonth(m)} style={{ padding: "5px 10px", borderRadius: 7, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, background: month === m ? "#4f46e5" : "#f1f5f9", color: month === m ? "#fff" : "#64748b" }}>{m}</button>
           ))}
         </div>
       </div>
@@ -441,9 +436,7 @@ function Overview({ data, modelMeta }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {rows.map(({ model, meta, inc, tax, final }) => (
           <div key={model} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: "14px 18px", display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ width: 42, height: 42, borderRadius: 10, background: "#eef2ff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 900, color: "#4f46e5", flexShrink: 0 }}>
-              {meta.nameEn[0]}
-            </div>
+            <div style={{ width: 42, height: 42, borderRadius: 10, background: "#eef2ff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 900, color: "#4f46e5", flexShrink: 0 }}>{meta.nameEn[0]}</div>
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 800, color: "#1e293b" }}>{meta.nameKr} <span style={{ fontWeight: 400, color: "#94a3b8", fontSize: 13 }}>({meta.nameEn})</span></div>
               <div style={{ fontSize: 11, color: "#94a3b8" }}>{meta.nationality} · AF {meta.agencyAF*100}%/{meta.modelAF*100}%</div>
@@ -461,53 +454,74 @@ function Overview({ data, modelMeta }) {
 }
 
 export default function App() {
-  const [data, setData] = useState(() => {
-    try {
-      const saved = localStorage.getItem("modelAgencyData_v1");
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return initData();
-  });
-  const [modelMeta, setModelMeta] = useState(() => {
-    try {
-      const saved = localStorage.getItem("modelAgencyMeta_v1");
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return MODEL_META_INIT;
-  });
+  const [data, setData] = useState(initData);
+  const [modelMeta, setModelMeta] = useState(MODEL_META_INIT);
   const [tab, setTab] = useState("overview");
+  const [saveStatus, setSaveStatus] = useState("idle");
+  const [loading, setLoading] = useState(true);
+
+  // 앱 시작시 Google Sheets에서 데이터 불러오기
+  useEffect(() => {
+    loadFromSheets().then(saved => {
+      if (saved?.data) setData(saved.data);
+      if (saved?.modelMeta) setModelMeta(saved.modelMeta);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  // Google Sheets에 저장
+  const syncToSheets = useCallback(async (newData, newMeta) => {
+    setSaveStatus("saving");
+    try {
+      await saveToSheets({ data: newData, modelMeta: newMeta });
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus("idle"), 2000);
+    } catch {
+      setSaveStatus("error");
+      setTimeout(() => setSaveStatus("idle"), 3000);
+    }
+  }, []);
 
   const addEntry = useCallback((model, month, type, entry) => {
     setData(prev => {
       const d = JSON.parse(JSON.stringify(prev));
       d[model][month][type].push(entry);
-      localStorage.setItem("modelAgencyData_v1", JSON.stringify(d));
+      syncToSheets(d, modelMeta);
       return d;
     });
-  }, []);
+  }, [modelMeta, syncToSheets]);
 
   const removeEntry = useCallback((model, month, type, id) => {
     setData(prev => {
       const d = JSON.parse(JSON.stringify(prev));
       d[model][month][type] = d[model][month][type].filter(e => e.id !== id);
-      localStorage.setItem("modelAgencyData_v1", JSON.stringify(d));
+      syncToSheets(d, modelMeta);
       return d;
     });
-  }, []);
+  }, [modelMeta, syncToSheets]);
 
   const updateRegNo = useCallback((model, regNo) => {
     setModelMeta(prev => {
       const m = { ...prev, [model]: { ...prev[model], regNo } };
-      localStorage.setItem("modelAgencyMeta_v1", JSON.stringify(m));
+      syncToSheets(data, m);
       return m;
     });
-  }, []);
+  }, [data, syncToSheets]);
 
   const navItems = [
     { id: "overview", label: "연간 요약", icon: "📊" },
     { id: "tax", label: "세무 요약", icon: "📋" },
     ...Object.keys(modelMeta).map(m => ({ id: m, label: modelMeta[m].nameKr, icon: modelMeta[m].nameEn[0] })),
   ];
+
+  if (loading) return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f8fafc", fontFamily: "sans-serif" }}>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontSize: 32, marginBottom: 12 }}>⏳</div>
+        <div style={{ fontWeight: 700, color: "#4f46e5" }}>Google Sheets에서 데이터 불러오는 중...</div>
+      </div>
+    </div>
+  );
 
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
@@ -517,7 +531,8 @@ export default function App() {
           <div style={{ fontWeight: 900, color: "#1e293b", fontSize: 14, lineHeight: 1.1 }}>Model Agency</div>
           <div style={{ fontSize: 11, color: "#94a3b8" }}>2026 소속모델 정산관리</div>
         </div>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
+          <SaveStatus status={saveStatus} />
           <span style={{ fontSize: 11, background: "#fef3c7", color: "#92400e", fontWeight: 700, padding: "3px 10px", borderRadius: 20 }}>원천징수 3.3%</span>
           <span style={{ fontSize: 11, background: "#eef2ff", color: "#4f46e5", fontWeight: 700, padding: "3px 10px", borderRadius: 20 }}>모델 {Object.keys(modelMeta).length}명</span>
         </div>
