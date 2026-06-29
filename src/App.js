@@ -1,5 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
-import { loadFromSheets, saveToSheets } from "./sheetsApi";
+import { useState, useCallback, useEffect, useRef } from "react";
 
 const MODEL_META_INIT = {
   폴린: { nameKr: "폴린", nameEn: "Pauline", fullName: "GUILLET PAULINE MANON LEA", nationality: "프랑스", agencyAF: 0.3, modelAF: 0.3, account: "하나 545-910326-40107", regNo: "" },
@@ -13,6 +12,7 @@ const MODEL_META_INIT = {
 
 const MONTHS = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
 const TAX_RATE = 0.033;
+const MAX_HISTORY = 50;
 
 const initData = () => {
   const d = {};
@@ -40,22 +40,34 @@ function formatRegNo(val) {
   return digits.slice(0, 6) + "-" + digits.slice(6);
 }
 
-function SaveStatus({ status }) {
-  const map = {
-    idle: null,
-    saving: { text: "저장 중...", bg: "#fef3c7", color: "#92400e" },
-    saved: { text: "✅ 저장됨", bg: "#d1fae5", color: "#065f46" },
-    error: { text: "❌ 저장 실패", bg: "#fee2e2", color: "#991b1b" },
-  };
-  const s = map[status];
-  if (!s) return null;
-  return (
-    <span style={{ fontSize: 11, background: s.bg, color: s.color, fontWeight: 700, padding: "3px 10px", borderRadius: 20 }}>
-      {s.text}
-    </span>
-  );
+// ── Google Sheets API ─────────────────────────────────────────────────────────
+async function loadFromSheets() {
+  try {
+    const res = await fetch("/api/sheets");
+    const json = await res.json();
+    return json.data || null;
+  } catch (e) {
+    console.error("Sheets 불러오기 실패:", e);
+    return null;
+  }
 }
 
+async function saveToSheets(payload) {
+  try {
+    const res = await fetch("/api/sheets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data: payload }),
+    });
+    if (!res.ok) throw new Error("저장 실패");
+    return true;
+  } catch (e) {
+    console.error("Sheets 저장 실패:", e);
+    return false;
+  }
+}
+
+// ── EntryForm ─────────────────────────────────────────────────────────────────
 function EntryForm({ af, label, onAdd }) {
   const [f, setF] = useState({ brand: "", income: "", otherDeduct: "", note: "" });
   const c = calcEntry(f.income, af, f.otherDeduct);
@@ -91,6 +103,7 @@ function EntryForm({ af, label, onAdd }) {
   );
 }
 
+// ── EntryTable ────────────────────────────────────────────────────────────────
 function EntryTable({ entries, af, onRemove }) {
   if (!entries.length) return <p style={{ textAlign: "center", color: "#cbd5e1", fontSize: 12, padding: "16px 0" }}>데이터 없음</p>;
   return (
@@ -127,15 +140,14 @@ function EntryTable({ entries, af, onRemove }) {
   );
 }
 
+// ── ModelDetail ───────────────────────────────────────────────────────────────
 function ModelDetail({ model, meta, data, addEntry, removeEntry }) {
   const [month, setMonth] = useState("1월");
   const md = data?.[model]?.[month] || { agency: [], self: [] };
-
   const sum = (entries, af) => entries.reduce((acc, e) => {
     const c = calcEntry(e.income, af, e.otherDeduct);
     return { inc: acc.inc + c.inc, tax: acc.tax + c.tax, final: acc.final + c.final };
   }, { inc: 0, tax: 0, final: 0 });
-
   const aSum = sum(md.agency, meta.agencyAF);
   const sSum = sum(md.self, meta.modelAF);
   const totalInc = aSum.inc + sSum.inc;
@@ -145,9 +157,7 @@ function ModelDetail({ model, meta, data, addEntry, removeEntry }) {
   return (
     <div>
       <div style={{ background: "linear-gradient(135deg,#4f46e5 0%,#7c3aed 100%)", borderRadius: 16, padding: "20px 24px", marginBottom: 20, color: "#fff", display: "flex", alignItems: "center", gap: 16 }}>
-        <div style={{ width: 52, height: 52, borderRadius: 14, background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, fontWeight: 900, flexShrink: 0 }}>
-          {meta.nameEn[0]}
-        </div>
+        <div style={{ width: 52, height: 52, borderRadius: 14, background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, fontWeight: 900, flexShrink: 0 }}>{meta.nameEn[0]}</div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 20, fontWeight: 900 }}>{meta.nameKr} <span style={{ fontWeight: 300, opacity: 0.75 }}>({meta.nameEn})</span></div>
           <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>{meta.fullName} · {meta.nationality}</div>
@@ -158,20 +168,14 @@ function ModelDetail({ model, meta, data, addEntry, removeEntry }) {
           <div style={{ fontWeight: 700 }}>에이전시 {meta.agencyAF*100}% / 모델 {meta.modelAF*100}%</div>
         </div>
       </div>
-
       <div style={{ display: "flex", gap: 4, marginBottom: 18, flexWrap: "wrap" }}>
         {MONTHS.map(m => {
           const hasData = (data?.[model]?.[m]?.agency?.length + data?.[model]?.[m]?.self?.length) > 0;
           return (
-            <button key={m} onClick={() => setMonth(m)} style={{
-              padding: "6px 12px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700,
-              background: month === m ? "#4f46e5" : hasData ? "#eef2ff" : "#f1f5f9",
-              color: month === m ? "#fff" : hasData ? "#4f46e5" : "#94a3b8"
-            }}>{m}</button>
+            <button key={m} onClick={() => setMonth(m)} style={{ padding: "6px 12px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, background: month === m ? "#4f46e5" : hasData ? "#eef2ff" : "#f1f5f9", color: month === m ? "#fff" : hasData ? "#4f46e5" : "#94a3b8" }}>{m}</button>
           );
         })}
       </div>
-
       {totalFinal > 0 && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 18 }}>
           {[["총 입금액", fmt(totalInc), "#334155", "#f8fafc", "#e2e8f0"],
@@ -184,7 +188,6 @@ function ModelDetail({ model, meta, data, addEntry, removeEntry }) {
           ))}
         </div>
       )}
-
       <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: 18, marginBottom: 12 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
           <span style={{ fontWeight: 800, color: "#334155", fontSize: 14 }}>① 에이전시가 잡아온 촬영</span>
@@ -193,7 +196,6 @@ function ModelDetail({ model, meta, data, addEntry, removeEntry }) {
         <EntryTable entries={md.agency} af={meta.agencyAF} onRemove={id => removeEntry(model, month, "agency", id)} />
         <EntryForm af={meta.agencyAF} label="에이전시 촬영" onAdd={e => addEntry(model, month, "agency", e)} />
       </div>
-
       <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: 18 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
           <span style={{ fontWeight: 800, color: "#334155", fontSize: 14 }}>② 모델이 잡아온 촬영</span>
@@ -206,13 +208,13 @@ function ModelDetail({ model, meta, data, addEntry, removeEntry }) {
   );
 }
 
+// ── TaxSummaryRow ─────────────────────────────────────────────────────────────
 function TaxSummaryRow({ model, meta, inc, tax, final, monthData, editingRegNo, regNoInput, onStartEdit, onCommitEdit, onRegNoInput }) {
   const [expanded, setExpanded] = useState(false);
   const allEntries = [
     ...monthData.agency.map(e => ({ ...e, type: "agency", af: meta.agencyAF, typeLabel: "① 에이전시" })),
     ...monthData.self.map(e => ({ ...e, type: "self", af: meta.modelAF, typeLabel: "② 모델직접" })),
   ];
-
   return (
     <>
       <tr style={{ borderBottom: expanded ? "none" : "1px solid #f8fafc", background: expanded ? "#f8f9ff" : "white", opacity: final === 0 ? 0.3 : 1 }}>
@@ -260,9 +262,7 @@ function TaxSummaryRow({ model, meta, inc, tax, final, monthData, editingRegNo, 
                     const c = calcEntry(e.income, e.af, e.otherDeduct);
                     return (
                       <tr key={e.id} style={{ borderBottom: "1px solid #eef2ff" }}>
-                        <td style={{ padding: "6px 8px" }}>
-                          <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 10, background: e.type === "agency" ? "#eef2ff" : "#f5f3ff", color: e.type === "agency" ? "#4f46e5" : "#7c3aed" }}>{e.typeLabel}</span>
-                        </td>
+                        <td style={{ padding: "6px 8px" }}><span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 10, background: e.type === "agency" ? "#eef2ff" : "#f5f3ff", color: e.type === "agency" ? "#4f46e5" : "#7c3aed" }}>{e.typeLabel}</span></td>
                         <td style={{ padding: "6px 8px", fontWeight: 600, color: "#334155" }}>{e.brand || "-"}</td>
                         <td style={{ padding: "6px 8px", textAlign: "right", color: "#475569" }}>{fmt(c.inc)}</td>
                         <td style={{ padding: "6px 8px", textAlign: "right", color: "#64748b" }}>{fmt(c.fee)}</td>
@@ -276,8 +276,7 @@ function TaxSummaryRow({ model, meta, inc, tax, final, monthData, editingRegNo, 
                   <tr style={{ borderTop: "2px solid #e2e8f0", background: "#eef2ff" }}>
                     <td colSpan={2} style={{ padding: "7px 8px", fontWeight: 800, color: "#4338ca", fontSize: 11 }}>소계</td>
                     <td style={{ padding: "7px 8px", textAlign: "right", fontWeight: 800, color: "#4338ca" }}>{fmt(inc)}</td>
-                    <td style={{ padding: "7px 8px", textAlign: "right", color: "#64748b" }}>-</td>
-                    <td style={{ padding: "7px 8px", textAlign: "right", color: "#64748b" }}>-</td>
+                    <td colSpan={2} style={{ padding: "7px 8px", textAlign: "right", color: "#64748b" }}>-</td>
                     <td style={{ padding: "7px 8px", textAlign: "right", fontWeight: 800, color: "#ef4444" }}>{fmt(tax)}</td>
                     <td style={{ padding: "7px 8px", textAlign: "right", fontWeight: 900, color: "#4f46e5" }}>{fmt(final)}</td>
                     <td></td>
@@ -292,27 +291,23 @@ function TaxSummaryRow({ model, meta, inc, tax, final, monthData, editingRegNo, 
   );
 }
 
+// ── TaxSummary ────────────────────────────────────────────────────────────────
 function TaxSummary({ data, modelMeta, onUpdateRegNo }) {
   const [month, setMonth] = useState("1월");
   const [editingRegNo, setEditingRegNo] = useState(null);
   const [regNoInput, setRegNoInput] = useState("");
-
   const rows = Object.keys(modelMeta).map(model => {
     const meta = modelMeta[model];
     const md = data?.[model]?.[month] || { agency: [], self: [] };
     let inc = 0, tax = 0, final = 0;
     [...md.agency.map(e => calcEntry(e.income, meta.agencyAF, e.otherDeduct)),
-     ...md.self.map(e => calcEntry(e.income, meta.modelAF, e.otherDeduct))].forEach(c => {
-      inc += c.inc; tax += c.tax; final += c.final;
-    });
+     ...md.self.map(e => calcEntry(e.income, meta.modelAF, e.otherDeduct))].forEach(c => { inc += c.inc; tax += c.tax; final += c.final; });
     return { model, meta, inc, tax, final, monthData: md };
   });
-
   const totInc = rows.reduce((s, r) => s + r.inc, 0);
   const totTax = rows.reduce((s, r) => s + r.tax, 0);
   const totFinal = rows.reduce((s, r) => s + r.final, 0);
   const taxRows = rows.filter(r => r.final > 0);
-
   const startEdit = (model, current) => { setEditingRegNo(model); setRegNoInput(current || ""); };
   const commitEdit = (model) => { onUpdateRegNo(model, regNoInput); setEditingRegNo(null); };
 
@@ -326,7 +321,6 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo }) {
           ))}
         </div>
       </div>
-
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
         {[["총 업체 입금액", fmt(totInc), "#1e293b", "#f8fafc", "#e2e8f0"],
           ["총 원천징수 (3.3%)", fmt(totTax), "#ef4444", "#fff1f2", "#fecdd3"],
@@ -337,7 +331,6 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo }) {
           </div>
         ))}
       </div>
-
       <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, overflow: "hidden", marginBottom: 20 }}>
         <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
           <thead>
@@ -350,8 +343,7 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo }) {
           <tbody>
             {rows.map(({ model, meta, inc, tax, final, monthData }) => (
               <TaxSummaryRow key={model} model={model} meta={meta} inc={inc} tax={tax} final={final} monthData={monthData}
-                editingRegNo={editingRegNo} regNoInput={regNoInput}
-                onStartEdit={startEdit} onCommitEdit={commitEdit} onRegNoInput={setRegNoInput} />
+                editingRegNo={editingRegNo} regNoInput={regNoInput} onStartEdit={startEdit} onCommitEdit={commitEdit} onRegNoInput={setRegNoInput} />
             ))}
             <tr style={{ background: "#eef2ff" }}>
               <td colSpan={3} style={{ padding: "10px 14px", fontWeight: 900, color: "#4338ca" }}>합계</td>
@@ -362,7 +354,6 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo }) {
           </tbody>
         </table>
       </div>
-
       <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 14, padding: 18 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
           <span style={{ fontSize: 18 }}>📋</span>
@@ -402,6 +393,7 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo }) {
   );
 }
 
+// ── Overview ──────────────────────────────────────────────────────────────────
 function Overview({ data, modelMeta }) {
   const rows = Object.keys(modelMeta).map(model => {
     const meta = modelMeta[model];
@@ -409,13 +401,10 @@ function Overview({ data, modelMeta }) {
     MONTHS.forEach(m => {
       const md = data?.[model]?.[m] || { agency: [], self: [] };
       [...md.agency.map(e => calcEntry(e.income, meta.agencyAF, e.otherDeduct)),
-       ...md.self.map(e => calcEntry(e.income, meta.modelAF, e.otherDeduct))].forEach(c => {
-        inc += c.inc; tax += c.tax; final += c.final;
-      });
+       ...md.self.map(e => calcEntry(e.income, meta.modelAF, e.otherDeduct))].forEach(c => { inc += c.inc; tax += c.tax; final += c.final; });
     });
     return { model, meta, inc, tax, final };
   });
-
   const totInc = rows.reduce((s, r) => s + r.inc, 0);
   const totTax = rows.reduce((s, r) => s + r.tax, 0);
   const totFinal = rows.reduce((s, r) => s + r.final, 0);
@@ -453,60 +442,98 @@ function Overview({ data, modelMeta }) {
   );
 }
 
+// ── Main App ──────────────────────────────────────────────────────────────────
 export default function App() {
   const [data, setData] = useState(initData);
   const [modelMeta, setModelMeta] = useState(MODEL_META_INIT);
   const [tab, setTab] = useState("overview");
   const [saveStatus, setSaveStatus] = useState("idle");
   const [loading, setLoading] = useState(true);
+  const [unsaved, setUnsaved] = useState(false);
 
-  // 앱 시작시 Google Sheets에서 데이터 불러오기
+  // 히스토리 (실행취소/되돌리기)
+  const historyRef = useRef([{ data: initData(), modelMeta: MODEL_META_INIT }]);
+  const historyIdx = useRef(0);
+
+  // 앱 시작시 Sheets에서 불러오기
   useEffect(() => {
     loadFromSheets().then(saved => {
-      if (saved?.data) setData(saved.data);
+      if (saved?.data) {
+        setData(saved.data);
+        historyRef.current = [{ data: saved.data, modelMeta: saved.modelMeta || MODEL_META_INIT }];
+      }
       if (saved?.modelMeta) setModelMeta(saved.modelMeta);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
 
-  // Google Sheets에 저장
-  const syncToSheets = useCallback(async (newData, newMeta) => {
-    setSaveStatus("saving");
-    try {
-      await saveToSheets({ data: newData, modelMeta: newMeta });
-      setSaveStatus("saved");
-      setTimeout(() => setSaveStatus("idle"), 2000);
-    } catch {
-      setSaveStatus("error");
-      setTimeout(() => setSaveStatus("idle"), 3000);
-    }
+  // 히스토리에 상태 추가
+  const pushHistory = useCallback((newData, newMeta) => {
+    const newHistory = historyRef.current.slice(0, historyIdx.current + 1);
+    newHistory.push({ data: newData, modelMeta: newMeta });
+    if (newHistory.length > MAX_HISTORY) newHistory.shift();
+    historyRef.current = newHistory;
+    historyIdx.current = newHistory.length - 1;
+    setUnsaved(true);
   }, []);
+
+  // 실행취소
+  const undo = useCallback(() => {
+    if (historyIdx.current <= 0) return;
+    historyIdx.current -= 1;
+    const { data: d, modelMeta: m } = historyRef.current[historyIdx.current];
+    setData(d);
+    setModelMeta(m);
+    setUnsaved(true);
+  }, []);
+
+  // 되돌리기
+  const redo = useCallback(() => {
+    if (historyIdx.current >= historyRef.current.length - 1) return;
+    historyIdx.current += 1;
+    const { data: d, modelMeta: m } = historyRef.current[historyIdx.current];
+    setData(d);
+    setModelMeta(m);
+    setUnsaved(true);
+  }, []);
+
+  // 수동 저장
+  const handleSave = useCallback(async () => {
+    setSaveStatus("saving");
+    const ok = await saveToSheets({ data, modelMeta });
+    setSaveStatus(ok ? "saved" : "error");
+    if (ok) setUnsaved(false);
+    setTimeout(() => setSaveStatus("idle"), 2500);
+  }, [data, modelMeta]);
 
   const addEntry = useCallback((model, month, type, entry) => {
     setData(prev => {
       const d = JSON.parse(JSON.stringify(prev));
       d[model][month][type].push(entry);
-      syncToSheets(d, modelMeta);
+      pushHistory(d, modelMeta);
       return d;
     });
-  }, [modelMeta, syncToSheets]);
+  }, [modelMeta, pushHistory]);
 
   const removeEntry = useCallback((model, month, type, id) => {
     setData(prev => {
       const d = JSON.parse(JSON.stringify(prev));
       d[model][month][type] = d[model][month][type].filter(e => e.id !== id);
-      syncToSheets(d, modelMeta);
+      pushHistory(d, modelMeta);
       return d;
     });
-  }, [modelMeta, syncToSheets]);
+  }, [modelMeta, pushHistory]);
 
   const updateRegNo = useCallback((model, regNo) => {
     setModelMeta(prev => {
       const m = { ...prev, [model]: { ...prev[model], regNo } };
-      syncToSheets(data, m);
+      pushHistory(data, m);
       return m;
     });
-  }, [data, syncToSheets]);
+  }, [data, pushHistory]);
+
+  const canUndo = historyIdx.current > 0;
+  const canRedo = historyIdx.current < historyRef.current.length - 1;
 
   const navItems = [
     { id: "overview", label: "연간 요약", icon: "📊" },
@@ -525,14 +552,25 @@ export default function App() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
-      <header style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "12px 24px", display: "flex", alignItems: "center", gap: 12, position: "sticky", top: 0, zIndex: 10, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+      <header style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "10px 24px", display: "flex", alignItems: "center", gap: 10, position: "sticky", top: 0, zIndex: 10, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
         <div style={{ width: 32, height: 32, borderRadius: 8, background: "#4f46e5", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 13 }}>MA</div>
         <div>
           <div style={{ fontWeight: 900, color: "#1e293b", fontSize: 14, lineHeight: 1.1 }}>Model Agency</div>
           <div style={{ fontSize: 11, color: "#94a3b8" }}>2026 소속모델 정산관리</div>
         </div>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
-          <SaveStatus status={saveStatus} />
+
+        {/* 실행취소 / 되돌리기 / 저장 버튼 */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
+          <button onClick={undo} disabled={!canUndo} title="실행취소 (Ctrl+Z)"
+            style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid #e2e8f0", background: canUndo ? "#fff" : "#f8fafc", color: canUndo ? "#475569" : "#cbd5e1", cursor: canUndo ? "pointer" : "not-allowed", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center" }}>↩</button>
+          <button onClick={redo} disabled={!canRedo} title="되돌리기 (Ctrl+Y)"
+            style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid #e2e8f0", background: canRedo ? "#fff" : "#f8fafc", color: canRedo ? "#475569" : "#cbd5e1", cursor: canRedo ? "pointer" : "not-allowed", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center" }}>↪</button>
+          <button onClick={handleSave} disabled={saveStatus === "saving"}
+            style={{ height: 32, padding: "0 14px", borderRadius: 8, border: "none", cursor: saveStatus === "saving" ? "not-allowed" : "pointer", fontWeight: 700, fontSize: 12,
+              background: saveStatus === "saved" ? "#d1fae5" : saveStatus === "error" ? "#fee2e2" : unsaved ? "#4f46e5" : "#e2e8f0",
+              color: saveStatus === "saved" ? "#065f46" : saveStatus === "error" ? "#991b1b" : unsaved ? "#fff" : "#94a3b8" }}>
+            {saveStatus === "saving" ? "저장 중..." : saveStatus === "saved" ? "✅ 저장됨" : saveStatus === "error" ? "❌ 실패" : unsaved ? "💾 저장" : "저장됨"}
+          </button>
           <span style={{ fontSize: 11, background: "#fef3c7", color: "#92400e", fontWeight: 700, padding: "3px 10px", borderRadius: 20 }}>원천징수 3.3%</span>
           <span style={{ fontSize: 11, background: "#eef2ff", color: "#4f46e5", fontWeight: 700, padding: "3px 10px", borderRadius: 20 }}>모델 {Object.keys(modelMeta).length}명</span>
         </div>
@@ -553,7 +591,6 @@ export default function App() {
             ))}
           </nav>
         </aside>
-
         <main style={{ flex: 1, minWidth: 0 }}>
           {tab === "overview" && <Overview data={data} modelMeta={modelMeta} />}
           {tab === "tax" && <TaxSummary data={data} modelMeta={modelMeta} onUpdateRegNo={updateRegNo} />}
