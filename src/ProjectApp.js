@@ -340,7 +340,10 @@ function ProjectFormModal({ existing, defaultDate, affiliatedModels, onSave, onC
     setModels(models.filter(function (m) { return m.id !== id; }));
   };
   var updateModelRow = function (id, key, value) {
-    setModels(models.map(function (m) { return m.id === id ? Object.assign({}, m, { [key]: value }) : m; }));
+    setModels(function (prev) { return prev.map(function (m) { return m.id === id ? Object.assign({}, m, { [key]: value }) : m; }); });
+  };
+  var updateModelRowMulti = function (id, patch) {
+    setModels(function (prev) { return prev.map(function (m) { return m.id === id ? Object.assign({}, m, patch) : m; }); });
   };
 
   var handleSubmit = function () {
@@ -400,22 +403,20 @@ function ProjectFormModal({ existing, defaultDate, affiliatedModels, onSave, onC
           var c = calcModel(m);
           return (
             <div key={m.id} style={{ background: t.card2, border: "1px solid " + t.border, borderRadius: 10, padding: 10, marginBottom: 8 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: t.sub, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+              <div style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
+                <label style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, fontSize: 9, color: t.sub, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
                   <input type="checkbox" checked={!!m.useAffiliated} onChange={function (e) {
                     var checked = e.target.checked;
-                    updateModelRow(m.id, "useAffiliated", checked);
-                    if (!checked) { updateModelRow(m.id, "linkedModel", ""); }
-                  }} style={{ width: 14, height: 14 }} />
+                    updateModelRowMulti(m.id, checked ? { useAffiliated: true } : { useAffiliated: false, linkedModel: "" });
+                  }} style={{ width: 16, height: 16 }} />
                   소속모델
                 </label>
-              </div>
-              <div style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
                 {m.useAffiliated ? (
                   <select value={m.linkedModel || ""} onChange={function (e) {
                     var key = e.target.value;
-                    updateModelRow(m.id, "linkedModel", key);
-                    if (key && affiliatedModels[key]) updateModelRow(m.id, "name", affiliatedModels[key].nameKr);
+                    var patch = { linkedModel: key };
+                    if (key && affiliatedModels[key]) patch.name = affiliatedModels[key].nameKr;
+                    updateModelRowMulti(m.id, patch);
                   }} style={Object.assign({}, inputStyle(t), { flex: 1 })}>
                     <option value="">소속모델 선택...</option>
                     {Object.keys(affiliatedModels || {}).map(function (key) {
