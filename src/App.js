@@ -1031,6 +1031,7 @@ export default function App() {
           <div style={{ fontSize:10, color:t.sub }}>2026 소속모델 정산관리</div>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:5, flexShrink:0 }}>
+          <a href="#projects" style={{ height:28, padding:"0 10px", borderRadius:6, border:"1px solid "+t.border, display:"flex", alignItems:"center", fontWeight:700, fontSize:11, color:t.text, textDecoration:"none" }}>촬영 프로젝트 관리 →</a>
           <button onClick={undo} disabled={!canUndo} style={{ width:28, height:28, borderRadius:6, border:"1px solid "+t.border, background:canUndo?t.card:"transparent", color:canUndo?t.text:t.sub, cursor:canUndo?"pointer":"not-allowed", fontSize:13, display:"flex", alignItems:"center", justifyContent:"center" }}>↩</button>
           <button onClick={redo} disabled={!canRedo} style={{ width:28, height:28, borderRadius:6, border:"1px solid "+t.border, background:canRedo?t.card:"transparent", color:canRedo?t.text:t.sub, cursor:canRedo?"pointer":"not-allowed", fontSize:13, display:"flex", alignItems:"center", justifyContent:"center" }}>↪</button>
           <button onClick={handleSave} disabled={saveStatus==="saving"} style={{ height:28, padding:"0 10px", borderRadius:6, border:"none", cursor:saveStatus==="saving"?"not-allowed":"pointer", fontWeight:700, fontSize:11, background:saveStatus==="saved"?"#d1fae5":saveStatus==="error"?"#fee2e2":unsaved?"#4f46e5":(dark?"#1e293b":"#e2e8f0"), color:saveStatus==="saved"?"#065f46":saveStatus==="error"?"#991b1b":unsaved?"#fff":t.sub }}>
