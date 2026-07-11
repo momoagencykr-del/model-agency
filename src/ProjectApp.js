@@ -708,7 +708,7 @@ function DashboardTab({ year, setYear, allProjects, expenses, recurringExpenses,
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
-        <div style={{ fontSize: 26, fontWeight: 900, color: t.text, letterSpacing: -0.5 }}>{year}년 회사 대시보드</div>
+        <div style={{ fontSize: 26, fontWeight: 900, color: t.text, letterSpacing: -0.5 }}>{year}년 실적 대시보드</div>
         <select value={year} onChange={function (e) { setYear(Number(e.target.value)); }} style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 13, fontWeight: 700 }}>
           {YEARS.map(function (y) { return <option key={y} value={y}>{y}년</option>; })}
         </select>
@@ -760,6 +760,8 @@ function DashboardTab({ year, setYear, allProjects, expenses, recurringExpenses,
               <div style={{ fontSize: 12, fontWeight: 800, color: t.text, marginBottom: 6 }}>{year}년 {b.month}</div>
               <div style={{ fontSize: 10, color: t.sub }}>섭외비용</div>
               <div style={{ fontSize: 13, fontWeight: 800, color: t.text, marginBottom: 4 }}>{fmt(b.totalCost)}</div>
+              <div style={{ fontSize: 10, color: t.sub }}>운영비용</div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "#f59e0b", marginBottom: 4 }}>{fmt(b.expense)}</div>
               <div style={{ fontSize: 10, color: t.sub }}>회사 순익</div>
               <div style={{ fontSize: 13, fontWeight: 800, color: b.companyNet >= 0 ? "#10b981" : "#ef4444" }}>{fmt(b.companyNet)}</div>
             </div>
@@ -884,7 +886,7 @@ export default function ProjectApp() {
     );
   }
 
-  var navItems = [["dashboard", "회사 대시보드", "📈"], ["projects", "촬영 정산내역", "🎬"], ["expenses", "운영비용", "🧾"], ["payments", "모델 지급관리", "💸"]];
+  var navItems = [["dashboard", "실적 대시보드", "📈"], ["projects", "촬영 정산내역", "🎬"], ["expenses", "운영비용", "🧾"], ["payments", "모델 지급관리", "💸"]];
 
   var NavContent = (
     <div style={{ padding: 8 }}>
