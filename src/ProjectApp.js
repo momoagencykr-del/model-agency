@@ -426,19 +426,7 @@ function ProjectsTab({ year, month, setYear, setMonth, allProjects, expenses, re
                   <span style={{ fontSize: 10, color: t.sub, fontWeight: 700 }}>No.{idx + 1} · {p.date || "날짜 미정"}</span>
                   {p.time ? <span style={{ fontSize: 10, fontWeight: 800, color: "#4f46e5", background: dark ? "#1e293b" : "#eef2ff", padding: "2px 7px", borderRadius: 6 }}>⏱ {p.time}</span> : null}
                 </div>
-                <div style={{ fontSize: 17, fontWeight: 900, color: t.text, marginBottom: 4 }}>{p.brand}</div>
-                <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                  {(p.models || []).length > 0 ? (p.models || []).map(function (m, i2) {
-                    var timeLabel = m.time || p.time;
-                    return (
-                      <span key={i2} style={{ fontSize: 11, fontWeight: 700, color: t.text, background: t.card2, border: "1px solid " + t.border, padding: "3px 9px", borderRadius: 20, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                        <span>{m.name}</span>
-                        {timeLabel ? <span style={{ color: "#4f46e5", fontWeight: 800 }}>{timeLabel}</span> : null}
-                        {m.agencyPrice ? <span style={{ color: t.sub, fontWeight: 600 }}>{fmt(m.agencyPrice)}</span> : null}
-                      </span>
-                    );
-                  }) : <span style={{ fontSize: 11, color: t.sub }}>모델 미지정</span>}
-                </div>
+                <div style={{ fontSize: 17, fontWeight: 900, color: t.text }}>{p.brand}</div>
               </div>
               <div style={{ textAlign: "right" }}>
                 <span style={{ display: "inline-block", padding: "3px 8px", borderRadius: 6, fontSize: 10, fontWeight: 700, background: p.depositStatus === "입금" ? "#d1fae5" : "#fee2e2", color: p.depositStatus === "입금" ? "#065f46" : "#991b1b", marginBottom: 6 }}>{p.depositStatus || "미입금"}</span>
@@ -448,6 +436,32 @@ function ProjectsTab({ year, month, setYear, setMonth, allProjects, expenses, re
                 <div style={{ fontSize: 14, fontWeight: 800, color: "#10b981" }}>{fmt(agg.net)}</div>
               </div>
             </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(230px,1fr))", gap: 8, marginTop: 10 }}>
+              {(p.models || []).length > 0 ? (p.models || []).map(function (m, i2) {
+                var c = calcModel(m);
+                var timeLabel = m.time || p.time;
+                return (
+                  <div key={i2} style={{ background: t.card2, border: "1px solid " + t.border, borderRadius: 10, padding: "12px 14px" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                      <span style={{ fontSize: 17, fontWeight: 900, color: t.text }}>{m.name}</span>
+                      {timeLabel ? <span style={{ fontSize: 13, fontWeight: 800, color: "#4f46e5" }}>⏱ {timeLabel}</span> : null}
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 13, color: t.sub }}>
+                      <div>섭외료 <b style={{ color: t.text }}>{fmt(m.agencyPrice)}</b></div>
+                      <div>손Pay <b style={{ color: t.text }}>{fmt(m.handPay)}</b></div>
+                      <div>운영비 <b style={{ color: t.text }}>{fmt(m.opCost)}</b></div>
+                      <div>협력비율 <b style={{ color: t.text }}>{Number(m.partnerRate) || 0}%</b></div>
+                    </div>
+                    <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid " + t.border, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: 12, color: t.sub }}>모델 라인 순수익</span>
+                      <span style={{ fontSize: 16, fontWeight: 900, color: "#10b981" }}>{fmt(c.net)}</span>
+                    </div>
+                  </div>
+                );
+              }) : <span style={{ fontSize: 11, color: t.sub }}>모델 미지정</span>}
+            </div>
+
             {p.note ? <div style={{ fontSize: 11, color: t.sub, marginTop: 8, borderTop: "1px solid " + t.border, paddingTop: 8 }}>비고: {p.note}</div> : null}
             <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
               <button onClick={function () { setEditing(p); }} style={{ padding: "5px 10px", borderRadius: 7, border: "1px solid " + t.border, background: "transparent", color: t.text, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>수정</button>
@@ -528,7 +542,6 @@ function ExpensesTab({ year, month, setYear, setMonth, expenses, recurringExpens
         <MonthHeading year={year} month={month} t={t} />
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <MonthPicker year={year} month={month} setYear={setYear} setMonth={setMonth} t={t} />
-          <button onClick={addRow} style={{ padding: "8px 14px", borderRadius: 9, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>+ 이번 달 항목 추가</button>
         </div>
       </div>
 
@@ -540,6 +553,10 @@ function ExpensesTab({ year, month, setYear, setMonth, expenses, recurringExpens
 
       <RecurringManager recurringExpenses={recurringExpenses} onChange={onChangeRecurring} dark={dark} t={t} />
 
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
+        <span style={{ fontSize: 13, fontWeight: 800, color: t.text }}>이번 달 운영비 내역</span>
+        <button onClick={addRow} style={{ padding: "7px 12px", borderRadius: 9, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>+ 이번 달 항목 추가</button>
+      </div>
       <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 12, overflow: "hidden" }}>
         <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1.6fr 0.6fr 40px", gap: 8, padding: "10px 12px", background: t.thead, fontSize: 11, fontWeight: 800, color: t.sub }}>
           <div>항목명</div><div>금액</div><div>설명</div><div>부가세10%</div><div></div>
