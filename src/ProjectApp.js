@@ -7,9 +7,19 @@ var NOW_YEAR = NOW.getFullYear();
 var NOW_MONTH_NUM = NOW.getMonth() + 1;
 var YEARS = [NOW_YEAR - 1, NOW_YEAR, NOW_YEAR + 1, NOW_YEAR + 2];
 
+function pad2(n) { return n < 10 ? ("0" + n) : ("" + n); }
+
 function monthKey(year, monthNum) {
-  var mm = monthNum < 10 ? ("0" + monthNum) : ("" + monthNum);
-  return year + "-" + mm;
+  return year + "-" + pad2(monthNum);
+}
+
+function monthKeyOfDate(dateStr) {
+  if (!dateStr || dateStr.length < 7) return null;
+  return dateStr.slice(0, 7);
+}
+
+function defaultDateForMonth(year, monthNum) {
+  return year + "-" + pad2(monthNum) + "-01";
 }
 
 function uid() {
@@ -42,24 +52,36 @@ function calcModel(m) {
   var handPay = Number(m.handPay) || 0;
   var opCost = Number(m.opCost) || 0;
   var rate = Number(m.partnerRate) || 0;
-  var partnerFee = Math.round((agencyPrice - handPay) * rate);
-  var net = agencyPrice - handPay - partnerFee - opCost;
-  return { agencyPrice: agencyPrice, handPay: handPay, opCost: opCost, partnerFee: partnerFee, net: net };
+  var grossMargin = agencyPrice - handPay;
+  var partnerFee = Math.round(grossMargin * rate);
+  var netExclOpCost = grossMargin - partnerFee;
+  var net = netExclOpCost - opCost;
+  return { agencyPrice: agencyPrice, handPay: handPay, opCost: opCost, partnerFee: partnerFee, grossMargin: grossMargin, netExclOpCost: netExclOpCost, net: net };
 }
 
-function projectNet(project) {
-  var sum = 0;
-  (project.models || []).forEach(function (m) { sum += calcModel(m).net; });
-  return sum;
+function projectAgg(project) {
+  var grossMargin = 0, netExclOpCost = 0, net = 0;
+  (project.models || []).forEach(function (m) {
+    var c = calcModel(m);
+    grossMargin += c.grossMargin; netExclOpCost += c.netExclOpCost; net += c.net;
+  });
+  return { grossMargin: grossMargin, netExclOpCost: netExclOpCost, net: net };
+}
+
+function projectsForMonth(allProjects, mKey) {
+  return (allProjects || []).filter(function (p) { return monthKeyOfDate(p.date) === mKey; });
 }
 
 function monthProjectTotals(projects) {
-  var totalCost = 0, netProfit = 0;
+  var totalCost = 0, agencyRevenue = 0, netExclOpCost = 0, netProfit = 0;
   (projects || []).forEach(function (p) {
+    var agg = projectAgg(p);
     totalCost += Number(p.totalCost) || 0;
-    netProfit += projectNet(p);
+    agencyRevenue += agg.grossMargin;
+    netExclOpCost += agg.netExclOpCost;
+    netProfit += agg.net;
   });
-  return { totalCost: totalCost, netProfit: netProfit };
+  return { totalCost: totalCost, agencyRevenue: agencyRevenue, netExclOpCost: netExclOpCost, netProfit: netProfit };
 }
 
 function monthExpenseTotal(expenses) {
@@ -113,7 +135,40 @@ async function saveProjectSheets(payload) {
   } catch (e) { return false; }
 }
 
-var LOCAL_KEY = "momoProjectData_v1";
+var LOCAL_KEY = "momoProjectData_v2";
+
+// 이전 버전(월별 객체 키 구조) 데이터를 새 구조(촬영일 기준 배열)로 변환
+function normalizeLoaded(saved) {
+  var projects = [];
+  var expenses = {};
+  var paymentInfo = {};
+  if (!saved) return { projects: projects, expenses: expenses, paymentInfo: paymentInfo };
+
+  if (Array.isArray(saved.projects)) {
+    projects = saved.projects;
+  } else if (saved.projects && typeof saved.projects === "object") {
+    Object.keys(saved.projects).forEach(function (k) {
+      (saved.projects[k] || []).forEach(function (p) { projects.push(p); });
+    });
+  }
+
+  expenses = saved.expenses || {};
+
+  if (saved.paymentInfo && typeof saved.paymentInfo === "object") {
+    var looksNested = Object.keys(saved.paymentInfo).some(function (k) { return /^\d{4}-\d{2}$/.test(k); });
+    if (looksNested) {
+      Object.keys(saved.paymentInfo).forEach(function (mk) {
+        Object.keys(saved.paymentInfo[mk] || {}).forEach(function (pid) {
+          paymentInfo[pid] = saved.paymentInfo[mk][pid];
+        });
+      });
+    } else {
+      paymentInfo = saved.paymentInfo;
+    }
+  }
+
+  return { projects: projects, expenses: expenses, paymentInfo: paymentInfo };
+}
 
 // ── 공통 소형 UI ─────────────────────────────────────────────────────────
 function Field({ label, children, t }) {
@@ -152,16 +207,24 @@ function MonthPicker({ year, month, setYear, setMonth, t }) {
   );
 }
 
-// ── 프로젝트 추가/편집 모달 ──────────────────────────────────────────────
-function ProjectFormModal({ existing, onSave, onClose, dark }) {
+function MonthHeading({ year, month, t }) {
+  return (
+    <div style={{ fontSize: 26, fontWeight: 900, color: t.text, marginBottom: 14, letterSpacing: -0.5 }}>{year}년 {month}월</div>
+  );
+}
+
+// ── 촬영 정산 추가/수정 모달 ──────────────────────────────────────────────
+function ProjectFormModal({ existing, defaultDate, onSave, onClose, dark }) {
   var t = T(dark);
-  var [date, setDate] = useState(existing ? existing.date : "");
+  var [date, setDate] = useState(existing ? existing.date : defaultDate);
   var [brand, setBrand] = useState(existing ? existing.brand : "");
   var [totalCost, setTotalCost] = useState(existing ? existing.totalCost : "");
   var [time, setTime] = useState(existing ? existing.time : "");
   var [depositStatus, setDepositStatus] = useState(existing ? existing.depositStatus : "미입금");
   var [note, setNote] = useState(existing ? existing.note : "");
   var [models, setModels] = useState(existing && existing.models ? existing.models.map(function (m) { return Object.assign({}, m); }) : [{ id: uid(), name: "", agencyPrice: "", handPay: "", opCost: "", partnerRate: 0 }]);
+
+  var modelSumAgencyPrice = models.reduce(function (s, m) { return s + (Number(m.agencyPrice) || 0); }, 0);
 
   var addModelRow = function () {
     setModels(models.concat([{ id: uid(), name: "", agencyPrice: "", handPay: "", opCost: "", partnerRate: 0 }]));
@@ -175,6 +238,7 @@ function ProjectFormModal({ existing, onSave, onClose, dark }) {
 
   var handleSubmit = function () {
     if (!brand.trim()) { alert("촬영 브랜드를 입력해주세요."); return; }
+    if (!date) { alert("촬영 날짜를 입력해주세요. 이 날짜를 기준으로 해당 월에 저장됩니다."); return; }
     var cleanModels = models.filter(function (m) { return m.name.trim(); }).map(function (m) {
       return Object.assign({}, m, {
         agencyPrice: Number(m.agencyPrice) || 0,
@@ -193,10 +257,10 @@ function ProjectFormModal({ existing, onSave, onClose, dark }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }} onClick={onClose}>
       <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 16, padding: 22, width: "100%", maxWidth: 560, maxHeight: "88vh", overflowY: "auto" }} onClick={function (e) { e.stopPropagation(); }}>
-        <h3 style={{ color: t.text, fontWeight: 900, marginBottom: 14, fontSize: 16 }}>{existing ? "촬영 프로젝트 수정" : "촬영 프로젝트 추가"}</h3>
+        <h3 style={{ color: t.text, fontWeight: 900, marginBottom: 14, fontSize: 16 }}>{existing ? "촬영 정산 수정" : "촬영 정산 추가"}</h3>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <Field label="촬영 날짜" t={t}><input type="date" value={date} onChange={function (e) { setDate(e.target.value); }} style={inputStyle(t)} /></Field>
+          <Field label="촬영 날짜 (이 날짜 기준으로 해당 월에 저장됩니다)" t={t}><input type="date" value={date} onChange={function (e) { setDate(e.target.value); }} style={inputStyle(t)} /></Field>
           <Field label="촬영 시간" t={t}><input value={time} onChange={function (e) { setTime(e.target.value); }} placeholder="예: Full, 4H" style={inputStyle(t)} /></Field>
         </div>
         <Field label="촬영 브랜드" t={t}><input value={brand} onChange={function (e) { setBrand(e.target.value); }} style={inputStyle(t)} /></Field>
@@ -210,8 +274,9 @@ function ProjectFormModal({ existing, onSave, onClose, dark }) {
           </Field>
         </div>
 
-        <div style={{ margin: "14px 0 8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ margin: "14px 0 8px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
           <span style={{ fontSize: 12, fontWeight: 800, color: t.text }}>섭외 모델 내역</span>
+          <span style={{ fontSize: 12, fontWeight: 800, color: "#4f46e5" }}>모델 업체가 합계: {fmt(modelSumAgencyPrice)}</span>
           <button onClick={addModelRow} style={{ padding: "5px 10px", borderRadius: 7, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer" }}>+ 모델 추가</button>
         </div>
 
@@ -241,7 +306,7 @@ function ProjectFormModal({ existing, onSave, onClose, dark }) {
                   <input type="number" step="0.05" value={m.partnerRate} onChange={function (e) { updateModelRow(m.id, "partnerRate", e.target.value); }} style={inputStyle(t)} />
                 </div>
               </div>
-              <div style={{ fontSize: 11, color: t.sub, display: "flex", gap: 12 }}>
+              <div style={{ fontSize: 11, color: t.sub, display: "flex", gap: 12, flexWrap: "wrap" }}>
                 <span>협력사 지급액: <b style={{ color: t.text }}>{fmt(c.partnerFee)}</b></span>
                 <span>모델 라인 순수익: <b style={{ color: "#10b981" }}>{fmt(c.net)}</b></span>
               </div>
@@ -260,11 +325,11 @@ function ProjectFormModal({ existing, onSave, onClose, dark }) {
   );
 }
 
-// ── 프로젝트 탭 ──────────────────────────────────────────────────────────
-function ProjectsTab({ year, month, setYear, setMonth, projects, onAdd, onUpdate, onRemove, dark }) {
+// ── 촬영 정산내역 탭 ──────────────────────────────────────────────────────
+function ProjectsTab({ year, month, setYear, setMonth, allProjects, onAdd, onUpdate, onRemove, dark }) {
   var t = T(dark);
   var mKey = monthKey(year, month);
-  var list = projects[mKey] || [];
+  var list = projectsForMonth(allProjects, mKey);
   var [showForm, setShowForm] = useState(false);
   var [editing, setEditing] = useState(null);
   var [deleteId, setDeleteId] = useState(null);
@@ -272,50 +337,63 @@ function ProjectsTab({ year, month, setYear, setMonth, projects, onAdd, onUpdate
 
   return (
     <div>
-      {showForm && <ProjectFormModal onSave={function (p) { onAdd(mKey, p); setShowForm(false); }} onClose={function () { setShowForm(false); }} dark={dark} />}
-      {editing && <ProjectFormModal existing={editing} onSave={function (p) { onUpdate(mKey, p); setEditing(null); }} onClose={function () { setEditing(null); }} dark={dark} />}
+      {showForm && <ProjectFormModal defaultDate={defaultDateForMonth(year, month)} onSave={function (p) { onAdd(p); setShowForm(false); }} onClose={function () { setShowForm(false); }} dark={dark} />}
+      {editing && <ProjectFormModal existing={editing} onSave={function (p) { onUpdate(p); setEditing(null); }} onClose={function () { setEditing(null); }} dark={dark} />}
       {deleteId && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 16, padding: 24, width: "100%", maxWidth: 320, textAlign: "center" }}>
             <div style={{ fontSize: 34, marginBottom: 10 }}>⚠️</div>
-            <h3 style={{ color: t.text, fontWeight: 900, marginBottom: 8 }}>프로젝트 삭제</h3>
-            <p style={{ color: t.sub, fontSize: 13, marginBottom: 20 }}>이 프로젝트의 모든 모델 내역이 삭제됩니다.</p>
+            <h3 style={{ color: t.text, fontWeight: 900, marginBottom: 8 }}>촬영 정산 삭제</h3>
+            <p style={{ color: t.sub, fontSize: 13, marginBottom: 20 }}>이 건의 모든 모델 내역이 삭제됩니다.</p>
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={function () { setDeleteId(null); }} style={{ flex: 1, padding: "10px 0", borderRadius: 9, border: "1px solid " + t.border, background: "transparent", color: t.sub, fontWeight: 700, cursor: "pointer" }}>취소</button>
-              <button onClick={function () { onRemove(mKey, deleteId); setDeleteId(null); }} style={{ flex: 1, padding: "10px 0", borderRadius: 9, border: "none", background: "#ef4444", color: "#fff", fontWeight: 700, cursor: "pointer" }}>삭제</button>
+              <button onClick={function () { onRemove(deleteId); setDeleteId(null); }} style={{ flex: 1, padding: "10px 0", borderRadius: 9, border: "none", background: "#ef4444", color: "#fff", fontWeight: 700, cursor: "pointer" }}>삭제</button>
             </div>
           </div>
         </div>
       )}
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
-        <MonthPicker year={year} month={month} setYear={setYear} setMonth={setMonth} t={t} />
-        <button onClick={function () { setShowForm(true); }} style={{ padding: "8px 14px", borderRadius: 9, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>+ 프로젝트 추가</button>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
+        <MonthHeading year={year} month={month} t={t} />
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <MonthPicker year={year} month={month} setYear={setYear} setMonth={setMonth} t={t} />
+          <button onClick={function () { setShowForm(true); }} style={{ padding: "8px 14px", borderRadius: 9, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>+ 촬영 정산 추가</button>
+        </div>
       </div>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
         <Card title={"총 섭외비용 (" + list.length + "건)"} value={fmt(totals.totalCost)} color="#4f46e5" t={t} />
-        <Card title="프로젝트 순수익 합계" value={fmt(totals.netProfit)} color="#10b981" t={t} />
+        <Card title="에이전시 수익" value={fmt(totals.agencyRevenue)} color="#7c3aed" sub="업체가 - 모델손Pay" t={t} />
+        <Card title="비용제외 순수익" value={fmt(totals.netExclOpCost)} color="#0891b2" sub="협력사 지급액 반영, 운영비 제외" t={t} />
+        <Card title="순수익" value={fmt(totals.netProfit)} color="#10b981" sub="운영비까지 전부 반영" t={t} />
       </div>
 
-      {list.length === 0 && <div style={{ color: t.sub, fontSize: 13, padding: "30px 0", textAlign: "center" }}>{year}년 {month}월에 등록된 프로젝트가 없습니다.</div>}
+      {list.length === 0 && <div style={{ color: t.sub, fontSize: 13, padding: "30px 0", textAlign: "center" }}>{year}년 {month}월에 등록된 촬영 정산 내역이 없습니다.</div>}
 
       {list.map(function (p, idx) {
-        var pn = projectNet(p);
+        var agg = projectAgg(p);
+        var modelNames = (p.models || []).map(function (m) { return m.name; }).filter(Boolean);
         return (
           <div key={p.id} style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 12, padding: 14, marginBottom: 10 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
-              <div>
-                <div style={{ fontSize: 10, color: t.sub, fontWeight: 700 }}>No.{idx + 1} · {p.date || "날짜 미정"} · {p.time || "-"}</div>
-                <div style={{ fontSize: 15, fontWeight: 900, color: t.text }}>{p.brand}</div>
-                <div style={{ fontSize: 11, color: t.sub, marginTop: 2 }}>{(p.models || []).map(function (m) { return m.name; }).join(", ") || "모델 미지정"}</div>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 10, color: t.sub, fontWeight: 700 }}>No.{idx + 1} · {p.date || "날짜 미정"}</span>
+                  {p.time ? <span style={{ fontSize: 10, fontWeight: 800, color: "#4f46e5", background: dark ? "#1e293b" : "#eef2ff", padding: "2px 7px", borderRadius: 6 }}>⏱ {p.time}</span> : null}
+                </div>
+                <div style={{ fontSize: 17, fontWeight: 900, color: t.text, marginBottom: 4 }}>{p.brand}</div>
+                <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                  {modelNames.length > 0 ? modelNames.map(function (nm, i2) {
+                    return <span key={i2} style={{ fontSize: 11, fontWeight: 700, color: t.text, background: t.card2, border: "1px solid " + t.border, padding: "2px 8px", borderRadius: 20 }}>{nm}</span>;
+                  }) : <span style={{ fontSize: 11, color: t.sub }}>모델 미지정</span>}
+                </div>
               </div>
               <div style={{ textAlign: "right" }}>
                 <span style={{ display: "inline-block", padding: "3px 8px", borderRadius: 6, fontSize: 10, fontWeight: 700, background: p.depositStatus === "입금" ? "#d1fae5" : "#fee2e2", color: p.depositStatus === "입금" ? "#065f46" : "#991b1b", marginBottom: 6 }}>{p.depositStatus || "미입금"}</span>
                 <div style={{ fontSize: 10, color: t.sub }}>총 섭외비용</div>
                 <div style={{ fontSize: 14, fontWeight: 800, color: t.text }}>{fmt(p.totalCost)}</div>
                 <div style={{ fontSize: 10, color: t.sub, marginTop: 3 }}>순수익</div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: "#10b981" }}>{fmt(pn)}</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: "#10b981" }}>{fmt(agg.net)}</div>
               </div>
             </div>
             {p.note ? <div style={{ fontSize: 11, color: t.sub, marginTop: 8, borderTop: "1px solid " + t.border, paddingTop: 8 }}>비고: {p.note}</div> : null}
@@ -331,12 +409,12 @@ function ProjectsTab({ year, month, setYear, setMonth, projects, onAdd, onUpdate
 }
 
 // ── 운영비용 탭 ──────────────────────────────────────────────────────────
-function ExpensesTab({ year, month, setYear, setMonth, expenses, projects, onChange, dark }) {
+function ExpensesTab({ year, month, setYear, setMonth, expenses, allProjects, onChange, dark }) {
   var t = T(dark);
   var mKey = monthKey(year, month);
   var list = expenses[mKey] || [];
   var expTotal = monthExpenseTotal(list);
-  var projTotals = monthProjectTotals(projects[mKey] || []);
+  var projTotals = monthProjectTotals(projectsForMonth(allProjects, mKey));
   var companyNetProfit = projTotals.netProfit - expTotal;
 
   var addRow = function () {
@@ -351,14 +429,17 @@ function ExpensesTab({ year, month, setYear, setMonth, expenses, projects, onCha
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
-        <MonthPicker year={year} month={month} setYear={setYear} setMonth={setMonth} t={t} />
-        <button onClick={addRow} style={{ padding: "8px 14px", borderRadius: 9, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>+ 운영비 항목 추가</button>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
+        <MonthHeading year={year} month={month} t={t} />
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <MonthPicker year={year} month={month} setYear={setYear} setMonth={setMonth} t={t} />
+          <button onClick={addRow} style={{ padding: "8px 14px", borderRadius: 9, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>+ 운영비 항목 추가</button>
+        </div>
       </div>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
         <Card title="프로젝트 순수익 합계" value={fmt(projTotals.netProfit)} color="#10b981" t={t} />
-        <Card title={"월 운영비용 합계 (" + year + "년 " + month + "월)"} value={fmt(expTotal)} color="#f59e0b" t={t} />
+        <Card title={"월 운영비용 합계"} value={fmt(expTotal)} color="#f59e0b" t={t} />
         <Card title="회사 순익 (운영비 차감 후)" value={fmt(companyNetProfit)} color={companyNetProfit >= 0 ? "#4f46e5" : "#ef4444"} t={t} />
       </div>
 
@@ -384,14 +465,13 @@ function ExpensesTab({ year, month, setYear, setMonth, expenses, projects, onCha
 }
 
 // ── 지급관리 탭 ──────────────────────────────────────────────────────────
-function buildPaymentRows(mKey, projects, paymentInfo) {
-  var list = projects[mKey] || [];
-  var infoForMonth = paymentInfo[mKey] || {};
+function buildPaymentRows(mKey, allProjects, paymentInfo) {
+  var list = projectsForMonth(allProjects, mKey);
   var rows = [];
   list.forEach(function (p) {
     (p.models || []).forEach(function (m) {
       var pid = p.id + "_" + m.id;
-      var info = infoForMonth[pid] || { regNo: "", taxType: "3.3%", bank: "", account: "", paid: false };
+      var info = paymentInfo[pid] || { regNo: "", taxType: "3.3%", bank: "", account: "", paid: false };
       rows.push({
         pid: pid, date: p.date, brand: p.brand, modelName: m.name, time: p.time,
         handPay: m.handPay, regNo: info.regNo, taxType: info.taxType, bank: info.bank, account: info.account, paid: info.paid,
@@ -402,23 +482,26 @@ function buildPaymentRows(mKey, projects, paymentInfo) {
   return rows;
 }
 
-function PaymentsTab({ year, month, setYear, setMonth, projects, paymentInfo, onChangeInfo, dark }) {
+function PaymentsTab({ year, month, setYear, setMonth, allProjects, paymentInfo, onChangeInfo, dark }) {
   var t = T(dark);
   var mKey = monthKey(year, month);
-  var rows = buildPaymentRows(mKey, projects, paymentInfo);
+  var rows = buildPaymentRows(mKey, allProjects, paymentInfo);
   var totalHandPay = 0, totalDeduction = 0, totalFinal = 0;
   rows.forEach(function (r) { var c = calcPayment(r.handPay, r.taxType); totalHandPay += Number(r.handPay) || 0; totalDeduction += c.deduction; totalFinal += c.final; });
 
   var update = function (pid, key, value) {
-    onChangeInfo(mKey, pid, key, value);
+    onChangeInfo(pid, key, value);
   };
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
-        <MonthPicker year={year} month={month} setYear={setYear} setMonth={setMonth} t={t} />
-        <div style={{ fontSize: 12, color: t.sub, fontWeight: 700 }}>지급 예정일: {dueDateLabel(mKey)} (익월말)</div>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
+        <MonthHeading year={year} month={month} t={t} />
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <MonthPicker year={year} month={month} setYear={setYear} setMonth={setMonth} t={t} />
+        </div>
       </div>
+      <div style={{ fontSize: 12, color: t.sub, fontWeight: 700, marginBottom: 10 }}>지급 예정일: {dueDateLabel(mKey)} (익월말)</div>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
         <Card title="모델 손Pay 합계" value={fmt(totalHandPay)} t={t} />
@@ -473,11 +556,11 @@ function PaymentsTab({ year, month, setYear, setMonth, projects, paymentInfo, on
 }
 
 // ── 회사 대시보드 탭 ─────────────────────────────────────────────────────
-function DashboardTab({ year, setYear, projects, expenses, dark }) {
+function DashboardTab({ year, setYear, allProjects, expenses, dark }) {
   var t = T(dark);
   var bars = MONTHS12.map(function (label, i) {
     var mKey = monthKey(year, i + 1);
-    var pt = monthProjectTotals(projects[mKey] || []);
+    var pt = monthProjectTotals(projectsForMonth(allProjects, mKey));
     var exp = monthExpenseTotal(expenses[mKey] || []);
     return { month: label, totalCost: pt.totalCost, netProfit: pt.netProfit, expense: exp, companyNet: pt.netProfit - exp, isNow: year === NOW_YEAR && (i + 1) === NOW_MONTH_NUM };
   });
@@ -490,7 +573,7 @@ function DashboardTab({ year, setYear, projects, expenses, dark }) {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 900, color: t.text, margin: 0 }}>회사 수익 대시보드</h2>
+        <div style={{ fontSize: 26, fontWeight: 900, color: t.text, letterSpacing: -0.5 }}>{year}년 회사 대시보드</div>
         <select value={year} onChange={function (e) { setYear(Number(e.target.value)); }} style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 13, fontWeight: 700 }}>
           {YEARS.map(function (y) { return <option key={y} value={y}>{y}년</option>; })}
         </select>
@@ -554,7 +637,7 @@ function DashboardTab({ year, setYear, projects, expenses, dark }) {
 
 // ── 메인 App ─────────────────────────────────────────────────────────────
 export default function ProjectApp() {
-  var [projects, setProjects] = useState({});
+  var [allProjects, setAllProjects] = useState([]);
   var [expenses, setExpenses] = useState({});
   var [paymentInfo, setPaymentInfo] = useState({});
   var [loading, setLoading] = useState(true);
@@ -563,7 +646,7 @@ export default function ProjectApp() {
   var [dark, setDark] = useState(function () {
     try { return localStorage.getItem("darkMode") === "true"; } catch (e) { return false; }
   });
-  var [tab, setTab] = useState("projects");
+  var [tab, setTab] = useState("dashboard");
   var [year, setYear] = useState(NOW_YEAR);
   var [month, setMonth] = useState(NOW_MONTH_NUM);
   var [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -577,21 +660,19 @@ export default function ProjectApp() {
 
   useEffect(function () {
     loadProjectSheets().then(function (saved) {
+      var norm;
       if (saved) {
-        setProjects(saved.projects || {});
-        setExpenses(saved.expenses || {});
-        setPaymentInfo(saved.paymentInfo || {});
+        norm = normalizeLoaded(saved);
       } else {
+        norm = { projects: [], expenses: {}, paymentInfo: {} };
         try {
           var local = localStorage.getItem(LOCAL_KEY);
-          if (local) {
-            var parsed = JSON.parse(local);
-            setProjects(parsed.projects || {});
-            setExpenses(parsed.expenses || {});
-            setPaymentInfo(parsed.paymentInfo || {});
-          }
+          if (local) norm = normalizeLoaded(JSON.parse(local));
         } catch (e) {}
       }
+      setAllProjects(norm.projects);
+      setExpenses(norm.expenses);
+      setPaymentInfo(norm.paymentInfo);
       setLoading(false);
     }).catch(function () { setLoading(false); });
   }, []);
@@ -602,25 +683,23 @@ export default function ProjectApp() {
     try { localStorage.setItem(LOCAL_KEY, JSON.stringify({ projects: p, expenses: e, paymentInfo: pi })); } catch (err) {}
   };
 
-  var addProject = useCallback(function (mKey, project) {
-    setProjects(function (prev) {
-      var next = Object.assign({}, prev, { [mKey]: (prev[mKey] || []).concat([project]) });
+  var addProject = useCallback(function (project) {
+    setAllProjects(function (prev) {
+      var next = prev.concat([project]);
       persistLocal(next, expenses, paymentInfo); setUnsaved(true); return next;
     });
   }, [expenses, paymentInfo]);
 
-  var updateProject = useCallback(function (mKey, project) {
-    setProjects(function (prev) {
-      var list = (prev[mKey] || []).map(function (p) { return p.id === project.id ? project : p; });
-      var next = Object.assign({}, prev, { [mKey]: list });
+  var updateProject = useCallback(function (project) {
+    setAllProjects(function (prev) {
+      var next = prev.map(function (p) { return p.id === project.id ? project : p; });
       persistLocal(next, expenses, paymentInfo); setUnsaved(true); return next;
     });
   }, [expenses, paymentInfo]);
 
-  var removeProject = useCallback(function (mKey, id) {
-    setProjects(function (prev) {
-      var list = (prev[mKey] || []).filter(function (p) { return p.id !== id; });
-      var next = Object.assign({}, prev, { [mKey]: list });
+  var removeProject = useCallback(function (id) {
+    setAllProjects(function (prev) {
+      var next = prev.filter(function (p) { return p.id !== id; });
       persistLocal(next, expenses, paymentInfo); setUnsaved(true); return next;
     });
   }, [expenses, paymentInfo]);
@@ -628,28 +707,26 @@ export default function ProjectApp() {
   var changeExpenses = useCallback(function (mKey, list) {
     setExpenses(function (prev) {
       var next = Object.assign({}, prev, { [mKey]: list });
-      persistLocal(projects, next, paymentInfo); setUnsaved(true); return next;
+      persistLocal(allProjects, next, paymentInfo); setUnsaved(true); return next;
     });
-  }, [projects, paymentInfo]);
+  }, [allProjects, paymentInfo]);
 
-  var changePaymentInfo = useCallback(function (mKey, pid, key, value) {
+  var changePaymentInfo = useCallback(function (pid, key, value) {
     setPaymentInfo(function (prev) {
-      var forMonth = Object.assign({}, prev[mKey]);
-      var current = Object.assign({ regNo: "", taxType: "3.3%", bank: "", account: "", paid: false }, forMonth[pid]);
+      var current = Object.assign({ regNo: "", taxType: "3.3%", bank: "", account: "", paid: false }, prev[pid]);
       current[key] = value;
-      forMonth[pid] = current;
-      var next = Object.assign({}, prev, { [mKey]: forMonth });
-      persistLocal(projects, expenses, next); setUnsaved(true); return next;
+      var next = Object.assign({}, prev, { [pid]: current });
+      persistLocal(allProjects, expenses, next); setUnsaved(true); return next;
     });
-  }, [projects, expenses]);
+  }, [allProjects, expenses]);
 
   var handleSave = useCallback(async function () {
     setSaveStatus("saving");
-    var ok = await saveProjectSheets({ projects: projects, expenses: expenses, paymentInfo: paymentInfo });
+    var ok = await saveProjectSheets({ projects: allProjects, expenses: expenses, paymentInfo: paymentInfo });
     setSaveStatus(ok ? "saved" : "error");
     if (ok) setUnsaved(false);
     setTimeout(function () { setSaveStatus("idle"); }, 2500);
-  }, [projects, expenses, paymentInfo]);
+  }, [allProjects, expenses, paymentInfo]);
 
   var t = T(dark);
 
@@ -664,7 +741,7 @@ export default function ProjectApp() {
     );
   }
 
-  var navItems = [["projects", "촬영 프로젝트", "🎬"], ["expenses", "운영비용", "🧾"], ["payments", "모델 지급관리", "💸"], ["dashboard", "회사 대시보드", "📈"]];
+  var navItems = [["dashboard", "회사 대시보드", "📈"], ["projects", "촬영 정산내역", "🎬"], ["expenses", "운영비용", "🧾"], ["payments", "모델 지급관리", "💸"]];
 
   var NavContent = (
     <div style={{ padding: 8 }}>
@@ -699,7 +776,7 @@ export default function ProjectApp() {
         <div style={{ width: 28, height: 28, borderRadius: 7, background: "linear-gradient(135deg,#10b981,#0891b2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 12, flexShrink: 0 }}>PJ</div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 900, color: t.text, fontSize: 13, lineHeight: 1.1 }}>MoMo Agency</div>
-          <div style={{ fontSize: 10, color: t.sub }}>촬영 프로젝트 · 회사 손익 관리</div>
+          <div style={{ fontSize: 10, color: t.sub }}>촬영 정산 · 회사 손익 관리</div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
           <a href="#settlement" style={{ height: 28, padding: "0 10px", borderRadius: 6, border: "1px solid " + t.border, display: "flex", alignItems: "center", fontWeight: 700, fontSize: 11, color: t.text, textDecoration: "none" }}>모델 정산관리 →</a>
@@ -719,10 +796,10 @@ export default function ProjectApp() {
           </aside>
         )}
         <main style={{ flex: 1, minWidth: 0 }}>
-          {tab === "projects" && <ProjectsTab year={year} month={month} setYear={setYear} setMonth={setMonth} projects={projects} onAdd={addProject} onUpdate={updateProject} onRemove={removeProject} dark={dark} />}
-          {tab === "expenses" && <ExpensesTab year={year} month={month} setYear={setYear} setMonth={setMonth} expenses={expenses} projects={projects} onChange={changeExpenses} dark={dark} />}
-          {tab === "payments" && <PaymentsTab year={year} month={month} setYear={setYear} setMonth={setMonth} projects={projects} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} dark={dark} />}
-          {tab === "dashboard" && <DashboardTab year={year} setYear={setYear} projects={projects} expenses={expenses} dark={dark} />}
+          {tab === "dashboard" && <DashboardTab year={year} setYear={setYear} allProjects={allProjects} expenses={expenses} dark={dark} />}
+          {tab === "projects" && <ProjectsTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} onAdd={addProject} onUpdate={updateProject} onRemove={removeProject} dark={dark} />}
+          {tab === "expenses" && <ExpensesTab year={year} month={month} setYear={setYear} setMonth={setMonth} expenses={expenses} allProjects={allProjects} onChange={changeExpenses} dark={dark} />}
+          {tab === "payments" && <PaymentsTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} dark={dark} />}
         </main>
       </div>
 
