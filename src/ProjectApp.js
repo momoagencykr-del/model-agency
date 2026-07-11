@@ -428,16 +428,20 @@ function ProjectsTab({ year, month, setYear, setMonth, allProjects, expenses, re
                 </div>
                 <div style={{ fontSize: 17, fontWeight: 900, color: t.text }}>{p.brand}</div>
               </div>
-              <div style={{ textAlign: "right" }}>
-                <span style={{ display: "inline-block", padding: "3px 8px", borderRadius: 6, fontSize: 10, fontWeight: 700, background: p.depositStatus === "입금" ? "#d1fae5" : "#fee2e2", color: p.depositStatus === "입금" ? "#065f46" : "#991b1b", marginBottom: 6 }}>{p.depositStatus || "미입금"}</span>
-                <div style={{ fontSize: 10, color: t.sub }}>총 섭외비용</div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: t.text }}>{fmt(p.totalCost)}</div>
-                <div style={{ fontSize: 10, color: t.sub, marginTop: 3 }}>순수익</div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: "#10b981" }}>{fmt(agg.net)}</div>
-              </div>
+              <span style={{ display: "inline-block", padding: "3px 8px", borderRadius: 6, fontSize: 10, fontWeight: 700, background: p.depositStatus === "입금" ? "#d1fae5" : "#fee2e2", color: p.depositStatus === "입금" ? "#065f46" : "#991b1b", flexShrink: 0 }}>{p.depositStatus || "미입금"}</span>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(230px,1fr))", gap: 8, marginTop: 10 }}>
+              <div style={{ background: dark ? "#1e2a4a" : "#eef2ff", border: "1px solid " + (dark ? "#3730a3" : "#c7d2fe"), borderRadius: 10, padding: "12px 14px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <span style={{ fontSize: 12, color: "#4f46e5", fontWeight: 700 }}>총 섭외비용</span>
+                  <span style={{ fontSize: 17, fontWeight: 900, color: t.text }}>{fmt(p.totalCost)}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 12, color: "#4f46e5", fontWeight: 700 }}>순수익</span>
+                  <span style={{ fontSize: 17, fontWeight: 900, color: "#10b981" }}>{fmt(agg.net)}</span>
+                </div>
+              </div>
               {(p.models || []).length > 0 ? (p.models || []).map(function (m, i2) {
                 var c = calcModel(m);
                 var timeLabel = m.time || p.time;
@@ -459,13 +463,15 @@ function ProjectsTab({ year, month, setYear, setMonth, allProjects, expenses, re
                     </div>
                   </div>
                 );
-              }) : <span style={{ fontSize: 11, color: t.sub }}>모델 미지정</span>}
+              }) : <div style={{ display: "flex", alignItems: "center" }}><span style={{ fontSize: 11, color: t.sub }}>모델 미지정</span></div>}
             </div>
 
-            {p.note ? <div style={{ fontSize: 11, color: t.sub, marginTop: 8, borderTop: "1px solid " + t.border, paddingTop: 8 }}>비고: {p.note}</div> : null}
-            <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-              <button onClick={function () { setEditing(p); }} style={{ padding: "5px 10px", borderRadius: 7, border: "1px solid " + t.border, background: "transparent", color: t.text, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>수정</button>
-              <button onClick={function () { setDeleteId(p.id); }} style={{ padding: "5px 10px", borderRadius: 7, border: "none", background: "#ef444440", color: "#ef4444", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>삭제</button>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10, flexWrap: "wrap", gap: 10 }}>
+              <div style={{ fontSize: 11, color: t.sub }}>{p.note ? "비고: " + p.note : ""}</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={function () { setEditing(p); }} style={{ padding: "8px 16px", borderRadius: 9, border: "1px solid " + t.border, background: "transparent", color: t.text, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>수정</button>
+                <button onClick={function () { setDeleteId(p.id); }} style={{ padding: "8px 16px", borderRadius: 9, border: "none", background: "#ef444440", color: "#ef4444", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>삭제</button>
+              </div>
             </div>
           </div>
         );
