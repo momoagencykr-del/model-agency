@@ -169,6 +169,78 @@ async function saveProjectSheets(payload) {
 
 var LOCAL_KEY = "momoProjectData_v3";
 
+// ── 모델 정산관리(기존 시스템) 연동 ─────────────────────────────────────
+// 같은 스프레드시트의 "Data" 탭(모델 정산관리 시스템이 쓰는 탭)을 읽고,
+// 소속모델로 선택된 모델 라인은 저장 시 해당 모델의 정산 데이터에도 자동 반영합니다.
+function koreanMonthLabel(dateStr) {
+  if (!dateStr) return null;
+  var mm = Number(dateStr.split("-")[1]);
+  if (!mm) return null;
+  return mm + "월";
+}
+
+async function fetchAffiliatedModels() {
+  try {
+    var r = await fetch("/api/sheets");
+    var j = await r.json();
+    return (j && j.data && j.data.modelMeta) || {};
+  } catch (e) { return {}; }
+}
+
+async function syncLinkedModelsToSettlement(project, prevProject) {
+  var hasLinks = (project.models || []).some(function (m) { return m.linkedModel; })
+    || (prevProject ? (prevProject.models || []).some(function (m) { return m.linkedModel; }) : false);
+  if (!hasLinks) return;
+
+  try {
+    var r = await fetch("/api/sheets");
+    var j = await r.json();
+    var settlement = (j && j.data) || {};
+    var modelMeta = settlement.modelMeta || {};
+    var data = settlement.data || {};
+    var changed = false;
+
+    // 이전 버전에서 연동돼있었지만 이번 저장에서 더 이상 연동되지 않는 라인은 정리
+    if (prevProject) {
+      (prevProject.models || []).forEach(function (pm) {
+        if (!pm.linkedModel || !pm.linkedEntryId) return;
+        var stillSame = (project.models || []).some(function (m) {
+          return m.id === pm.id && m.linkedModel === pm.linkedModel && m.linkedEntryId === pm.linkedEntryId;
+        });
+        if (!stillSame && data[pm.linkedModel]) {
+          Object.keys(data[pm.linkedModel]).forEach(function (mo) {
+            var arr = (data[pm.linkedModel][mo] && data[pm.linkedModel][mo].agency) || [];
+            var idx = arr.findIndex(function (e) { return e.id === pm.linkedEntryId; });
+            if (idx >= 0) { arr.splice(idx, 1); changed = true; }
+          });
+        }
+      });
+    }
+
+    var monthLabel = koreanMonthLabel(project.date);
+    (project.models || []).forEach(function (m) {
+      if (!m.linkedModel || !modelMeta[m.linkedModel] || !monthLabel) return;
+      if (!data[m.linkedModel]) data[m.linkedModel] = {};
+      if (!data[m.linkedModel][monthLabel]) data[m.linkedModel][monthLabel] = { agency: [], self: [] };
+      var arr = data[m.linkedModel][monthLabel].agency;
+      var entryId = m.linkedEntryId || (Date.now() + Math.floor(Math.random() * 1000));
+      var entry = { id: entryId, brand: project.brand, income: Number(m.agencyPrice) || 0, otherDeduct: 0, note: "촬영정산내역 자동연동" };
+      var idx = arr.findIndex(function (e) { return e.id === entryId; });
+      if (idx >= 0) { arr[idx] = entry; } else { arr.push(entry); }
+      m.linkedEntryId = entryId;
+      changed = true;
+    });
+
+    if (changed) {
+      await fetch("/api/sheets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: settlement }),
+      });
+    }
+  } catch (e) { console.error("정산관리 연동 실패", e); }
+}
+
 // 이전 버전 데이터를 새 구조로 변환
 function normalizeLoaded(saved) {
   var projects = [];
@@ -248,20 +320,21 @@ function MonthHeading({ year, month, t }) {
 }
 
 // ── 촬영 정산 추가/수정 모달 ──────────────────────────────────────────────
-function ProjectFormModal({ existing, defaultDate, onSave, onClose, dark }) {
+function ProjectFormModal({ existing, defaultDate, affiliatedModels, onSave, onClose, dark }) {
+  affiliatedModels = affiliatedModels || {};
   var t = T(dark);
   var [date, setDate] = useState(existing ? existing.date : defaultDate);
   var [brand, setBrand] = useState(existing ? existing.brand : "");
   var [time, setTime] = useState(existing ? existing.time : "");
   var [depositStatus, setDepositStatus] = useState(existing ? existing.depositStatus : "미입금");
   var [note, setNote] = useState(existing ? existing.note : "");
-  var [models, setModels] = useState(existing && existing.models ? existing.models.map(function (m) { return Object.assign({}, m); }) : [{ id: uid(), name: "", time: "", agencyPrice: "", handPay: "", opCost: "", partnerRate: 0 }]);
+  var [models, setModels] = useState(existing && existing.models ? existing.models.map(function (m) { return Object.assign({}, m); }) : [{ id: uid(), name: "", time: "", agencyPrice: "", handPay: "", opCost: "", partnerRate: 0, useAffiliated: false, linkedModel: "" }]);
   var [totalCost, setTotalCost] = useState(existing ? existing.totalCost : modelSumAgencyPrice(models));
 
   var modelSum = modelSumAgencyPrice(models);
 
   var addModelRow = function () {
-    setModels(models.concat([{ id: uid(), name: "", time: "", agencyPrice: "", handPay: "", opCost: "", partnerRate: 0 }]));
+    setModels(models.concat([{ id: uid(), name: "", time: "", agencyPrice: "", handPay: "", opCost: "", partnerRate: 0, useAffiliated: false, linkedModel: "" }]));
   };
   var removeModelRow = function (id) {
     setModels(models.filter(function (m) { return m.id !== id; }));
@@ -327,11 +400,35 @@ function ProjectFormModal({ existing, defaultDate, onSave, onClose, dark }) {
           var c = calcModel(m);
           return (
             <div key={m.id} style={{ background: t.card2, border: "1px solid " + t.border, borderRadius: 10, padding: 10, marginBottom: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: t.sub, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+                  <input type="checkbox" checked={!!m.useAffiliated} onChange={function (e) {
+                    var checked = e.target.checked;
+                    updateModelRow(m.id, "useAffiliated", checked);
+                    if (!checked) { updateModelRow(m.id, "linkedModel", ""); }
+                  }} style={{ width: 14, height: 14 }} />
+                  소속모델
+                </label>
+              </div>
               <div style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
-                <input value={m.name} onChange={function (e) { updateModelRow(m.id, "name", e.target.value); }} placeholder="모델명" style={Object.assign({}, inputStyle(t), { flex: 1 })} />
+                {m.useAffiliated ? (
+                  <select value={m.linkedModel || ""} onChange={function (e) {
+                    var key = e.target.value;
+                    updateModelRow(m.id, "linkedModel", key);
+                    if (key && affiliatedModels[key]) updateModelRow(m.id, "name", affiliatedModels[key].nameKr);
+                  }} style={Object.assign({}, inputStyle(t), { flex: 1 })}>
+                    <option value="">소속모델 선택...</option>
+                    {Object.keys(affiliatedModels || {}).map(function (key) {
+                      return <option key={key} value={key}>{affiliatedModels[key].nameKr}</option>;
+                    })}
+                  </select>
+                ) : (
+                  <input value={m.name} onChange={function (e) { updateModelRow(m.id, "name", e.target.value); }} placeholder="모델명" style={Object.assign({}, inputStyle(t), { flex: 1 })} />
+                )}
                 <input value={m.time || ""} onChange={function (e) { updateModelRow(m.id, "time", e.target.value); }} placeholder="시간 (예: 5H)" style={Object.assign({}, inputStyle(t), { width: 100, flexShrink: 0 })} />
                 <button onClick={function () { removeModelRow(m.id); }} style={{ width: 26, height: 26, borderRadius: 7, border: "none", background: "#ef444440", color: "#ef4444", cursor: "pointer", fontSize: 12, flexShrink: 0 }}>✕</button>
               </div>
+              {m.useAffiliated && m.linkedModel ? <div style={{ fontSize: 10, color: "#4f46e5", marginBottom: 6 }}>저장 시 "{affiliatedModels[m.linkedModel] ? affiliatedModels[m.linkedModel].nameKr : ""}"의 모델 정산관리 데이터에도 자동으로 반영됩니다.</div> : null}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 6 }}>
                 <div>
                   <div style={{ fontSize: 10, color: t.sub, marginBottom: 3 }}>모델 업체가 (청구가)</div>
@@ -370,7 +467,7 @@ function ProjectFormModal({ existing, defaultDate, onSave, onClose, dark }) {
 }
 
 // ── 촬영 정산내역 탭 ──────────────────────────────────────────────────────
-function ProjectsTab({ year, month, setYear, setMonth, allProjects, expenses, recurringExpenses, onAdd, onUpdate, onRemove, dark }) {
+function ProjectsTab({ year, month, setYear, setMonth, allProjects, expenses, recurringExpenses, affiliatedModels, onAdd, onUpdate, onRemove, dark }) {
   var t = T(dark);
   var mKey = monthKey(year, month);
   var list = projectsForMonth(allProjects, mKey);
@@ -383,8 +480,8 @@ function ProjectsTab({ year, month, setYear, setMonth, allProjects, expenses, re
 
   return (
     <div>
-      {showForm && <ProjectFormModal defaultDate={defaultDateForMonth(year, month)} onSave={function (p) { onAdd(p); setShowForm(false); }} onClose={function () { setShowForm(false); }} dark={dark} />}
-      {editing && <ProjectFormModal existing={editing} onSave={function (p) { onUpdate(p); setEditing(null); }} onClose={function () { setEditing(null); }} dark={dark} />}
+      {showForm && <ProjectFormModal defaultDate={defaultDateForMonth(year, month)} affiliatedModels={affiliatedModels} onSave={function (p) { onAdd(p); setShowForm(false); }} onClose={function () { setShowForm(false); }} dark={dark} />}
+      {editing && <ProjectFormModal existing={editing} affiliatedModels={affiliatedModels} onSave={function (p) { onUpdate(p); setEditing(null); }} onClose={function () { setEditing(null); }} dark={dark} />}
       {deleteId && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 16, padding: 24, width: "100%", maxWidth: 320, textAlign: "center" }}>
@@ -789,6 +886,11 @@ export default function ProjectApp() {
   var [month, setMonth] = useState(NOW_MONTH_NUM);
   var [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   var [mobileNavOpen, setMobileNavOpen] = useState(false);
+  var [affiliatedModels, setAffiliatedModels] = useState({});
+
+  useEffect(function () {
+    fetchAffiliatedModels().then(function (roster) { setAffiliatedModels(roster); });
+  }, []);
 
   useEffect(function () {
     var h = function () { setIsMobile(window.innerWidth < 768); };
@@ -822,19 +924,22 @@ export default function ProjectApp() {
     try { localStorage.setItem(LOCAL_KEY, JSON.stringify({ projects: p, expenses: e, paymentInfo: pi, recurringExpenses: re })); } catch (err) {}
   };
 
-  var addProject = useCallback(function (project) {
+  var addProject = useCallback(async function (project) {
+    await syncLinkedModelsToSettlement(project, null);
     setAllProjects(function (prev) {
       var next = prev.concat([project]);
       persistLocal(next, expenses, paymentInfo, recurringExpenses); setUnsaved(true); return next;
     });
   }, [expenses, paymentInfo, recurringExpenses]);
 
-  var updateProject = useCallback(function (project) {
+  var updateProject = useCallback(async function (project) {
+    var prevProject = allProjects.find(function (p) { return p.id === project.id; }) || null;
+    await syncLinkedModelsToSettlement(project, prevProject);
     setAllProjects(function (prev) {
       var next = prev.map(function (p) { return p.id === project.id ? project : p; });
       persistLocal(next, expenses, paymentInfo, recurringExpenses); setUnsaved(true); return next;
     });
-  }, [expenses, paymentInfo, recurringExpenses]);
+  }, [expenses, paymentInfo, recurringExpenses, allProjects]);
 
   var removeProject = useCallback(function (id) {
     setAllProjects(function (prev) {
@@ -942,7 +1047,7 @@ export default function ProjectApp() {
         )}
         <main style={{ flex: 1, minWidth: 0 }}>
           {tab === "dashboard" && <DashboardTab year={year} setYear={setYear} allProjects={allProjects} expenses={expenses} recurringExpenses={recurringExpenses} dark={dark} />}
-          {tab === "projects" && <ProjectsTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} expenses={expenses} recurringExpenses={recurringExpenses} onAdd={addProject} onUpdate={updateProject} onRemove={removeProject} dark={dark} />}
+          {tab === "projects" && <ProjectsTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} expenses={expenses} recurringExpenses={recurringExpenses} affiliatedModels={affiliatedModels} onAdd={addProject} onUpdate={updateProject} onRemove={removeProject} dark={dark} />}
           {tab === "expenses" && <ExpensesTab year={year} month={month} setYear={setYear} setMonth={setMonth} expenses={expenses} recurringExpenses={recurringExpenses} allProjects={allProjects} onChange={changeExpenses} onChangeRecurring={changeRecurringExpenses} dark={dark} />}
           {tab === "payments" && <PaymentsTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} dark={dark} />}
         </main>
