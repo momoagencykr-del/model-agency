@@ -256,8 +256,9 @@ function ProjectFormModal({ existing, defaultDate, onSave, onClose, dark }) {
   var [depositStatus, setDepositStatus] = useState(existing ? existing.depositStatus : "미입금");
   var [note, setNote] = useState(existing ? existing.note : "");
   var [models, setModels] = useState(existing && existing.models ? existing.models.map(function (m) { return Object.assign({}, m); }) : [{ id: uid(), name: "", agencyPrice: "", handPay: "", opCost: "", partnerRate: 0 }]);
+  var [totalCost, setTotalCost] = useState(existing ? existing.totalCost : modelSumAgencyPrice(models));
 
-  var totalCost = modelSumAgencyPrice(models);
+  var modelSum = modelSumAgencyPrice(models);
 
   var addModelRow = function () {
     setModels(models.concat([{ id: uid(), name: "", agencyPrice: "", handPay: "", opCost: "", partnerRate: 0 }]));
@@ -280,9 +281,14 @@ function ProjectFormModal({ existing, defaultDate, onSave, onClose, dark }) {
         partnerRate: Number(m.partnerRate) || 0,
       });
     });
+    var finalTotalCost = Number(totalCost) || 0;
+    var finalModelSum = modelSumAgencyPrice(cleanModels);
+    if (finalTotalCost !== finalModelSum) {
+      alert("입력하신 총 섭외비용(" + fmt(finalTotalCost) + ")이 섭외 모델 업체가 합계(" + fmt(finalModelSum) + ")와 다릅니다. 확인 후 저장해주세요.");
+    }
     onSave({
       id: existing ? existing.id : uid(),
-      date: date, brand: brand.trim(), totalCost: modelSumAgencyPrice(cleanModels), time: time,
+      date: date, brand: brand.trim(), totalCost: finalTotalCost, time: time,
       depositStatus: depositStatus, note: note, models: cleanModels,
     });
   };
@@ -298,8 +304,11 @@ function ProjectFormModal({ existing, defaultDate, onSave, onClose, dark }) {
         </div>
         <Field label="촬영 브랜드" t={t}><input value={brand} onChange={function (e) { setBrand(e.target.value); }} style={inputStyle(t)} /></Field>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <Field label="총 섭외비용 (모델 업체가 합계 · 자동 계산)" t={t}>
-            <div style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid " + t.ib, background: t.card2, color: t.text, fontSize: 13, fontWeight: 800 }}>{fmt(totalCost)}</div>
+          <Field label="총 섭외비용 (클라이언트 청구액)" t={t}>
+            <input type="number" value={totalCost} onChange={function (e) { setTotalCost(e.target.value); }} style={inputStyle(t)} />
+            <div style={{ fontSize: 10, color: Number(totalCost) === modelSum ? t.sub : "#f59e0b", marginTop: 3, fontWeight: Number(totalCost) === modelSum ? 400 : 700 }}>
+              모델 업체가 합계: {fmt(modelSum)}{Number(totalCost) !== modelSum ? " (입력값과 다름)" : ""}
+            </div>
           </Field>
           <Field label="입금여부" t={t}>
             <select value={depositStatus} onChange={function (e) { setDepositStatus(e.target.value); }} style={inputStyle(t)}>
