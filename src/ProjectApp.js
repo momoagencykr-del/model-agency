@@ -255,13 +255,13 @@ function ProjectFormModal({ existing, defaultDate, onSave, onClose, dark }) {
   var [time, setTime] = useState(existing ? existing.time : "");
   var [depositStatus, setDepositStatus] = useState(existing ? existing.depositStatus : "미입금");
   var [note, setNote] = useState(existing ? existing.note : "");
-  var [models, setModels] = useState(existing && existing.models ? existing.models.map(function (m) { return Object.assign({}, m); }) : [{ id: uid(), name: "", agencyPrice: "", handPay: "", opCost: "", partnerRate: 0 }]);
+  var [models, setModels] = useState(existing && existing.models ? existing.models.map(function (m) { return Object.assign({}, m); }) : [{ id: uid(), name: "", time: "", agencyPrice: "", handPay: "", opCost: "", partnerRate: 0 }]);
   var [totalCost, setTotalCost] = useState(existing ? existing.totalCost : modelSumAgencyPrice(models));
 
   var modelSum = modelSumAgencyPrice(models);
 
   var addModelRow = function () {
-    setModels(models.concat([{ id: uid(), name: "", agencyPrice: "", handPay: "", opCost: "", partnerRate: 0 }]));
+    setModels(models.concat([{ id: uid(), name: "", time: "", agencyPrice: "", handPay: "", opCost: "", partnerRate: 0 }]));
   };
   var removeModelRow = function (id) {
     setModels(models.filter(function (m) { return m.id !== id; }));
@@ -329,6 +329,7 @@ function ProjectFormModal({ existing, defaultDate, onSave, onClose, dark }) {
             <div key={m.id} style={{ background: t.card2, border: "1px solid " + t.border, borderRadius: 10, padding: 10, marginBottom: 8 }}>
               <div style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
                 <input value={m.name} onChange={function (e) { updateModelRow(m.id, "name", e.target.value); }} placeholder="모델명" style={Object.assign({}, inputStyle(t), { flex: 1 })} />
+                <input value={m.time || ""} onChange={function (e) { updateModelRow(m.id, "time", e.target.value); }} placeholder="시간 (예: 5H)" style={Object.assign({}, inputStyle(t), { width: 100, flexShrink: 0 })} />
                 <button onClick={function () { removeModelRow(m.id); }} style={{ width: 26, height: 26, borderRadius: 7, border: "none", background: "#ef444440", color: "#ef4444", cursor: "pointer", fontSize: 12, flexShrink: 0 }}>✕</button>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 6 }}>
@@ -417,7 +418,6 @@ function ProjectsTab({ year, month, setYear, setMonth, allProjects, expenses, re
 
       {list.map(function (p, idx) {
         var agg = projectAgg(p);
-        var modelNames = (p.models || []).map(function (m) { return m.name; }).filter(Boolean);
         return (
           <div key={p.id} style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 12, padding: 14, marginBottom: 10 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
@@ -428,8 +428,15 @@ function ProjectsTab({ year, month, setYear, setMonth, allProjects, expenses, re
                 </div>
                 <div style={{ fontSize: 17, fontWeight: 900, color: t.text, marginBottom: 4 }}>{p.brand}</div>
                 <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                  {modelNames.length > 0 ? modelNames.map(function (nm, i2) {
-                    return <span key={i2} style={{ fontSize: 11, fontWeight: 700, color: t.text, background: t.card2, border: "1px solid " + t.border, padding: "2px 8px", borderRadius: 20 }}>{nm}</span>;
+                  {(p.models || []).length > 0 ? (p.models || []).map(function (m, i2) {
+                    var timeLabel = m.time || p.time;
+                    return (
+                      <span key={i2} style={{ fontSize: 11, fontWeight: 700, color: t.text, background: t.card2, border: "1px solid " + t.border, padding: "3px 9px", borderRadius: 20, display: "inline-flex", alignItems: "center", gap: 5 }}>
+                        <span>{m.name}</span>
+                        {timeLabel ? <span style={{ color: "#4f46e5", fontWeight: 800 }}>{timeLabel}</span> : null}
+                        {m.agencyPrice ? <span style={{ color: t.sub, fontWeight: 600 }}>{fmt(m.agencyPrice)}</span> : null}
+                      </span>
+                    );
                   }) : <span style={{ fontSize: 11, color: t.sub }}>모델 미지정</span>}
                 </div>
               </div>
