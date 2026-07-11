@@ -22,6 +22,11 @@ function defaultDateForMonth(year, monthNum) {
   return year + "-" + pad2(monthNum) + "-01";
 }
 
+function monthKeyToIndex(mKey) {
+  var p = mKey.split("-");
+  return Number(p[0]) * 12 + (Number(p[1]) - 1);
+}
+
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
@@ -47,16 +52,22 @@ function T(dark) {
 }
 
 // ── 계산 로직 ─────────────────────────────────────────────────────────────
+// partnerRate 는 이제 % 단위(0~100)로 저장됩니다.
 function calcModel(m) {
   var agencyPrice = Number(m.agencyPrice) || 0;
   var handPay = Number(m.handPay) || 0;
   var opCost = Number(m.opCost) || 0;
-  var rate = Number(m.partnerRate) || 0;
+  var ratePercent = Number(m.partnerRate) || 0;
+  var rate = ratePercent / 100;
   var grossMargin = agencyPrice - handPay;
   var partnerFee = Math.round(grossMargin * rate);
   var netExclOpCost = grossMargin - partnerFee;
   var net = netExclOpCost - opCost;
   return { agencyPrice: agencyPrice, handPay: handPay, opCost: opCost, partnerFee: partnerFee, grossMargin: grossMargin, netExclOpCost: netExclOpCost, net: net };
+}
+
+function modelSumAgencyPrice(models) {
+  return (models || []).reduce(function (s, m) { return s + (Number(m.agencyPrice) || 0); }, 0);
 }
 
 function projectAgg(project) {
@@ -84,9 +95,30 @@ function monthProjectTotals(projects) {
   return { totalCost: totalCost, agencyRevenue: agencyRevenue, netExclOpCost: netExclOpCost, netProfit: netProfit };
 }
 
-function monthExpenseTotal(expenses) {
+// ── 운영비용 (일회성 + 정기 반복) ────────────────────────────────────────
+function recurringAppliesToMonth(tmpl, mKey) {
+  if (!tmpl.startMonth) return false;
+  var diff = monthKeyToIndex(mKey) - monthKeyToIndex(tmpl.startMonth);
+  if (diff < 0) return false;
+  if (tmpl.frequency === "quarterly") return diff % 3 === 0;
+  return true;
+}
+
+function recurringInstancesForMonth(mKey, recurringExpenses) {
+  return (recurringExpenses || []).filter(function (tp) { return recurringAppliesToMonth(tp, mKey); }).map(function (tp) {
+    return { id: tp.id + "__" + mKey, item: tp.item, amount: tp.amount, desc: tp.desc, vat: tp.vat, isRecurring: true, templateId: tp.id };
+  });
+}
+
+function effectiveExpensesForMonth(mKey, expenses, recurringExpenses) {
+  var manual = (expenses && expenses[mKey]) || [];
+  var recurring = recurringInstancesForMonth(mKey, recurringExpenses);
+  return recurring.concat(manual);
+}
+
+function monthExpenseTotal(list) {
   var sum = 0;
-  (expenses || []).forEach(function (e) {
+  (list || []).forEach(function (e) {
     var amt = Number(e.amount) || 0;
     sum += e.vat ? Math.round(amt * 1.1) : amt;
   });
@@ -135,14 +167,15 @@ async function saveProjectSheets(payload) {
   } catch (e) { return false; }
 }
 
-var LOCAL_KEY = "momoProjectData_v2";
+var LOCAL_KEY = "momoProjectData_v3";
 
-// 이전 버전(월별 객체 키 구조) 데이터를 새 구조(촬영일 기준 배열)로 변환
+// 이전 버전 데이터를 새 구조로 변환
 function normalizeLoaded(saved) {
   var projects = [];
   var expenses = {};
   var paymentInfo = {};
-  if (!saved) return { projects: projects, expenses: expenses, paymentInfo: paymentInfo };
+  var recurringExpenses = [];
+  if (!saved) return { projects: projects, expenses: expenses, paymentInfo: paymentInfo, recurringExpenses: recurringExpenses };
 
   if (Array.isArray(saved.projects)) {
     projects = saved.projects;
@@ -153,6 +186,7 @@ function normalizeLoaded(saved) {
   }
 
   expenses = saved.expenses || {};
+  recurringExpenses = Array.isArray(saved.recurringExpenses) ? saved.recurringExpenses : [];
 
   if (saved.paymentInfo && typeof saved.paymentInfo === "object") {
     var looksNested = Object.keys(saved.paymentInfo).some(function (k) { return /^\d{4}-\d{2}$/.test(k); });
@@ -167,7 +201,7 @@ function normalizeLoaded(saved) {
     }
   }
 
-  return { projects: projects, expenses: expenses, paymentInfo: paymentInfo };
+  return { projects: projects, expenses: expenses, paymentInfo: paymentInfo, recurringExpenses: recurringExpenses };
 }
 
 // ── 공통 소형 UI ─────────────────────────────────────────────────────────
@@ -218,13 +252,12 @@ function ProjectFormModal({ existing, defaultDate, onSave, onClose, dark }) {
   var t = T(dark);
   var [date, setDate] = useState(existing ? existing.date : defaultDate);
   var [brand, setBrand] = useState(existing ? existing.brand : "");
-  var [totalCost, setTotalCost] = useState(existing ? existing.totalCost : "");
   var [time, setTime] = useState(existing ? existing.time : "");
   var [depositStatus, setDepositStatus] = useState(existing ? existing.depositStatus : "미입금");
   var [note, setNote] = useState(existing ? existing.note : "");
   var [models, setModels] = useState(existing && existing.models ? existing.models.map(function (m) { return Object.assign({}, m); }) : [{ id: uid(), name: "", agencyPrice: "", handPay: "", opCost: "", partnerRate: 0 }]);
 
-  var modelSumAgencyPrice = models.reduce(function (s, m) { return s + (Number(m.agencyPrice) || 0); }, 0);
+  var totalCost = modelSumAgencyPrice(models);
 
   var addModelRow = function () {
     setModels(models.concat([{ id: uid(), name: "", agencyPrice: "", handPay: "", opCost: "", partnerRate: 0 }]));
@@ -249,7 +282,7 @@ function ProjectFormModal({ existing, defaultDate, onSave, onClose, dark }) {
     });
     onSave({
       id: existing ? existing.id : uid(),
-      date: date, brand: brand.trim(), totalCost: Number(totalCost) || 0, time: time,
+      date: date, brand: brand.trim(), totalCost: modelSumAgencyPrice(cleanModels), time: time,
       depositStatus: depositStatus, note: note, models: cleanModels,
     });
   };
@@ -265,7 +298,9 @@ function ProjectFormModal({ existing, defaultDate, onSave, onClose, dark }) {
         </div>
         <Field label="촬영 브랜드" t={t}><input value={brand} onChange={function (e) { setBrand(e.target.value); }} style={inputStyle(t)} /></Field>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <Field label="총 섭외비용 (클라이언트 청구액)" t={t}><input type="number" value={totalCost} onChange={function (e) { setTotalCost(e.target.value); }} style={inputStyle(t)} /></Field>
+          <Field label="총 섭외비용 (모델 업체가 합계 · 자동 계산)" t={t}>
+            <div style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid " + t.ib, background: t.card2, color: t.text, fontSize: 13, fontWeight: 800 }}>{fmt(totalCost)}</div>
+          </Field>
           <Field label="입금여부" t={t}>
             <select value={depositStatus} onChange={function (e) { setDepositStatus(e.target.value); }} style={inputStyle(t)}>
               <option value="입금">입금</option>
@@ -276,7 +311,6 @@ function ProjectFormModal({ existing, defaultDate, onSave, onClose, dark }) {
 
         <div style={{ margin: "14px 0 8px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
           <span style={{ fontSize: 12, fontWeight: 800, color: t.text }}>섭외 모델 내역</span>
-          <span style={{ fontSize: 12, fontWeight: 800, color: "#4f46e5" }}>모델 업체가 합계: {fmt(modelSumAgencyPrice)}</span>
           <button onClick={addModelRow} style={{ padding: "5px 10px", borderRadius: 7, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer" }}>+ 모델 추가</button>
         </div>
 
@@ -302,8 +336,8 @@ function ProjectFormModal({ existing, defaultDate, onSave, onClose, dark }) {
                   <input type="number" value={m.opCost} onChange={function (e) { updateModelRow(m.id, "opCost", e.target.value); }} style={inputStyle(t)} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 10, color: t.sub, marginBottom: 3 }}>협력사 지급비율 (0~1)</div>
-                  <input type="number" step="0.05" value={m.partnerRate} onChange={function (e) { updateModelRow(m.id, "partnerRate", e.target.value); }} style={inputStyle(t)} />
+                  <div style={{ fontSize: 10, color: t.sub, marginBottom: 3 }}>협력사 지급비율 (%)</div>
+                  <input type="number" step="1" min="0" max="100" value={m.partnerRate} onChange={function (e) { updateModelRow(m.id, "partnerRate", e.target.value); }} style={inputStyle(t)} />
                 </div>
               </div>
               <div style={{ fontSize: 11, color: t.sub, display: "flex", gap: 12, flexWrap: "wrap" }}>
@@ -326,7 +360,7 @@ function ProjectFormModal({ existing, defaultDate, onSave, onClose, dark }) {
 }
 
 // ── 촬영 정산내역 탭 ──────────────────────────────────────────────────────
-function ProjectsTab({ year, month, setYear, setMonth, allProjects, onAdd, onUpdate, onRemove, dark }) {
+function ProjectsTab({ year, month, setYear, setMonth, allProjects, expenses, recurringExpenses, onAdd, onUpdate, onRemove, dark }) {
   var t = T(dark);
   var mKey = monthKey(year, month);
   var list = projectsForMonth(allProjects, mKey);
@@ -334,6 +368,8 @@ function ProjectsTab({ year, month, setYear, setMonth, allProjects, onAdd, onUpd
   var [editing, setEditing] = useState(null);
   var [deleteId, setDeleteId] = useState(null);
   var totals = monthProjectTotals(list);
+  var monthExpTotal = monthExpenseTotal(effectiveExpensesForMonth(mKey, expenses, recurringExpenses));
+  var netProfitAfterExpenses = totals.netExclOpCost - monthExpTotal;
 
   return (
     <div>
@@ -365,7 +401,7 @@ function ProjectsTab({ year, month, setYear, setMonth, allProjects, onAdd, onUpd
         <Card title={"총 섭외비용 (" + list.length + "건)"} value={fmt(totals.totalCost)} color="#4f46e5" t={t} />
         <Card title="에이전시 수익" value={fmt(totals.agencyRevenue)} color="#7c3aed" sub="업체가 - 모델손Pay" t={t} />
         <Card title="비용제외 순수익" value={fmt(totals.netExclOpCost)} color="#0891b2" sub="협력사 지급액 반영, 운영비 제외" t={t} />
-        <Card title="순수익" value={fmt(totals.netProfit)} color="#10b981" sub="운영비까지 전부 반영" t={t} />
+        <Card title="순수익" value={fmt(netProfitAfterExpenses)} color={netProfitAfterExpenses >= 0 ? "#10b981" : "#ef4444"} sub="비용제외 순수익 - 월 운영비용" t={t} />
       </div>
 
       {list.length === 0 && <div style={{ color: t.sub, fontSize: 13, padding: "30px 0", textAlign: "center" }}>{year}년 {month}월에 등록된 촬영 정산 내역이 없습니다.</div>}
@@ -408,23 +444,66 @@ function ProjectsTab({ year, month, setYear, setMonth, allProjects, onAdd, onUpd
   );
 }
 
+// ── 정기 운영비 항목 관리 ────────────────────────────────────────────────
+function RecurringManager({ recurringExpenses, onChange, dark, t }) {
+  var addTemplate = function () {
+    onChange(recurringExpenses.concat([{ id: uid(), item: "", amount: "", desc: "", vat: false, frequency: "monthly", startMonth: monthKey(NOW_YEAR, NOW_MONTH_NUM) }]));
+  };
+  var updateTemplate = function (id, key, value) {
+    onChange(recurringExpenses.map(function (tp) { return tp.id === id ? Object.assign({}, tp, { [key]: value }) : tp; }));
+  };
+  var removeTemplate = function (id) {
+    if (!window.confirm("이 정기 항목을 삭제하면 앞으로의 모든 달에서 자동 반영이 중단됩니다. 삭제할까요?")) return;
+    onChange(recurringExpenses.filter(function (tp) { return tp.id !== id; }));
+  };
+
+  return (
+    <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 12, overflow: "hidden", marginBottom: 16 }}>
+      <div style={{ padding: "10px 12px", background: t.thead, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+        <span style={{ fontSize: 12, fontWeight: 800, color: t.text }}>정기 운영비 항목 (매월/분기별 자동 반영 · 매번 재입력 불필요)</span>
+        <button onClick={addTemplate} style={{ padding: "5px 10px", borderRadius: 7, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer" }}>+ 정기 항목 추가</button>
+      </div>
+      {recurringExpenses.length === 0 && <div style={{ padding: 16, textAlign: "center", color: t.sub, fontSize: 12 }}>등록된 정기 항목이 없습니다. 월세·인건비처럼 매달 고정으로 나가는 비용을 등록해두면 매월 자동으로 반영됩니다.</div>}
+      {recurringExpenses.map(function (tp) {
+        return (
+          <div key={tp.id} style={{ display: "grid", gridTemplateColumns: "1.3fr 0.9fr 1.3fr 0.55fr 1fr 1fr 40px", gap: 6, padding: "8px 12px", borderTop: "1px solid " + t.border, alignItems: "center" }}>
+            <input value={tp.item} onChange={function (e) { updateTemplate(tp.id, "item", e.target.value); }} placeholder="예: 사무실 월세" style={inputStyle(t)} />
+            <input type="number" value={tp.amount} onChange={function (e) { updateTemplate(tp.id, "amount", e.target.value); }} style={inputStyle(t)} />
+            <input value={tp.desc} onChange={function (e) { updateTemplate(tp.id, "desc", e.target.value); }} placeholder="설명" style={inputStyle(t)} />
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <input type="checkbox" checked={!!tp.vat} onChange={function (e) { updateTemplate(tp.id, "vat", e.target.checked); }} style={{ width: 18, height: 18 }} />
+            </div>
+            <select value={tp.frequency} onChange={function (e) { updateTemplate(tp.id, "frequency", e.target.value); }} style={{ padding: "7px 6px", borderRadius: 7, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 11 }}>
+              <option value="monthly">매월 반복</option>
+              <option value="quarterly">분기별(3개월)</option>
+            </select>
+            <input type="month" value={tp.startMonth} onChange={function (e) { updateTemplate(tp.id, "startMonth", e.target.value); }} style={{ padding: "6px 8px", borderRadius: 7, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 11 }} />
+            <button onClick={function () { removeTemplate(tp.id); }} style={{ width: 26, height: 26, borderRadius: 7, border: "none", background: "#ef444440", color: "#ef4444", cursor: "pointer", fontSize: 12 }}>✕</button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── 운영비용 탭 ──────────────────────────────────────────────────────────
-function ExpensesTab({ year, month, setYear, setMonth, expenses, allProjects, onChange, dark }) {
+function ExpensesTab({ year, month, setYear, setMonth, expenses, recurringExpenses, allProjects, onChange, onChangeRecurring, dark }) {
   var t = T(dark);
   var mKey = monthKey(year, month);
-  var list = expenses[mKey] || [];
-  var expTotal = monthExpenseTotal(list);
+  var manualList = expenses[mKey] || [];
+  var combinedList = effectiveExpensesForMonth(mKey, expenses, recurringExpenses);
+  var expTotal = monthExpenseTotal(combinedList);
   var projTotals = monthProjectTotals(projectsForMonth(allProjects, mKey));
-  var companyNetProfit = projTotals.netProfit - expTotal;
+  var companyNetProfit = projTotals.netExclOpCost - expTotal;
 
   var addRow = function () {
-    onChange(mKey, list.concat([{ id: uid(), item: "", amount: "", desc: "", vat: false }]));
+    onChange(mKey, manualList.concat([{ id: uid(), item: "", amount: "", desc: "", vat: false }]));
   };
   var updateRow = function (id, key, value) {
-    onChange(mKey, list.map(function (e) { return e.id === id ? Object.assign({}, e, { [key]: value }) : e; }));
+    onChange(mKey, manualList.map(function (e) { return e.id === id ? Object.assign({}, e, { [key]: value }) : e; }));
   };
   var removeRow = function (id) {
-    onChange(mKey, list.filter(function (e) { return e.id !== id; }));
+    onChange(mKey, manualList.filter(function (e) { return e.id !== id; }));
   };
 
   return (
@@ -433,25 +512,41 @@ function ExpensesTab({ year, month, setYear, setMonth, expenses, allProjects, on
         <MonthHeading year={year} month={month} t={t} />
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <MonthPicker year={year} month={month} setYear={setYear} setMonth={setMonth} t={t} />
-          <button onClick={addRow} style={{ padding: "8px 14px", borderRadius: 9, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>+ 운영비 항목 추가</button>
+          <button onClick={addRow} style={{ padding: "8px 14px", borderRadius: 9, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>+ 이번 달 항목 추가</button>
         </div>
       </div>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
-        <Card title="프로젝트 순수익 합계" value={fmt(projTotals.netProfit)} color="#10b981" t={t} />
-        <Card title={"월 운영비용 합계"} value={fmt(expTotal)} color="#f59e0b" t={t} />
-        <Card title="회사 순익 (운영비 차감 후)" value={fmt(companyNetProfit)} color={companyNetProfit >= 0 ? "#4f46e5" : "#ef4444"} t={t} />
+        <Card title="비용제외 순수익 합계" value={fmt(projTotals.netExclOpCost)} color="#0891b2" t={t} />
+        <Card title={"월 운영비용 합계 (정기+일회성)"} value={fmt(expTotal)} color="#f59e0b" t={t} />
+        <Card title="회사 순익 (운영비 차감 후)" value={fmt(companyNetProfit)} color={companyNetProfit >= 0 ? "#10b981" : "#ef4444"} t={t} />
       </div>
+
+      <RecurringManager recurringExpenses={recurringExpenses} onChange={onChangeRecurring} dark={dark} t={t} />
 
       <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 12, overflow: "hidden" }}>
         <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1.6fr 0.6fr 40px", gap: 8, padding: "10px 12px", background: t.thead, fontSize: 11, fontWeight: 800, color: t.sub }}>
           <div>항목명</div><div>금액</div><div>설명</div><div>부가세10%</div><div></div>
         </div>
-        {list.length === 0 && <div style={{ padding: 20, textAlign: "center", color: t.sub, fontSize: 12 }}>등록된 운영비 항목이 없습니다.</div>}
-        {list.map(function (e) {
+        {combinedList.length === 0 && <div style={{ padding: 20, textAlign: "center", color: t.sub, fontSize: 12 }}>등록된 운영비 항목이 없습니다.</div>}
+        {combinedList.map(function (e) {
+          if (e.isRecurring) {
+            return (
+              <div key={e.id} style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1.6fr 0.6fr 40px", gap: 8, padding: "8px 12px", borderTop: "1px solid " + t.border, alignItems: "center", opacity: 0.9 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, color: t.text, fontSize: 13, fontWeight: 600 }}>
+                  <span style={{ fontSize: 9, fontWeight: 800, color: "#4f46e5", background: dark ? "#1e293b" : "#eef2ff", padding: "2px 6px", borderRadius: 5 }}>정기</span>
+                  {e.item}
+                </div>
+                <div style={{ color: t.text, fontSize: 13 }}>{fmt(e.amount)}</div>
+                <div style={{ color: t.sub, fontSize: 12 }}>{e.desc}</div>
+                <div style={{ textAlign: "center", color: t.sub, fontSize: 12 }}>{e.vat ? "✓" : "-"}</div>
+                <div />
+              </div>
+            );
+          }
           return (
             <div key={e.id} style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1.6fr 0.6fr 40px", gap: 8, padding: "8px 12px", borderTop: "1px solid " + t.border, alignItems: "center" }}>
-              <input value={e.item} onChange={function (ev) { updateRow(e.id, "item", ev.target.value); }} placeholder="예: 사무실 월세" style={inputStyle(t)} />
+              <input value={e.item} onChange={function (ev) { updateRow(e.id, "item", ev.target.value); }} placeholder="예: 이번 달 일회성 지출" style={inputStyle(t)} />
               <input type="number" value={e.amount} onChange={function (ev) { updateRow(e.id, "amount", ev.target.value); }} style={inputStyle(t)} />
               <input value={e.desc} onChange={function (ev) { updateRow(e.id, "desc", ev.target.value); }} style={inputStyle(t)} />
               <input type="checkbox" checked={!!e.vat} onChange={function (ev) { updateRow(e.id, "vat", ev.target.checked); }} style={{ width: 18, height: 18 }} />
@@ -556,13 +651,14 @@ function PaymentsTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
 }
 
 // ── 회사 대시보드 탭 ─────────────────────────────────────────────────────
-function DashboardTab({ year, setYear, allProjects, expenses, dark }) {
+function DashboardTab({ year, setYear, allProjects, expenses, recurringExpenses, dark }) {
   var t = T(dark);
   var bars = MONTHS12.map(function (label, i) {
     var mKey = monthKey(year, i + 1);
     var pt = monthProjectTotals(projectsForMonth(allProjects, mKey));
-    var exp = monthExpenseTotal(expenses[mKey] || []);
-    return { month: label, totalCost: pt.totalCost, netProfit: pt.netProfit, expense: exp, companyNet: pt.netProfit - exp, isNow: year === NOW_YEAR && (i + 1) === NOW_MONTH_NUM };
+    var exp = monthExpenseTotal(effectiveExpensesForMonth(mKey, expenses, recurringExpenses));
+    var companyNet = pt.netExclOpCost - exp;
+    return { month: label, totalCost: pt.totalCost, netProfit: pt.netExclOpCost, expense: exp, companyNet: companyNet, isNow: year === NOW_YEAR && (i + 1) === NOW_MONTH_NUM };
   });
   var maxCost = Math.max.apply(null, bars.map(function (b) { return b.totalCost; }).concat([1]));
   var yearCost = bars.reduce(function (s, b) { return s + b.totalCost; }, 0);
@@ -581,9 +677,9 @@ function DashboardTab({ year, setYear, allProjects, expenses, dark }) {
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
         <Card title={year + "년 전체 섭외비용"} value={fmt(yearCost)} color="#4f46e5" t={t} />
-        <Card title="프로젝트 순수익 합계" value={fmt(yearNet)} color="#10b981" t={t} />
+        <Card title="비용제외 순수익 합계" value={fmt(yearNet)} color="#0891b2" t={t} />
         <Card title="운영비용 합계" value={fmt(yearExpense)} color="#f59e0b" t={t} />
-        <Card title="회사 순익 합계" value={fmt(yearCompanyNet)} color={yearCompanyNet >= 0 ? "#4f46e5" : "#ef4444"} t={t} />
+        <Card title="회사 순익 합계" value={fmt(yearCompanyNet)} color={yearCompanyNet >= 0 ? "#10b981" : "#ef4444"} t={t} />
       </div>
 
       <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: "18px 20px" }}>
@@ -639,6 +735,7 @@ function DashboardTab({ year, setYear, allProjects, expenses, dark }) {
 export default function ProjectApp() {
   var [allProjects, setAllProjects] = useState([]);
   var [expenses, setExpenses] = useState({});
+  var [recurringExpenses, setRecurringExpenses] = useState([]);
   var [paymentInfo, setPaymentInfo] = useState({});
   var [loading, setLoading] = useState(true);
   var [saveStatus, setSaveStatus] = useState("idle");
@@ -664,7 +761,7 @@ export default function ProjectApp() {
       if (saved) {
         norm = normalizeLoaded(saved);
       } else {
-        norm = { projects: [], expenses: {}, paymentInfo: {} };
+        norm = { projects: [], expenses: {}, paymentInfo: {}, recurringExpenses: [] };
         try {
           var local = localStorage.getItem(LOCAL_KEY);
           if (local) norm = normalizeLoaded(JSON.parse(local));
@@ -673,60 +770,67 @@ export default function ProjectApp() {
       setAllProjects(norm.projects);
       setExpenses(norm.expenses);
       setPaymentInfo(norm.paymentInfo);
+      setRecurringExpenses(norm.recurringExpenses);
       setLoading(false);
     }).catch(function () { setLoading(false); });
   }, []);
 
   useEffect(function () { localStorage.setItem("darkMode", dark); }, [dark]);
 
-  var persistLocal = function (p, e, pi) {
-    try { localStorage.setItem(LOCAL_KEY, JSON.stringify({ projects: p, expenses: e, paymentInfo: pi })); } catch (err) {}
+  var persistLocal = function (p, e, pi, re) {
+    try { localStorage.setItem(LOCAL_KEY, JSON.stringify({ projects: p, expenses: e, paymentInfo: pi, recurringExpenses: re })); } catch (err) {}
   };
 
   var addProject = useCallback(function (project) {
     setAllProjects(function (prev) {
       var next = prev.concat([project]);
-      persistLocal(next, expenses, paymentInfo); setUnsaved(true); return next;
+      persistLocal(next, expenses, paymentInfo, recurringExpenses); setUnsaved(true); return next;
     });
-  }, [expenses, paymentInfo]);
+  }, [expenses, paymentInfo, recurringExpenses]);
 
   var updateProject = useCallback(function (project) {
     setAllProjects(function (prev) {
       var next = prev.map(function (p) { return p.id === project.id ? project : p; });
-      persistLocal(next, expenses, paymentInfo); setUnsaved(true); return next;
+      persistLocal(next, expenses, paymentInfo, recurringExpenses); setUnsaved(true); return next;
     });
-  }, [expenses, paymentInfo]);
+  }, [expenses, paymentInfo, recurringExpenses]);
 
   var removeProject = useCallback(function (id) {
     setAllProjects(function (prev) {
       var next = prev.filter(function (p) { return p.id !== id; });
-      persistLocal(next, expenses, paymentInfo); setUnsaved(true); return next;
+      persistLocal(next, expenses, paymentInfo, recurringExpenses); setUnsaved(true); return next;
     });
-  }, [expenses, paymentInfo]);
+  }, [expenses, paymentInfo, recurringExpenses]);
 
   var changeExpenses = useCallback(function (mKey, list) {
     setExpenses(function (prev) {
       var next = Object.assign({}, prev, { [mKey]: list });
-      persistLocal(allProjects, next, paymentInfo); setUnsaved(true); return next;
+      persistLocal(allProjects, next, paymentInfo, recurringExpenses); setUnsaved(true); return next;
     });
-  }, [allProjects, paymentInfo]);
+  }, [allProjects, paymentInfo, recurringExpenses]);
+
+  var changeRecurringExpenses = useCallback(function (list) {
+    setRecurringExpenses(function () {
+      persistLocal(allProjects, expenses, paymentInfo, list); setUnsaved(true); return list;
+    });
+  }, [allProjects, expenses, paymentInfo]);
 
   var changePaymentInfo = useCallback(function (pid, key, value) {
     setPaymentInfo(function (prev) {
       var current = Object.assign({ regNo: "", taxType: "3.3%", bank: "", account: "", paid: false }, prev[pid]);
       current[key] = value;
       var next = Object.assign({}, prev, { [pid]: current });
-      persistLocal(allProjects, expenses, next); setUnsaved(true); return next;
+      persistLocal(allProjects, expenses, next, recurringExpenses); setUnsaved(true); return next;
     });
-  }, [allProjects, expenses]);
+  }, [allProjects, expenses, recurringExpenses]);
 
   var handleSave = useCallback(async function () {
     setSaveStatus("saving");
-    var ok = await saveProjectSheets({ projects: allProjects, expenses: expenses, paymentInfo: paymentInfo });
+    var ok = await saveProjectSheets({ projects: allProjects, expenses: expenses, paymentInfo: paymentInfo, recurringExpenses: recurringExpenses });
     setSaveStatus(ok ? "saved" : "error");
     if (ok) setUnsaved(false);
     setTimeout(function () { setSaveStatus("idle"); }, 2500);
-  }, [allProjects, expenses, paymentInfo]);
+  }, [allProjects, expenses, paymentInfo, recurringExpenses]);
 
   var t = T(dark);
 
@@ -796,9 +900,9 @@ export default function ProjectApp() {
           </aside>
         )}
         <main style={{ flex: 1, minWidth: 0 }}>
-          {tab === "dashboard" && <DashboardTab year={year} setYear={setYear} allProjects={allProjects} expenses={expenses} dark={dark} />}
-          {tab === "projects" && <ProjectsTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} onAdd={addProject} onUpdate={updateProject} onRemove={removeProject} dark={dark} />}
-          {tab === "expenses" && <ExpensesTab year={year} month={month} setYear={setYear} setMonth={setMonth} expenses={expenses} allProjects={allProjects} onChange={changeExpenses} dark={dark} />}
+          {tab === "dashboard" && <DashboardTab year={year} setYear={setYear} allProjects={allProjects} expenses={expenses} recurringExpenses={recurringExpenses} dark={dark} />}
+          {tab === "projects" && <ProjectsTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} expenses={expenses} recurringExpenses={recurringExpenses} onAdd={addProject} onUpdate={updateProject} onRemove={removeProject} dark={dark} />}
+          {tab === "expenses" && <ExpensesTab year={year} month={month} setYear={setYear} setMonth={setMonth} expenses={expenses} recurringExpenses={recurringExpenses} allProjects={allProjects} onChange={changeExpenses} onChangeRecurring={changeRecurringExpenses} dark={dark} />}
           {tab === "payments" && <PaymentsTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} dark={dark} />}
         </main>
       </div>
