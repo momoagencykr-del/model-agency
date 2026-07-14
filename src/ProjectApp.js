@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 // ── 상수 ──────────────────────────────────────────────────────────────────
 var MONTHS12 = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
@@ -798,13 +798,16 @@ function monthOptionsAcrossYears() {
   return opts;
 }
 
-function CumulativeChart({ points, dark, t }) {
+function CumulativeChart({ points, dark, t, color }) {
+  var lineColor = color || "#4f46e5";
   var w = 100, h = 130;
   var maxVal = Math.max.apply(null, points.map(function (p) { return p.cum; }).concat([1]));
+  var minVal = Math.min.apply(null, points.map(function (p) { return p.cum; }).concat([0]));
+  var span = Math.max(maxVal - minVal, 1);
   var n = points.length;
   var coords = points.map(function (p, i) {
     var x = n > 1 ? (i / (n - 1)) * w : w / 2;
-    var y = h - (p.cum / maxVal) * (h - 10);
+    var y = h - ((p.cum - minVal) / span) * (h - 10);
     return { x: x, y: y };
   });
   var linePath = coords.map(function (c, i) { return (i === 0 ? "M" : "L") + c.x + "," + c.y; }).join(" ");
@@ -815,14 +818,14 @@ function CumulativeChart({ points, dark, t }) {
       <svg viewBox={"0 0 " + w + " " + h} width="100%" height="160" preserveAspectRatio="none" style={{ display: "block" }}>
         <defs>
           <linearGradient id="cumFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.35" />
-            <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.02" />
+            <stop offset="0%" stopColor={lineColor} stopOpacity="0.35" />
+            <stop offset="100%" stopColor={lineColor} stopOpacity="0.02" />
           </linearGradient>
         </defs>
         <path d={areaPath} fill="url(#cumFill)" stroke="none" />
-        <path d={linePath} fill="none" stroke="#4f46e5" strokeWidth="1.6" vectorEffect="non-scaling-stroke" />
+        <path d={linePath} fill="none" stroke={lineColor} strokeWidth="1.6" vectorEffect="non-scaling-stroke" />
         {coords.map(function (c, i) {
-          return <circle key={i} cx={c.x} cy={c.y} r="1.6" fill="#4f46e5" vectorEffect="non-scaling-stroke" />;
+          return <circle key={i} cx={c.x} cy={c.y} r="1.6" fill={lineColor} vectorEffect="non-scaling-stroke" />;
         })}
       </svg>
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
@@ -831,7 +834,7 @@ function CumulativeChart({ points, dark, t }) {
           return (
             <div key={i} style={{ textAlign: "center", flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 9, color: t.sub, whiteSpace: "nowrap" }}>{p.label}</div>
-              <div style={{ fontSize: 10, fontWeight: 800, color: "#4f46e5", whiteSpace: "nowrap" }}>{Math.round(p.cum / 10000)}만</div>
+              <div style={{ fontSize: 10, fontWeight: 800, color: lineColor, whiteSpace: "nowrap" }}>{Math.round(p.cum / 10000)}만</div>
             </div>
           );
         })}
@@ -850,24 +853,32 @@ function DashboardTab({ year, setYear, allProjects, expenses, recurringExpenses,
   var fromIdx = fromState[0], setFromIdx = fromState[1];
   var toState = useState(defaultToIdx >= 0 ? defaultToIdx : allOpts.length - 1);
   var toIdx = toState[0], setToIdx = toState[1];
+  var cumModeState = useState("cost"); // "cost" = 총 섭외비용 누적, "net" = 순매출(비용제외 순수익) 누적
+  var cumMode = cumModeState[0], setCumMode = cumModeState[1];
 
   var lo = Math.min(fromIdx, toIdx), hi = Math.max(fromIdx, toIdx);
   var rangeOpts = allOpts.slice(lo, hi + 1);
 
   var bars = rangeOpts.map(function (o) {
-    var pt = monthProjectTotals(projectsForMonth(allProjects, o.mKey));
+    var monthProjects = projectsForMonth(allProjects, o.mKey);
+    var pt = monthProjectTotals(monthProjects);
     var exp = monthExpenseTotal(effectiveExpensesForMonth(o.mKey, expenses, recurringExpenses));
     var companyNet = pt.netExclOpCost - exp;
-    return { label: o.year + "." + o.monthNum, month: o.label, totalCost: pt.totalCost, netProfit: pt.netExclOpCost, expense: exp, companyNet: companyNet, isNow: o.year === NOW_YEAR && o.monthNum === NOW_MONTH_NUM };
+    return { label: o.year + "." + o.monthNum, month: o.label, totalCost: pt.totalCost, netProfit: pt.netExclOpCost, expense: exp, companyNet: companyNet, shootCount: monthProjects.length, isNow: o.year === NOW_YEAR && o.monthNum === NOW_MONTH_NUM };
   });
   var maxCost = Math.max.apply(null, bars.map(function (b) { return b.totalCost; }).concat([1]));
   var rangeCost = bars.reduce(function (s, b) { return s + b.totalCost; }, 0);
   var rangeNet = bars.reduce(function (s, b) { return s + b.netProfit; }, 0);
   var rangeExpense = bars.reduce(function (s, b) { return s + b.expense; }, 0);
   var rangeCompanyNet = bars.reduce(function (s, b) { return s + b.companyNet; }, 0);
+  var rangeShootCount = bars.reduce(function (s, b) { return s + b.shootCount; }, 0);
 
   var cum = 0;
-  var cumPoints = bars.map(function (b) { cum += b.totalCost; return { label: b.label, cum: cum }; });
+  var cumPoints = bars.map(function (b) {
+    cum += cumMode === "cost" ? b.totalCost : b.netProfit;
+    return { label: b.label, cum: cum };
+  });
+  var cumColor = cumMode === "cost" ? "#4f46e5" : "#0891b2";
 
   return (
     <div>
@@ -890,11 +901,12 @@ function DashboardTab({ year, setYear, allProjects, expenses, recurringExpenses,
         <Card title="비용제외 순수익 합계" value={fmt(rangeNet)} color="#0891b2" t={t} />
         <Card title="운영비용 합계" value={fmt(rangeExpense)} color="#f59e0b" t={t} />
         <Card title="회사 순익 합계" value={fmt(rangeCompanyNet)} color={rangeCompanyNet >= 0 ? "#10b981" : "#ef4444"} t={t} />
+        <Card title="총 촬영건수" value={rangeShootCount + "건"} color="#8b5cf6" t={t} />
       </div>
 
       <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: "18px 20px", marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
-          <h3 style={{ color: t.text, fontWeight: 900, fontSize: 14, margin: 0 }}>월별 섭외비용 · 회사 순익</h3>
+          <h3 style={{ color: t.text, fontWeight: 900, fontSize: 14, margin: 0 }}>월별 섭외비용 · 회사 순익 · 촬영건수</h3>
           <div style={{ display: "flex", gap: 12, fontSize: 11, color: t.sub }}>
             <span><span style={{ color: "#4f46e5" }}>■</span> 총 섭외비용</span>
             <span><span style={{ color: "#10b981" }}>■</span> 회사 순익</span>
@@ -918,6 +930,7 @@ function DashboardTab({ year, setYear, allProjects, expenses, recurringExpenses,
                   )}
                 </div>
                 <div style={{ fontSize: 10, color: b.isNow ? "#4f46e5" : t.sub, fontWeight: b.isNow ? 900 : 600, whiteSpace: "nowrap" }}>{b.month}</div>
+                <div style={{ fontSize: 9, color: "#8b5cf6", fontWeight: 700, whiteSpace: "nowrap" }}>{b.shootCount > 0 ? b.shootCount + "건" : ""}</div>
               </div>
             );
           })}
@@ -925,16 +938,25 @@ function DashboardTab({ year, setYear, allProjects, expenses, recurringExpenses,
       </div>
 
       <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: "18px 20px", marginBottom: 16 }}>
-        <h3 style={{ color: t.text, fontWeight: 900, fontSize: 14, marginBottom: 4 }}>누적 매출 추이</h3>
-        <p style={{ fontSize: 11, color: t.sub, marginBottom: 12 }}>선택 기간 동안 섭외비용이 누적되는 추이입니다.</p>
-        <CumulativeChart points={cumPoints} dark={dark} t={t} />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 4 }}>
+          <h3 style={{ color: t.text, fontWeight: 900, fontSize: 14, margin: 0 }}>누적 매출 추이</h3>
+          <div style={{ display: "flex", gap: 4 }}>
+            <button onClick={function () { setCumMode("cost"); }} style={{ padding: "4px 10px", borderRadius: 7, border: "1px solid " + t.border, cursor: "pointer", fontSize: 11, fontWeight: 700, background: cumMode === "cost" ? "#4f46e5" : "transparent", color: cumMode === "cost" ? "#fff" : t.sub }}>총 섭외비용</button>
+            <button onClick={function () { setCumMode("net"); }} style={{ padding: "4px 10px", borderRadius: 7, border: "1px solid " + t.border, cursor: "pointer", fontSize: 11, fontWeight: 700, background: cumMode === "net" ? "#0891b2" : "transparent", color: cumMode === "net" ? "#fff" : t.sub }}>순매출(비용제외)</button>
+          </div>
+        </div>
+        <p style={{ fontSize: 11, color: t.sub, marginBottom: 12 }}>선택 기간 동안 {cumMode === "cost" ? "섭외비용" : "순매출(비용제외 순수익)"}이 누적되는 추이입니다.</p>
+        <CumulativeChart points={cumPoints} dark={dark} t={t} color={cumColor} />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(180px,1fr))", gap: 10 }}>
         {bars.map(function (b, i) {
           return (
             <div key={i} style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 12, padding: "12px 14px" }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: t.text, marginBottom: 6 }}>{b.month}</div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: t.text }}>{b.month}</div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#8b5cf6" }}>{b.shootCount}건</div>
+              </div>
               <div style={{ fontSize: 10, color: t.sub }}>섭외비용</div>
               <div style={{ fontSize: 13, fontWeight: 800, color: t.text, marginBottom: 4 }}>{fmt(b.totalCost)}</div>
               <div style={{ fontSize: 10, color: t.sub }}>운영비용</div>
@@ -994,6 +1016,8 @@ export default function ProjectApp({ currentUser, onLogout }) {
       setExpenses(norm.expenses);
       setPaymentInfo(norm.paymentInfo);
       setRecurringExpenses(norm.recurringExpenses);
+      historyRef.current = [{ projects: norm.projects, expenses: norm.expenses, paymentInfo: norm.paymentInfo, recurringExpenses: norm.recurringExpenses }];
+      historyIdx.current = 0;
       setLoading(false);
     }).catch(function () { setLoading(false); });
   }, []);
@@ -1004,12 +1028,43 @@ export default function ProjectApp({ currentUser, onLogout }) {
     try { localStorage.setItem(LOCAL_KEY, JSON.stringify({ projects: p, expenses: e, paymentInfo: pi, recurringExpenses: re })); } catch (err) {}
   };
 
+  var historyRef = useRef([{ projects: [], expenses: {}, paymentInfo: {}, recurringExpenses: [] }]);
+  var historyIdx = useRef(0);
+  var MAX_HISTORY = 50;
+
+  var pushH = function (p, e, pi, re) {
+    var h = historyRef.current.slice(0, historyIdx.current + 1);
+    h.push({ projects: p, expenses: e, paymentInfo: pi, recurringExpenses: re });
+    if (h.length > MAX_HISTORY) h.shift();
+    historyRef.current = h;
+    historyIdx.current = h.length - 1;
+  };
+
+  var undo = useCallback(function () {
+    if (historyIdx.current <= 0) return;
+    historyIdx.current--;
+    var snap = historyRef.current[historyIdx.current];
+    setAllProjects(snap.projects); setExpenses(snap.expenses); setPaymentInfo(snap.paymentInfo); setRecurringExpenses(snap.recurringExpenses);
+    persistLocal(snap.projects, snap.expenses, snap.paymentInfo, snap.recurringExpenses);
+    setUnsaved(true);
+  }, []);
+
+  var redo = useCallback(function () {
+    if (historyIdx.current >= historyRef.current.length - 1) return;
+    historyIdx.current++;
+    var snap = historyRef.current[historyIdx.current];
+    setAllProjects(snap.projects); setExpenses(snap.expenses); setPaymentInfo(snap.paymentInfo); setRecurringExpenses(snap.recurringExpenses);
+    persistLocal(snap.projects, snap.expenses, snap.paymentInfo, snap.recurringExpenses);
+    setUnsaved(true);
+  }, []);
+
   var addProject = useCallback(async function (project) {
     await syncLinkedModelsToSettlement(project, null);
     setAllProjects(function (prev) {
       var next = prev.concat([project]);
-      persistLocal(next, expenses, paymentInfo, recurringExpenses); setUnsaved(true); return next;
+      persistLocal(next, expenses, paymentInfo, recurringExpenses); pushH(next, expenses, paymentInfo, recurringExpenses); setUnsaved(true); return next;
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expenses, paymentInfo, recurringExpenses]);
 
   var updateProject = useCallback(async function (project) {
@@ -1017,28 +1072,32 @@ export default function ProjectApp({ currentUser, onLogout }) {
     await syncLinkedModelsToSettlement(project, prevProject);
     setAllProjects(function (prev) {
       var next = prev.map(function (p) { return p.id === project.id ? project : p; });
-      persistLocal(next, expenses, paymentInfo, recurringExpenses); setUnsaved(true); return next;
+      persistLocal(next, expenses, paymentInfo, recurringExpenses); pushH(next, expenses, paymentInfo, recurringExpenses); setUnsaved(true); return next;
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expenses, paymentInfo, recurringExpenses, allProjects]);
 
   var removeProject = useCallback(function (id) {
     setAllProjects(function (prev) {
       var next = prev.filter(function (p) { return p.id !== id; });
-      persistLocal(next, expenses, paymentInfo, recurringExpenses); setUnsaved(true); return next;
+      persistLocal(next, expenses, paymentInfo, recurringExpenses); pushH(next, expenses, paymentInfo, recurringExpenses); setUnsaved(true); return next;
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expenses, paymentInfo, recurringExpenses]);
 
   var changeExpenses = useCallback(function (mKey, list) {
     setExpenses(function (prev) {
       var next = Object.assign({}, prev, { [mKey]: list });
-      persistLocal(allProjects, next, paymentInfo, recurringExpenses); setUnsaved(true); return next;
+      persistLocal(allProjects, next, paymentInfo, recurringExpenses); pushH(allProjects, next, paymentInfo, recurringExpenses); setUnsaved(true); return next;
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allProjects, paymentInfo, recurringExpenses]);
 
   var changeRecurringExpenses = useCallback(function (list) {
     setRecurringExpenses(function () {
-      persistLocal(allProjects, expenses, paymentInfo, list); setUnsaved(true); return list;
+      persistLocal(allProjects, expenses, paymentInfo, list); pushH(allProjects, expenses, paymentInfo, list); setUnsaved(true); return list;
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allProjects, expenses, paymentInfo]);
 
   var changePaymentInfo = useCallback(function (pid, key, value) {
@@ -1046,8 +1105,9 @@ export default function ProjectApp({ currentUser, onLogout }) {
       var current = Object.assign({ regNo: "", taxType: "3.3%", bank: "", account: "", paid: false }, prev[pid]);
       current[key] = value;
       var next = Object.assign({}, prev, { [pid]: current });
-      persistLocal(allProjects, expenses, next, recurringExpenses); setUnsaved(true); return next;
+      persistLocal(allProjects, expenses, next, recurringExpenses); pushH(allProjects, expenses, next, recurringExpenses); setUnsaved(true); return next;
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allProjects, expenses, recurringExpenses]);
 
   var handleSave = useCallback(async function () {
@@ -1059,6 +1119,8 @@ export default function ProjectApp({ currentUser, onLogout }) {
   }, [allProjects, expenses, paymentInfo, recurringExpenses]);
 
   var t = T(dark);
+  var canUndo = historyIdx.current > 0;
+  var canRedo = historyIdx.current < historyRef.current.length - 1;
 
   if (loading) {
     return (
@@ -1103,13 +1165,15 @@ export default function ProjectApp({ currentUser, onLogout }) {
         {isMobile && (
           <button onClick={function () { setMobileNavOpen(true); }} style={{ width: 30, height: 30, borderRadius: 7, border: "1px solid " + t.border, background: "transparent", color: t.text, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>☰</button>
         )}
-        <div style={{ width: 28, height: 28, borderRadius: 7, background: "linear-gradient(135deg,#10b981,#0891b2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 12, flexShrink: 0 }}>PJ</div>
+        <div style={{ width: 34, height: 34, borderRadius: 9, background: "linear-gradient(135deg,#10b981,#0891b2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 14, flexShrink: 0 }}>PJ</div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 900, color: t.text, fontSize: 13, lineHeight: 1.1 }}>MoMo Agency</div>
-          <div style={{ fontSize: 10, color: t.sub }}>촬영 정산 · 회사 손익 관리</div>
+          <div style={{ fontWeight: 900, color: t.text, fontSize: 17, lineHeight: 1.15, letterSpacing: -0.3 }}>촬영 프로젝트 관리 시스템</div>
+          <div style={{ fontSize: 10, color: t.sub }}>MoMo Agency · 촬영 정산 · 회사 손익 관리</div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
           <a href="#settlement" style={{ height: 28, padding: "0 10px", borderRadius: 6, border: "1px solid " + t.border, display: "flex", alignItems: "center", fontWeight: 700, fontSize: 11, color: t.text, textDecoration: "none" }}>모델 정산관리 →</a>
+          <button onClick={undo} disabled={!canUndo} title="실행취소" style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid " + t.border, background: canUndo ? t.card : "transparent", color: canUndo ? t.text : t.sub, cursor: canUndo ? "pointer" : "not-allowed", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center" }}>↩</button>
+          <button onClick={redo} disabled={!canRedo} title="되돌리기" style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid " + t.border, background: canRedo ? t.card : "transparent", color: canRedo ? t.text : t.sub, cursor: canRedo ? "pointer" : "not-allowed", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center" }}>↪</button>
           <button onClick={handleSave} disabled={saveStatus === "saving"} style={{ height: 28, padding: "0 10px", borderRadius: 6, border: "none", cursor: saveStatus === "saving" ? "not-allowed" : "pointer", fontWeight: 700, fontSize: 11, background: saveStatus === "saved" ? "#d1fae5" : saveStatus === "error" ? "#fee2e2" : unsaved ? "#4f46e5" : (dark ? "#1e293b" : "#e2e8f0"), color: saveStatus === "saved" ? "#065f46" : saveStatus === "error" ? "#991b1b" : unsaved ? "#fff" : t.sub }}>
             {saveStatus === "saving" ? "저장 중..." : saveStatus === "saved" ? "저장됨" : saveStatus === "error" ? "실패" : unsaved ? "저장" : "저장됨"}
           </button>
