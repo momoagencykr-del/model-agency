@@ -788,38 +788,111 @@ function PaymentsTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
 }
 
 // ── 회사 대시보드 탭 ─────────────────────────────────────────────────────
+function monthOptionsAcrossYears() {
+  var opts = [];
+  YEARS.forEach(function (y) {
+    MONTHS12.forEach(function (label, i) {
+      opts.push({ year: y, monthNum: i + 1, label: y + "년 " + label, mKey: monthKey(y, i + 1) });
+    });
+  });
+  return opts;
+}
+
+function CumulativeChart({ points, dark, t }) {
+  var w = 100, h = 130;
+  var maxVal = Math.max.apply(null, points.map(function (p) { return p.cum; }).concat([1]));
+  var n = points.length;
+  var coords = points.map(function (p, i) {
+    var x = n > 1 ? (i / (n - 1)) * w : w / 2;
+    var y = h - (p.cum / maxVal) * (h - 10);
+    return { x: x, y: y };
+  });
+  var linePath = coords.map(function (c, i) { return (i === 0 ? "M" : "L") + c.x + "," + c.y; }).join(" ");
+  var areaPath = linePath + " L" + w + "," + h + " L0," + h + " Z";
+
+  return (
+    <div style={{ position: "relative" }}>
+      <svg viewBox={"0 0 " + w + " " + h} width="100%" height="160" preserveAspectRatio="none" style={{ display: "block" }}>
+        <defs>
+          <linearGradient id="cumFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+        <path d={areaPath} fill="url(#cumFill)" stroke="none" />
+        <path d={linePath} fill="none" stroke="#4f46e5" strokeWidth="1.6" vectorEffect="non-scaling-stroke" />
+        {coords.map(function (c, i) {
+          return <circle key={i} cx={c.x} cy={c.y} r="1.6" fill="#4f46e5" vectorEffect="non-scaling-stroke" />;
+        })}
+      </svg>
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
+        {points.map(function (p, i) {
+          if (n > 8 && i % Math.ceil(n / 8) !== 0 && i !== n - 1) return <div key={i} style={{ flex: 1 }} />;
+          return (
+            <div key={i} style={{ textAlign: "center", flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 9, color: t.sub, whiteSpace: "nowrap" }}>{p.label}</div>
+              <div style={{ fontSize: 10, fontWeight: 800, color: "#4f46e5", whiteSpace: "nowrap" }}>{Math.round(p.cum / 10000)}만</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function DashboardTab({ year, setYear, allProjects, expenses, recurringExpenses, dark }) {
   var t = T(dark);
-  var bars = MONTHS12.map(function (label, i) {
-    var mKey = monthKey(year, i + 1);
-    var pt = monthProjectTotals(projectsForMonth(allProjects, mKey));
-    var exp = monthExpenseTotal(effectiveExpensesForMonth(mKey, expenses, recurringExpenses));
+  var allOpts = monthOptionsAcrossYears();
+  var defaultFromIdx = allOpts.findIndex(function (o) { return o.year === year && o.monthNum === 1; });
+  var defaultToIdx = allOpts.findIndex(function (o) { return o.year === year && o.monthNum === 12; });
+
+  var fromState = useState(defaultFromIdx >= 0 ? defaultFromIdx : 0);
+  var fromIdx = fromState[0], setFromIdx = fromState[1];
+  var toState = useState(defaultToIdx >= 0 ? defaultToIdx : allOpts.length - 1);
+  var toIdx = toState[0], setToIdx = toState[1];
+
+  var lo = Math.min(fromIdx, toIdx), hi = Math.max(fromIdx, toIdx);
+  var rangeOpts = allOpts.slice(lo, hi + 1);
+
+  var bars = rangeOpts.map(function (o) {
+    var pt = monthProjectTotals(projectsForMonth(allProjects, o.mKey));
+    var exp = monthExpenseTotal(effectiveExpensesForMonth(o.mKey, expenses, recurringExpenses));
     var companyNet = pt.netExclOpCost - exp;
-    return { month: label, totalCost: pt.totalCost, netProfit: pt.netExclOpCost, expense: exp, companyNet: companyNet, isNow: year === NOW_YEAR && (i + 1) === NOW_MONTH_NUM };
+    return { label: o.year + "." + o.monthNum, month: o.label, totalCost: pt.totalCost, netProfit: pt.netExclOpCost, expense: exp, companyNet: companyNet, isNow: o.year === NOW_YEAR && o.monthNum === NOW_MONTH_NUM };
   });
   var maxCost = Math.max.apply(null, bars.map(function (b) { return b.totalCost; }).concat([1]));
-  var yearCost = bars.reduce(function (s, b) { return s + b.totalCost; }, 0);
-  var yearNet = bars.reduce(function (s, b) { return s + b.netProfit; }, 0);
-  var yearExpense = bars.reduce(function (s, b) { return s + b.expense; }, 0);
-  var yearCompanyNet = bars.reduce(function (s, b) { return s + b.companyNet; }, 0);
+  var rangeCost = bars.reduce(function (s, b) { return s + b.totalCost; }, 0);
+  var rangeNet = bars.reduce(function (s, b) { return s + b.netProfit; }, 0);
+  var rangeExpense = bars.reduce(function (s, b) { return s + b.expense; }, 0);
+  var rangeCompanyNet = bars.reduce(function (s, b) { return s + b.companyNet; }, 0);
+
+  var cum = 0;
+  var cumPoints = bars.map(function (b) { cum += b.totalCost; return { label: b.label, cum: cum }; });
 
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
-        <div style={{ fontSize: 26, fontWeight: 900, color: t.text, letterSpacing: -0.5 }}>{year}년 실적 대시보드</div>
-        <select value={year} onChange={function (e) { setYear(Number(e.target.value)); }} style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 13, fontWeight: 700 }}>
-          {YEARS.map(function (y) { return <option key={y} value={y}>{y}년</option>; })}
-        </select>
+        <div style={{ fontSize: 26, fontWeight: 900, color: t.text, letterSpacing: -0.5 }}>실적 대시보드</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, background: t.card, border: "1px solid " + t.border, borderRadius: 10, padding: "6px 8px" }}>
+          <span style={{ fontSize: 11, color: t.sub, fontWeight: 700 }}>기간</span>
+          <select value={fromIdx} onChange={function (e) { setFromIdx(Number(e.target.value)); }} style={{ padding: "5px 8px", borderRadius: 7, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 12, fontWeight: 700 }}>
+            {allOpts.map(function (o, i) { return <option key={i} value={i}>{o.label}</option>; })}
+          </select>
+          <span style={{ color: t.sub }}>~</span>
+          <select value={toIdx} onChange={function (e) { setToIdx(Number(e.target.value)); }} style={{ padding: "5px 8px", borderRadius: 7, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 12, fontWeight: 700 }}>
+            {allOpts.map(function (o, i) { return <option key={i} value={i}>{o.label}</option>; })}
+          </select>
+        </div>
       </div>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
-        <Card title={year + "년 전체 섭외비용"} value={fmt(yearCost)} color="#4f46e5" t={t} />
-        <Card title="비용제외 순수익 합계" value={fmt(yearNet)} color="#0891b2" t={t} />
-        <Card title="운영비용 합계" value={fmt(yearExpense)} color="#f59e0b" t={t} />
-        <Card title="회사 순익 합계" value={fmt(yearCompanyNet)} color={yearCompanyNet >= 0 ? "#10b981" : "#ef4444"} t={t} />
+        <Card title="기간 전체 섭외비용" value={fmt(rangeCost)} color="#4f46e5" t={t} />
+        <Card title="비용제외 순수익 합계" value={fmt(rangeNet)} color="#0891b2" t={t} />
+        <Card title="운영비용 합계" value={fmt(rangeExpense)} color="#f59e0b" t={t} />
+        <Card title="회사 순익 합계" value={fmt(rangeCompanyNet)} color={rangeCompanyNet >= 0 ? "#10b981" : "#ef4444"} t={t} />
       </div>
 
-      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: "18px 20px" }}>
+      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: "18px 20px", marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
           <h3 style={{ color: t.text, fontWeight: 900, fontSize: 14, margin: 0 }}>월별 섭외비용 · 회사 순익</h3>
           <div style={{ display: "flex", gap: 12, fontSize: 11, color: t.sub }}>
@@ -827,13 +900,13 @@ function DashboardTab({ year, setYear, allProjects, expenses, recurringExpenses,
             <span><span style={{ color: "#10b981" }}>■</span> 회사 순익</span>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 160, paddingBottom: 4 }}>
-          {bars.map(function (b) {
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 160, paddingBottom: 4, overflowX: "auto" }}>
+          {bars.map(function (b, i) {
             var h = b.totalCost > 0 ? Math.max(Math.round((b.totalCost / maxCost) * 140), 6) : 2;
             var nh = b.totalCost > 0 && b.companyNet > 0 ? Math.min(Math.round((b.companyNet / maxCost) * 140), h) : 0;
             return (
-              <div key={b.month} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-                {b.totalCost > 0 && <div style={{ fontSize: 9, color: b.isNow ? "#4f46e5" : t.sub, fontWeight: b.isNow ? 900 : 600 }}>{Math.round(b.totalCost / 10000)}만</div>}
+              <div key={i} style={{ flex: "1 0 24px", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, minWidth: 24 }}>
+                {b.totalCost > 0 && <div style={{ fontSize: 9, color: b.isNow ? "#4f46e5" : t.sub, fontWeight: b.isNow ? 900 : 600, whiteSpace: "nowrap" }}>{Math.round(b.totalCost / 10000)}만</div>}
                 <div style={{ width: "100%", display: "flex", flexDirection: "column", justifyContent: "flex-end", height: 140 }}>
                   {b.totalCost > 0 ? (
                     <div style={{ width: "100%", height: h, borderRadius: "4px 4px 0 0", overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "flex-end", border: b.isNow ? "2px solid #4f46e5" : "none" }}>
@@ -844,18 +917,24 @@ function DashboardTab({ year, setYear, allProjects, expenses, recurringExpenses,
                     <div style={{ width: "100%", height: 2, background: t.border, borderRadius: 2 }} />
                   )}
                 </div>
-                <div style={{ fontSize: 10, color: b.isNow ? "#4f46e5" : t.sub, fontWeight: b.isNow ? 900 : 600 }}>{b.month}</div>
+                <div style={{ fontSize: 10, color: b.isNow ? "#4f46e5" : t.sub, fontWeight: b.isNow ? 900 : 600, whiteSpace: "nowrap" }}>{b.month}</div>
               </div>
             );
           })}
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(180px,1fr))", gap: 10, marginTop: 14 }}>
-        {bars.map(function (b) {
+      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: "18px 20px", marginBottom: 16 }}>
+        <h3 style={{ color: t.text, fontWeight: 900, fontSize: 14, marginBottom: 4 }}>누적 매출 추이</h3>
+        <p style={{ fontSize: 11, color: t.sub, marginBottom: 12 }}>선택 기간 동안 섭외비용이 누적되는 추이입니다.</p>
+        <CumulativeChart points={cumPoints} dark={dark} t={t} />
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(180px,1fr))", gap: 10 }}>
+        {bars.map(function (b, i) {
           return (
-            <div key={b.month} style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 12, padding: "12px 14px" }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: t.text, marginBottom: 6 }}>{year}년 {b.month}</div>
+            <div key={i} style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 12, padding: "12px 14px" }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: t.text, marginBottom: 6 }}>{b.month}</div>
               <div style={{ fontSize: 10, color: t.sub }}>섭외비용</div>
               <div style={{ fontSize: 13, fontWeight: 800, color: t.text, marginBottom: 4 }}>{fmt(b.totalCost)}</div>
               <div style={{ fontSize: 10, color: t.sub }}>운영비용</div>
@@ -871,7 +950,7 @@ function DashboardTab({ year, setYear, allProjects, expenses, recurringExpenses,
 }
 
 // ── 메인 App ─────────────────────────────────────────────────────────────
-export default function ProjectApp() {
+export default function ProjectApp({ currentUser, onLogout }) {
   var [allProjects, setAllProjects] = useState([]);
   var [expenses, setExpenses] = useState({});
   var [recurringExpenses, setRecurringExpenses] = useState([]);
@@ -1035,6 +1114,8 @@ export default function ProjectApp() {
             {saveStatus === "saving" ? "저장 중..." : saveStatus === "saved" ? "저장됨" : saveStatus === "error" ? "실패" : unsaved ? "저장" : "저장됨"}
           </button>
           <button onClick={function () { setDark(function (v) { return !v; }); }} style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid " + t.border, background: t.card, color: t.text, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>{dark ? "☀" : "🌙"}</button>
+          {currentUser && <span style={{ fontSize: 11, color: t.sub, marginLeft: 2, whiteSpace: "nowrap" }}>{currentUser.name}</span>}
+          {onLogout && <button onClick={onLogout} title="로그아웃" style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid " + t.border, background: t.card, color: t.sub, cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center" }}>🚪</button>}
         </div>
       </header>
 

@@ -810,7 +810,7 @@ function ModelFormModal({ existing, onSave, onClose, dark }) {
 }
 
 // ── 메인 앱 ───────────────────────────────────────────────────────────────────
-export default function App() {
+export default function App({ currentUser, onLogout }) {
   var [modelMeta, setModelMeta] = useState(function() {
     try { var s = localStorage.getItem(MODEL_META_KEY); return s ? JSON.parse(s) : DEFAULT_MODELS; } catch(e) { return DEFAULT_MODELS; }
   });
@@ -1038,6 +1038,8 @@ export default function App() {
             {saveStatus==="saving"?"저장 중...":saveStatus==="saved"?"저장됨":saveStatus==="error"?"실패":unsaved?"저장":"저장됨"}
           </button>
           <button onClick={function(){ setDark(function(v){ return !v; }); }} style={{ width:28, height:28, borderRadius:6, border:"1px solid "+t.border, background:t.card, color:t.text, cursor:"pointer", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center" }}>{dark?"☀":"🌙"}</button>
+          {currentUser && <span style={{ fontSize:11, color:t.sub, marginLeft:2, whiteSpace:"nowrap" }}>{currentUser.name}</span>}
+          {onLogout && <button onClick={onLogout} title="로그아웃" style={{ width:28, height:28, borderRadius:6, border:"1px solid "+t.border, background:t.card, color:t.sub, cursor:"pointer", fontSize:13, display:"flex", alignItems:"center", justifyContent:"center" }}>🚪</button>}
         </div>
       </header>
 
