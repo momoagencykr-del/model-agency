@@ -592,17 +592,17 @@ function BookingCalendarTab({ modelMeta, dark }) {
       <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 14, overflowX: "auto" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 6, minWidth: 700 }}>
           {WEEKDAYS_KR.map(function (w, i) {
-            return <div key={w} style={{ textAlign: "center", fontSize: 16, fontWeight: 900, color: i === 0 ? "#ef4444" : (i === 6 ? "#4f46e5" : t.sub), padding: "6px 0" }}>{w}</div>;
+            return <div key={w} style={{ textAlign: "center", fontSize: 19, fontWeight: 900, color: i === 0 ? "#ef4444" : (i === 6 ? "#4f46e5" : t.sub), padding: "7px 0" }}>{w}</div>;
           })}
           {cells.map(function (d, idx) {
-            if (d === null) return <div key={idx} style={{ minHeight: 104 }} />;
+            if (d === null) return <div key={idx} style={{ minHeight: 118 }} />;
             var dateStr = year + "-" + pad2(month) + "-" + pad2(d);
             var dayProjects = byDate[dateStr] || [];
             var isToday = dateStr === todayStr;
             var weekday = idx % 7;
             return (
-              <div key={idx} style={{ minHeight: 104, borderRadius: 8, border: isToday ? "2px solid #4f46e5" : "1px solid " + t.border, background: t.card2, padding: "6px 6px", display: "flex", flexDirection: "column", gap: 3 }}>
-                <div style={{ fontSize: 16, fontWeight: 900, color: weekday === 0 ? "#ef4444" : (weekday === 6 ? "#4f46e5" : t.text) }}>{d}</div>
+              <div key={idx} style={{ minHeight: 118, borderRadius: 8, border: isToday ? "2px solid #4f46e5" : "1px solid " + t.border, background: t.card2, padding: "6px 6px", display: "flex", flexDirection: "column", gap: 3 }}>
+                <div style={{ fontSize: 23, fontWeight: 900, color: weekday === 0 ? "#ef4444" : (weekday === 6 ? "#4f46e5" : t.text) }}>{d}</div>
                 {dayProjects.map(function (p) {
                   return (
                     <button key={p.id} onClick={function () { setSelected(p); }} style={{ textAlign: "left", background: dark ? "#1e2a4a" : "#eef2ff", border: "1px solid " + (dark ? "#3730a3" : "#c7d2fe"), borderRadius: 6, padding: "5px 7px", cursor: "pointer", width: "100%" }}>
