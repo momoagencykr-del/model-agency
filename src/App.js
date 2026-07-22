@@ -567,12 +567,24 @@ function BookingCalendarTab({ modelMeta, dark }) {
   var cells = buildCalendarGrid(year, month);
   var todayStr = CAL_NOW.getFullYear() + "-" + pad2(CAL_NOW.getMonth() + 1) + "-" + pad2(CAL_NOW.getDate());
 
+  // 소속모델이 한 명이라도 포함된 촬영 건만 대상으로 함
   var byDate = {};
+  var monthTotalCost = 0;
+  var monthProjectCount = 0;
+  var monthModelSet = {};
   projects.forEach(function (p) {
     if (!p.date || p.date.slice(0, 7) !== mKeyStr) return;
+    var affModels = (p.models || []).filter(function (m) { return affiliatedNames[m.name]; });
+    if (affModels.length === 0) return;
+    var affAmount = affModels.reduce(function (s, m) { return s + (Number(m.agencyPrice) || 0); }, 0);
+    var entry = Object.assign({}, p, { models: affModels, totalCost: affAmount });
     if (!byDate[p.date]) byDate[p.date] = [];
-    byDate[p.date].push(p);
+    byDate[p.date].push(entry);
+    monthTotalCost += affAmount;
+    monthProjectCount += 1;
+    affModels.forEach(function (m) { monthModelSet[m.name] = true; });
   });
+  var monthModelCount = Object.keys(monthModelSet).length;
 
   var goPrev = function () { if (month === 1) { setYear(year - 1); setMonth(12); } else { setMonth(month - 1); } };
   var goNext = function () { if (month === 12) { setYear(year + 1); setMonth(1); } else { setMonth(month + 1); } };
@@ -587,7 +599,22 @@ function BookingCalendarTab({ modelMeta, dark }) {
           <button onClick={goNext} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid " + t.border, background: t.card, color: t.text, cursor: "pointer", fontSize: 14 }}>›</button>
         </div>
       </div>
-      <div style={{ fontSize: 12, color: t.sub, marginBottom: 12 }}>소속모델 이름은 강조 표시됩니다. (촬영 정산내역 데이터를 읽기 전용으로 보여줍니다)</div>
+      <div style={{ fontSize: 12, color: t.sub, marginBottom: 12 }}>소속모델이 포함된 촬영 건만 표시됩니다. (촬영 정산내역 데이터를 읽기 전용으로 보여줍니다)</div>
+
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+        <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: "14px 18px", flex: 1, minWidth: 150 }}>
+          <div style={{ fontSize: 11, color: t.sub, fontWeight: 700, marginBottom: 6 }}>총 섭외비용</div>
+          <div style={{ fontSize: 20, fontWeight: 900, color: "#4f46e5" }}>{fmt(monthTotalCost)}</div>
+        </div>
+        <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: "14px 18px", flex: 1, minWidth: 150 }}>
+          <div style={{ fontSize: 11, color: t.sub, fontWeight: 700, marginBottom: 6 }}>촬영 건수</div>
+          <div style={{ fontSize: 20, fontWeight: 900, color: t.text }}>{monthProjectCount}건</div>
+        </div>
+        <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: "14px 18px", flex: 1, minWidth: 150 }}>
+          <div style={{ fontSize: 11, color: t.sub, fontWeight: 700, marginBottom: 6 }}>섭외 모델 수</div>
+          <div style={{ fontSize: 20, fontWeight: 900, color: t.text }}>{monthModelCount}명</div>
+        </div>
+      </div>
 
       <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 14, overflowX: "auto" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 6, minWidth: 700 }}>
@@ -607,11 +634,8 @@ function BookingCalendarTab({ modelMeta, dark }) {
                   return (
                     <button key={p.id} onClick={function () { setSelected(p); }} style={{ textAlign: "left", background: dark ? "#1e2a4a" : "#eef2ff", border: "1px solid " + (dark ? "#3730a3" : "#c7d2fe"), borderRadius: 6, padding: "5px 7px", cursor: "pointer", width: "100%" }}>
                       <div style={{ fontSize: 12, fontWeight: 800, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.brand}</div>
-                      <div style={{ fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {(p.models || []).map(function (m, i2) {
-                          var isAff = affiliatedNames[m.name];
-                          return <span key={i2} style={{ color: isAff ? "#4f46e5" : t.sub, fontWeight: isAff ? 800 : 400 }}>{i2 > 0 ? ", " : ""}{m.name}</span>;
-                        })}
+                      <div style={{ fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "#4f46e5", fontWeight: 800 }}>
+                        {(p.models || []).map(function (m, i2) { return (i2 > 0 ? ", " : "") + m.name; }).join("")}
                         {p.time ? " · " + p.time : ""}
                       </div>
                       <div style={{ fontSize: 11, fontWeight: 800, color: "#4f46e5" }}>{fmt(p.totalCost)}</div>

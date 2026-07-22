@@ -1052,10 +1052,17 @@ function CalendarTab({ year, month, setYear, setMonth, allProjects, dark }) {
   var todayStr = NOW.getFullYear() + "-" + pad2(NOW.getMonth() + 1) + "-" + pad2(NOW.getDate());
 
   var projectsByDate = {};
-  projectsForMonth(allProjects, mKey).forEach(function (p) {
+  var monthList = projectsForMonth(allProjects, mKey);
+  var monthTotalCost = 0;
+  var monthModelSet = {};
+  monthList.forEach(function (p) {
     if (!projectsByDate[p.date]) projectsByDate[p.date] = [];
     projectsByDate[p.date].push(p);
+    monthTotalCost += Number(p.totalCost) || 0;
+    (p.models || []).forEach(function (m) { if (m.name) monthModelSet[m.name] = true; });
   });
+  var monthProjectCount = monthList.length;
+  var monthModelCount = Object.keys(monthModelSet).length;
 
   var goPrev = function () {
     if (month === 1) { setYear(year - 1); setMonth(12); } else { setMonth(month - 1); }
@@ -1075,6 +1082,12 @@ function CalendarTab({ year, month, setYear, setMonth, allProjects, dark }) {
           <MonthPicker year={year} month={month} setYear={setYear} setMonth={setMonth} t={t} />
           <button onClick={goNext} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid " + t.border, background: t.card, color: t.text, cursor: "pointer", fontSize: 14 }}>›</button>
         </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+        <Card title="총 섭외비용" value={fmt(monthTotalCost)} color="#4f46e5" t={t} />
+        <Card title="촬영 건수" value={monthProjectCount + "건"} t={t} />
+        <Card title="섭외 모델 수" value={monthModelCount + "명"} t={t} />
       </div>
 
       <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 14, overflowX: "auto" }}>
