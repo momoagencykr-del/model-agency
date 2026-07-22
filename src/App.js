@@ -460,6 +460,174 @@ function SettlementReport({ model, meta, data, month, dark }) {
 }
 
 // ── 모델 상세 ─────────────────────────────────────────────────────────────────
+// ── 촬영 캘린더 (촬영 정산내역 시스템의 예약 데이터를 읽기 전용으로 표시) ──
+var WEEKDAYS_KR = ["일", "월", "화", "수", "목", "금", "토"];
+var CAL_NOW = new Date();
+
+function pad2(n) { return n < 10 ? ("0" + n) : ("" + n); }
+
+function buildCalendarGrid(year, month) {
+  var firstDay = new Date(year, month - 1, 1);
+  var startWeekday = firstDay.getDay();
+  var daysInMonth = new Date(year, month, 0).getDate();
+  var cells = [];
+  for (var i = 0; i < startWeekday; i++) cells.push(null);
+  for (var d = 1; d <= daysInMonth; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+  return cells;
+}
+
+async function fetchBookedProjects() {
+  try {
+    var r = await fetch("/api/project-sheets");
+    var j = await r.json();
+    var saved = j && j.data;
+    if (!saved) return [];
+    if (Array.isArray(saved.projects)) return saved.projects;
+    if (saved.projects && typeof saved.projects === "object") {
+      var flat = [];
+      Object.keys(saved.projects).forEach(function (k) { (saved.projects[k] || []).forEach(function (p) { flat.push(p); }); });
+      return flat;
+    }
+    return [];
+  } catch (e) { return []; }
+}
+
+function calcModelLite(m) {
+  var agencyPrice = Number(m.agencyPrice) || 0;
+  var handPay = Number(m.handPay) || 0;
+  var opCost = Number(m.opCost) || 0;
+  var rate = (Number(m.partnerRate) || 0) / 100;
+  var grossMargin = agencyPrice - handPay;
+  var partnerFee = Math.round(grossMargin * rate);
+  var net = grossMargin - partnerFee - opCost;
+  return { agencyPrice: agencyPrice, handPay: handPay, opCost: opCost, partnerFee: partnerFee, net: net };
+}
+
+function BookingDetailModal({ project, dark, onClose }) {
+  var t = T(dark);
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }} onClick={onClose}>
+      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 16, padding: 22, width: "100%", maxWidth: 480, maxHeight: "85vh", overflowY: "auto" }} onClick={function (e) { e.stopPropagation(); }}>
+        <div style={{ fontSize: 11, color: t.sub, fontWeight: 700 }}>{project.date}{project.time ? " · ⏱ " + project.time : ""}</div>
+        <div style={{ fontSize: 19, fontWeight: 900, color: t.text, marginBottom: 10 }}>{project.brand}</div>
+        <div style={{ background: t.card2, border: "1px solid " + t.border, borderRadius: 10, padding: "10px 12px", marginBottom: 12 }}>
+          <div style={{ fontSize: 10, color: t.sub }}>총 섭외비용</div>
+          <div style={{ fontSize: 16, fontWeight: 900, color: t.text }}>{fmt(project.totalCost)}</div>
+        </div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: t.text, marginBottom: 6 }}>모델별 내역</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {(project.models || []).map(function (m, i2) {
+            var c = calcModelLite(m);
+            var timeLabel = m.time || project.time;
+            return (
+              <div key={i2} style={{ background: t.card2, border: "1px solid " + t.border, borderRadius: 10, padding: "10px 12px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                  <span style={{ fontSize: 14, fontWeight: 900, color: t.text }}>{m.name}</span>
+                  {timeLabel ? <span style={{ fontSize: 12, fontWeight: 800, color: "#4f46e5" }}>⏱ {timeLabel}</span> : null}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, fontSize: 12, color: t.sub }}>
+                  <div>섭외료 <b style={{ color: t.text }}>{fmt(m.agencyPrice)}</b></div>
+                  <div>손Pay <b style={{ color: t.text }}>{fmt(m.handPay)}</b></div>
+                </div>
+                <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px solid " + t.border, display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 11, color: t.sub }}>모델 라인 순수익</span>
+                  <span style={{ fontSize: 13, fontWeight: 900, color: "#10b981" }}>{fmt(c.net)}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <button onClick={onClose} style={{ width: "100%", marginTop: 14, padding: "10px 0", borderRadius: 9, border: "1px solid " + t.border, background: "transparent", color: t.text, fontWeight: 700, cursor: "pointer" }}>닫기</button>
+      </div>
+    </div>
+  );
+}
+
+function BookingCalendarTab({ modelMeta, dark }) {
+  var t = T(dark);
+  var yearState = useState(CAL_NOW.getFullYear());
+  var year = yearState[0], setYear = yearState[1];
+  var monthState = useState(CAL_NOW.getMonth() + 1);
+  var month = monthState[0], setMonth = monthState[1];
+  var projState = useState([]);
+  var projects = projState[0], setProjects = projState[1];
+  var selState = useState(null);
+  var selected = selState[0], setSelected = selState[1];
+
+  useEffect(function () {
+    fetchBookedProjects().then(setProjects);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  var affiliatedNames = {};
+  Object.keys(modelMeta || {}).forEach(function (k) { affiliatedNames[modelMeta[k].nameKr] = true; });
+
+  var mKeyStr = year + "-" + pad2(month);
+  var cells = buildCalendarGrid(year, month);
+  var todayStr = CAL_NOW.getFullYear() + "-" + pad2(CAL_NOW.getMonth() + 1) + "-" + pad2(CAL_NOW.getDate());
+
+  var byDate = {};
+  projects.forEach(function (p) {
+    if (!p.date || p.date.slice(0, 7) !== mKeyStr) return;
+    if (!byDate[p.date]) byDate[p.date] = [];
+    byDate[p.date].push(p);
+  });
+
+  var goPrev = function () { if (month === 1) { setYear(year - 1); setMonth(12); } else { setMonth(month - 1); } };
+  var goNext = function () { if (month === 12) { setYear(year + 1); setMonth(1); } else { setMonth(month + 1); } };
+
+  return (
+    <div>
+      {selected && <BookingDetailModal project={selected} dark={dark} onClose={function () { setSelected(null); }} />}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
+        <div style={{ fontSize: 26, fontWeight: 900, color: t.text, letterSpacing: -0.5 }}>{year}년 {month}월</div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button onClick={goPrev} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid " + t.border, background: t.card, color: t.text, cursor: "pointer", fontSize: 14 }}>‹</button>
+          <button onClick={goNext} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid " + t.border, background: t.card, color: t.text, cursor: "pointer", fontSize: 14 }}>›</button>
+        </div>
+      </div>
+      <div style={{ fontSize: 12, color: t.sub, marginBottom: 12 }}>소속모델 이름은 강조 표시됩니다. (촬영 정산내역 데이터를 읽기 전용으로 보여줍니다)</div>
+
+      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 14, overflowX: "auto" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 6, minWidth: 700 }}>
+          {WEEKDAYS_KR.map(function (w, i) {
+            return <div key={w} style={{ textAlign: "center", fontSize: 16, fontWeight: 900, color: i === 0 ? "#ef4444" : (i === 6 ? "#4f46e5" : t.sub), padding: "6px 0" }}>{w}</div>;
+          })}
+          {cells.map(function (d, idx) {
+            if (d === null) return <div key={idx} style={{ minHeight: 104 }} />;
+            var dateStr = year + "-" + pad2(month) + "-" + pad2(d);
+            var dayProjects = byDate[dateStr] || [];
+            var isToday = dateStr === todayStr;
+            var weekday = idx % 7;
+            return (
+              <div key={idx} style={{ minHeight: 104, borderRadius: 8, border: isToday ? "2px solid #4f46e5" : "1px solid " + t.border, background: t.card2, padding: "6px 6px", display: "flex", flexDirection: "column", gap: 3 }}>
+                <div style={{ fontSize: 16, fontWeight: 900, color: weekday === 0 ? "#ef4444" : (weekday === 6 ? "#4f46e5" : t.text) }}>{d}</div>
+                {dayProjects.map(function (p) {
+                  return (
+                    <button key={p.id} onClick={function () { setSelected(p); }} style={{ textAlign: "left", background: dark ? "#1e2a4a" : "#eef2ff", border: "1px solid " + (dark ? "#3730a3" : "#c7d2fe"), borderRadius: 6, padding: "5px 7px", cursor: "pointer", width: "100%" }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.brand}</div>
+                      <div style={{ fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {(p.models || []).map(function (m, i2) {
+                          var isAff = affiliatedNames[m.name];
+                          return <span key={i2} style={{ color: isAff ? "#4f46e5" : t.sub, fontWeight: isAff ? 800 : 400 }}>{i2 > 0 ? ", " : ""}{m.name}</span>;
+                        })}
+                        {p.time ? " · " + p.time : ""}
+                      </div>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: "#4f46e5" }}>{fmt(p.totalCost)}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 function ModelDetail({ model, meta, data, addEntry, removeEntry, onUpdateAF, dark }) {
   var t = T(dark);
   var [month, setMonth] = useState(NOW_MONTH);
@@ -960,7 +1128,7 @@ export default function App({ currentUser, onLogout }) {
 
   var NavContent = (
     <div style={{ padding:8 }}>
-      {[["overview","연간 요약","📊"],["tax","세무 요약","📋"]].map(function(item) {
+      {[["overview","연간 요약","📊"],["tax","세무 요약","📋"],["calendar","촬영 캘린더","📅"]].map(function(item) {
         return (
           <button key={item[0]} onClick={function(){ setTab(item[0]); setMobileNavOpen(false); }} style={{ width:"100%", display:"flex", alignItems:"center", gap:8, padding:"7px 10px", borderRadius:9, border:"none", cursor:"pointer", background:tab===item[0]?"#4f46e5":"transparent", color:tab===item[0]?"#fff":t.sub, fontWeight:700, fontSize:13, marginBottom:2, textAlign:"left" }}>
             <span>{item[2]}</span>{item[1]}
@@ -1054,13 +1222,14 @@ export default function App({ currentUser, onLogout }) {
         <main style={{ flex:1, minWidth:0 }}>
           {tab === "overview" && <Overview data={data} modelMeta={modelMeta} dark={dark} setTab={setTab} />}
           {tab === "tax" && <TaxSummary data={data} modelMeta={modelMeta} onUpdateRegNo={updateRegNo} dark={dark} />}
+          {tab === "calendar" && <BookingCalendarTab modelMeta={modelMeta} dark={dark} />}
           {Object.keys(modelMeta).includes(tab) && <ModelDetail model={tab} meta={modelMeta[tab]} data={data} addEntry={addEntry} removeEntry={removeEntry} onUpdateAF={updateAF} dark={dark} />}
         </main>
       </div>
 
       {isMobile && (
         <div style={{ position:"fixed", bottom:0, left:0, right:0, background:t.card, borderTop:"1px solid "+t.border, display:"flex", zIndex:50, boxShadow:"0 -2px 10px rgba(0,0,0,0.1)" }}>
-          {[["overview","연간요약","📊"],["tax","세무요약","📋"]].concat(Object.keys(modelMeta).slice(0,3).map(function(m){ return [m, modelMeta[m].nameKr, modelMeta[m].nameEn[0]]; })).map(function(item) {
+          {[["overview","연간요약","📊"],["tax","세무요약","📋"],["calendar","캘린더","📅"]].concat(Object.keys(modelMeta).slice(0,3).map(function(m){ return [m, modelMeta[m].nameKr, modelMeta[m].nameEn[0]]; })).map(function(item) {
             return (
               <button key={item[0]} onClick={function(){ setTab(item[0]); }} style={{ flex:1, padding:"8px 4px 10px", border:"none", background:"transparent", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
                 <span style={{ fontSize:tab===item[0]?20:16 }}>{item[2]}</span>
