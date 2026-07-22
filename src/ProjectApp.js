@@ -319,6 +319,25 @@ function MonthHeading({ year, month, t }) {
   );
 }
 
+function MonthStrip({ year, month, setYear, setMonth, t, dark }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      <select value={year} onChange={function (e) { setYear(Number(e.target.value)); }} style={{ padding: "7px 8px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 13, fontWeight: 700, flexShrink: 0 }}>
+        {YEARS.map(function (y) { return <option key={y} value={y}>{y}년</option>; })}
+      </select>
+      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+        {MONTHS12.map(function (label, i) {
+          var m = i + 1;
+          var active = m === month;
+          return (
+            <button key={m} onClick={function () { setMonth(m); }} style={{ padding: "6px 11px", borderRadius: 8, border: active ? "none" : "1px solid " + t.border, background: active ? "#4f46e5" : (dark ? t.card2 : t.card), color: active ? "#fff" : t.text, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>{label}</button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── 촬영 정산 추가/수정 모달 ──────────────────────────────────────────────
 function ProjectFormModal({ existing, defaultDate, affiliatedModels, onSave, onClose, dark }) {
   affiliatedModels = affiliatedModels || {};
@@ -1075,13 +1094,15 @@ function CalendarTab({ year, month, setYear, setMonth, allProjects, dark }) {
     <div>
       {selected && <CalendarDetailModal project={selected} onClose={function () { setSelected(null); }} dark={dark} />}
 
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
         <MonthHeading year={year} month={month} t={t} />
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button onClick={goPrev} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid " + t.border, background: t.card, color: t.text, cursor: "pointer", fontSize: 14 }}>‹</button>
-          <MonthPicker year={year} month={month} setYear={setYear} setMonth={setMonth} t={t} />
-          <button onClick={goNext} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid " + t.border, background: t.card, color: t.text, cursor: "pointer", fontSize: 14 }}>›</button>
+          <button onClick={goPrev} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid " + t.border, background: t.card, color: t.text, cursor: "pointer", fontSize: 14, flexShrink: 0 }}>‹</button>
+          <button onClick={goNext} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid " + t.border, background: t.card, color: t.text, cursor: "pointer", fontSize: 14, flexShrink: 0 }}>›</button>
         </div>
+      </div>
+      <div style={{ marginBottom: 14 }}>
+        <MonthStrip year={year} month={month} setYear={setYear} setMonth={setMonth} t={t} dark={dark} />
       </div>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>

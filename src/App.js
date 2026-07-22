@@ -463,6 +463,26 @@ function SettlementReport({ model, meta, data, month, dark }) {
 // ── 촬영 캘린더 (촬영 정산내역 시스템의 예약 데이터를 읽기 전용으로 표시) ──
 var WEEKDAYS_KR = ["일", "월", "화", "수", "목", "금", "토"];
 var CAL_NOW = new Date();
+var CAL_YEARS = [CAL_NOW.getFullYear() - 1, CAL_NOW.getFullYear(), CAL_NOW.getFullYear() + 1, CAL_NOW.getFullYear() + 2];
+
+function CalMonthStrip({ year, month, setYear, setMonth, t, dark }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      <select value={year} onChange={function (e) { setYear(Number(e.target.value)); }} style={{ padding: "7px 8px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 13, fontWeight: 700, flexShrink: 0 }}>
+        {CAL_YEARS.map(function (y) { return <option key={y} value={y}>{y}년</option>; })}
+      </select>
+      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+        {MONTHS.map(function (label, i) {
+          var m = i + 1;
+          var active = m === month;
+          return (
+            <button key={m} onClick={function () { setMonth(m); }} style={{ padding: "6px 11px", borderRadius: 8, border: active ? "none" : "1px solid " + t.border, background: active ? "#4f46e5" : (dark ? t.card2 : t.card), color: active ? "#fff" : t.text, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>{label}</button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function pad2(n) { return n < 10 ? ("0" + n) : ("" + n); }
 
@@ -598,6 +618,9 @@ function BookingCalendarTab({ modelMeta, dark }) {
           <button onClick={goPrev} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid " + t.border, background: t.card, color: t.text, cursor: "pointer", fontSize: 14 }}>‹</button>
           <button onClick={goNext} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid " + t.border, background: t.card, color: t.text, cursor: "pointer", fontSize: 14 }}>›</button>
         </div>
+      </div>
+      <div style={{ marginBottom: 10 }}>
+        <CalMonthStrip year={year} month={month} setYear={setYear} setMonth={setMonth} t={t} dark={dark} />
       </div>
       <div style={{ fontSize: 12, color: t.sub, marginBottom: 12 }}>소속모델이 포함된 촬영 건만 표시됩니다. (촬영 정산내역 데이터를 읽기 전용으로 보여줍니다)</div>
 
