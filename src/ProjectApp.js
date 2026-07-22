@@ -971,6 +971,144 @@ function DashboardTab({ year, setYear, allProjects, expenses, recurringExpenses,
   );
 }
 
+// ── 촬영 캘린더 탭 ────────────────────────────────────────────────────────
+var WEEKDAYS_KR = ["일", "월", "화", "수", "목", "금", "토"];
+
+function buildCalendarGrid(year, month) {
+  var firstDay = new Date(year, month - 1, 1);
+  var startWeekday = firstDay.getDay();
+  var daysInMonth = new Date(year, month, 0).getDate();
+  var cells = [];
+  for (var i = 0; i < startWeekday; i++) cells.push(null);
+  for (var d = 1; d <= daysInMonth; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+  return cells;
+}
+
+function CalendarDetailModal({ project, onClose, dark }) {
+  var t = T(dark);
+  var agg = projectAgg(project);
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }} onClick={onClose}>
+      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 16, padding: 22, width: "100%", maxWidth: 480, maxHeight: "85vh", overflowY: "auto" }} onClick={function (e) { e.stopPropagation(); }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+          <div>
+            <div style={{ fontSize: 11, color: t.sub, fontWeight: 700 }}>{project.date}{project.time ? " · ⏱ " + project.time : ""}</div>
+            <div style={{ fontSize: 19, fontWeight: 900, color: t.text }}>{project.brand}</div>
+          </div>
+          <span style={{ display: "inline-block", padding: "3px 8px", borderRadius: 6, fontSize: 10, fontWeight: 700, background: project.depositStatus === "입금" ? "#d1fae5" : "#fee2e2", color: project.depositStatus === "입금" ? "#065f46" : "#991b1b" }}>{project.depositStatus || "미입금"}</span>
+        </div>
+
+        <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+          <div style={{ flex: 1, background: t.card2, border: "1px solid " + t.border, borderRadius: 10, padding: "10px 12px" }}>
+            <div style={{ fontSize: 10, color: t.sub }}>총 섭외비용</div>
+            <div style={{ fontSize: 16, fontWeight: 900, color: t.text }}>{fmt(project.totalCost)}</div>
+          </div>
+          <div style={{ flex: 1, background: t.card2, border: "1px solid " + t.border, borderRadius: 10, padding: "10px 12px" }}>
+            <div style={{ fontSize: 10, color: t.sub }}>순수익</div>
+            <div style={{ fontSize: 16, fontWeight: 900, color: "#10b981" }}>{fmt(agg.net)}</div>
+          </div>
+        </div>
+
+        <div style={{ fontSize: 12, fontWeight: 800, color: t.text, marginBottom: 6 }}>모델별 내역</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+          {(project.models || []).map(function (m, i2) {
+            var c = calcModel(m);
+            var timeLabel = m.time || project.time;
+            return (
+              <div key={i2} style={{ background: t.card2, border: "1px solid " + t.border, borderRadius: 10, padding: "10px 12px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                  <span style={{ fontSize: 14, fontWeight: 900, color: t.text }}>{m.name}</span>
+                  {timeLabel ? <span style={{ fontSize: 12, fontWeight: 800, color: "#4f46e5" }}>⏱ {timeLabel}</span> : null}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, fontSize: 12, color: t.sub }}>
+                  <div>섭외료 <b style={{ color: t.text }}>{fmt(m.agencyPrice)}</b></div>
+                  <div>손Pay <b style={{ color: t.text }}>{fmt(m.handPay)}</b></div>
+                  <div>운영비 <b style={{ color: t.text }}>{fmt(m.opCost)}</b></div>
+                  <div>협력비율 <b style={{ color: t.text }}>{Number(m.partnerRate) || 0}%</b></div>
+                </div>
+                <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px solid " + t.border, display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 11, color: t.sub }}>모델 라인 순수익</span>
+                  <span style={{ fontSize: 13, fontWeight: 900, color: "#10b981" }}>{fmt(c.net)}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {project.note ? <div style={{ fontSize: 11, color: t.sub, marginBottom: 12, borderTop: "1px solid " + t.border, paddingTop: 8 }}>비고: {project.note}</div> : null}
+
+        <button onClick={onClose} style={{ width: "100%", padding: "10px 0", borderRadius: 9, border: "1px solid " + t.border, background: "transparent", color: t.text, fontWeight: 700, cursor: "pointer" }}>닫기</button>
+      </div>
+    </div>
+  );
+}
+
+function CalendarTab({ year, month, setYear, setMonth, allProjects, dark }) {
+  var t = T(dark);
+  var mKey = monthKey(year, month);
+  var [selected, setSelected] = useState(null);
+  var cells = buildCalendarGrid(year, month);
+  var todayStr = NOW.getFullYear() + "-" + pad2(NOW.getMonth() + 1) + "-" + pad2(NOW.getDate());
+
+  var projectsByDate = {};
+  projectsForMonth(allProjects, mKey).forEach(function (p) {
+    if (!projectsByDate[p.date]) projectsByDate[p.date] = [];
+    projectsByDate[p.date].push(p);
+  });
+
+  var goPrev = function () {
+    if (month === 1) { setYear(year - 1); setMonth(12); } else { setMonth(month - 1); }
+  };
+  var goNext = function () {
+    if (month === 12) { setYear(year + 1); setMonth(1); } else { setMonth(month + 1); }
+  };
+
+  return (
+    <div>
+      {selected && <CalendarDetailModal project={selected} onClose={function () { setSelected(null); }} dark={dark} />}
+
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
+        <MonthHeading year={year} month={month} t={t} />
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button onClick={goPrev} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid " + t.border, background: t.card, color: t.text, cursor: "pointer", fontSize: 14 }}>‹</button>
+          <MonthPicker year={year} month={month} setYear={setYear} setMonth={setMonth} t={t} />
+          <button onClick={goNext} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid " + t.border, background: t.card, color: t.text, cursor: "pointer", fontSize: 14 }}>›</button>
+        </div>
+      </div>
+
+      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 14, overflowX: "auto" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 6, minWidth: 700 }}>
+          {WEEKDAYS_KR.map(function (w, i) {
+            return <div key={w} style={{ textAlign: "center", fontSize: 12, fontWeight: 800, color: i === 0 ? "#ef4444" : (i === 6 ? "#4f46e5" : t.sub), padding: "4px 0" }}>{w}</div>;
+          })}
+          {cells.map(function (d, idx) {
+            if (d === null) return <div key={idx} style={{ minHeight: 92 }} />;
+            var dateStr = year + "-" + pad2(month) + "-" + pad2(d);
+            var dayProjects = projectsByDate[dateStr] || [];
+            var isToday = dateStr === todayStr;
+            var weekday = idx % 7;
+            return (
+              <div key={idx} style={{ minHeight: 92, borderRadius: 8, border: isToday ? "2px solid #4f46e5" : "1px solid " + t.border, background: t.card2, padding: "6px 6px", display: "flex", flexDirection: "column", gap: 3 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: weekday === 0 ? "#ef4444" : (weekday === 6 ? "#4f46e5" : t.sub) }}>{d}</div>
+                {dayProjects.map(function (p) {
+                  var names = (p.models || []).map(function (m) { return m.name; }).filter(Boolean).join(", ");
+                  return (
+                    <button key={p.id} onClick={function () { setSelected(p); }} style={{ textAlign: "left", background: dark ? "#1e2a4a" : "#eef2ff", border: "1px solid " + (dark ? "#3730a3" : "#c7d2fe"), borderRadius: 6, padding: "4px 6px", cursor: "pointer", width: "100%" }}>
+                      <div style={{ fontSize: 10, fontWeight: 800, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.brand}</div>
+                      <div style={{ fontSize: 9, color: t.sub, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{names}{p.time ? " · " + p.time : ""}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── 메인 App ─────────────────────────────────────────────────────────────
 export default function ProjectApp({ currentUser, onLogout }) {
   var [allProjects, setAllProjects] = useState([]);
@@ -1133,7 +1271,7 @@ export default function ProjectApp({ currentUser, onLogout }) {
     );
   }
 
-  var navItems = [["dashboard", "실적 대시보드", "📈"], ["projects", "촬영 정산내역", "🎬"], ["expenses", "운영비용", "🧾"], ["payments", "모델 지급관리", "💸"]];
+  var navItems = [["dashboard", "실적 대시보드", "📈"], ["projects", "촬영 정산내역", "🎬"], ["calendar", "촬영 캘린더", "📅"], ["expenses", "운영비용", "🧾"], ["payments", "모델 지급관리", "💸"]];
 
   var NavContent = (
     <div style={{ padding: 8 }}>
@@ -1194,6 +1332,7 @@ export default function ProjectApp({ currentUser, onLogout }) {
         <main style={{ flex: 1, minWidth: 0 }}>
           {tab === "dashboard" && <DashboardTab year={year} setYear={setYear} allProjects={allProjects} expenses={expenses} recurringExpenses={recurringExpenses} dark={dark} />}
           {tab === "projects" && <ProjectsTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} expenses={expenses} recurringExpenses={recurringExpenses} affiliatedModels={affiliatedModels} onAdd={addProject} onUpdate={updateProject} onRemove={removeProject} dark={dark} />}
+          {tab === "calendar" && <CalendarTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} dark={dark} />}
           {tab === "expenses" && <ExpensesTab year={year} month={month} setYear={setYear} setMonth={setMonth} expenses={expenses} recurringExpenses={recurringExpenses} allProjects={allProjects} onChange={changeExpenses} onChangeRecurring={changeRecurringExpenses} dark={dark} />}
           {tab === "payments" && <PaymentsTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} dark={dark} />}
         </main>
