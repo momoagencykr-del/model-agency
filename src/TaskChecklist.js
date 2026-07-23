@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 
 var CATEGORIES_DEFAULT_ORDER = ["외국인 정산 정리", "컨택", "자료 업데이트", "비자 준비"];
+var MONTHS_LABEL = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+var TODAY = new Date();
+var YEARS_LIST = [TODAY.getFullYear() - 1, TODAY.getFullYear(), TODAY.getFullYear() + 1];
 
 function pad2(n) { return n < 10 ? ("0" + n) : ("" + n); }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 function dateStr(d) { return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
-function monthKeyOf(d) { return d.getFullYear() + "-" + pad2(d.getMonth() + 1); }
 function weekStartOf(d) {
   var day = d.getDay();
   var diffToMonday = day === 0 ? -6 : 1 - day;
@@ -15,6 +17,18 @@ function weekStartOf(d) {
   return monday;
 }
 function addDays(d, n) { var r = new Date(d); r.setDate(r.getDate() + n); return r; }
+
+function weeksInMonth(year, month) {
+  var first = new Date(year, month - 1, 1);
+  var last = new Date(year, month, 0);
+  var cur = weekStartOf(first);
+  var weeks = [];
+  while (cur <= last) {
+    weeks.push(new Date(cur));
+    cur = addDays(cur, 7);
+  }
+  return weeks;
+}
 
 var DEFAULT_TEMPLATES = [
   { id: uid(), category: "외국인 정산 정리", title: "단톡방 모니터링", desc: "비자 지원 모델 단톡방에 상주하며 모델들이 작성한 '모델 섭외 요청서' 확인", frequency: "daily" },
@@ -50,24 +64,108 @@ function inputStyle(t) {
   return { width: "100%", padding: "7px 9px", borderRadius: 7, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 12, boxSizing: "border-box" };
 }
 
-function FreqBadge({ freq }) {
-  var labels = { daily: ["매일", "#4f46e5"], weekly: ["매주", "#0891b2"], monthly: ["매월", "#f59e0b"], adhoc: ["비정기", "#64748b"] };
-  var l = labels[freq] || ["", "#64748b"];
-  return <span style={{ fontSize: 10, fontWeight: 800, color: "#fff", background: l[1], padding: "2px 7px", borderRadius: 20, flexShrink: 0 }}>{l[0]}</span>;
+function groupByCategory(list) {
+  var groups = {};
+  var order = [];
+  list.forEach(function (tp) {
+    if (!groups[tp.category]) { groups[tp.category] = []; order.push(tp.category); }
+    groups[tp.category].push(tp);
+  });
+  order.sort(function (a, b) {
+    var ia = CATEGORIES_DEFAULT_ORDER.indexOf(a), ib = CATEGORIES_DEFAULT_ORDER.indexOf(b);
+    if (ia === -1) ia = 999; if (ib === -1) ib = 999;
+    return ia - ib;
+  });
+  return order.map(function (cat) { return { category: cat, tasks: groups[cat] }; });
 }
 
-function TaskRow({ task, checked, onToggle, t, dark, extraRight }) {
+function GridSection({ title, subtitle, periods, groups, completions, onToggle, t, dark, colWidth, highlightKey }) {
+  var totalCount = 0, doneCount = 0;
+  groups.forEach(function (g) { g.tasks.forEach(function (tp) { periods.forEach(function (p) { totalCount++; if (completions[tp.id + "|" + p.key]) doneCount++; }); }); });
+
   return (
-    <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", background: checked ? (dark ? "#0f2a1e" : "#ecfdf5") : t.card2, border: "1px solid " + (checked ? "#10b981" : t.border), borderRadius: 10, marginBottom: 8 }}>
-      <button onClick={onToggle} style={{ width: 24, height: 24, borderRadius: 7, border: checked ? "none" : "1px solid " + t.ib, background: checked ? "#10b981" : "transparent", color: "#fff", fontWeight: 900, fontSize: 13, cursor: "pointer", flexShrink: 0, marginTop: 2 }}>{checked ? "✓" : ""}</button>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 13, fontWeight: 800, color: t.text, textDecoration: checked ? "line-through" : "none" }}>{task.title}</span>
-          <FreqBadge freq={task.frequency} />
-        </div>
-        {task.desc ? <div style={{ fontSize: 11, color: t.sub, lineHeight: 1.4 }}>{task.desc}</div> : null}
+    <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 16, marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, flexWrap: "wrap", gap: 8 }}>
+        <div style={{ fontSize: 18, fontWeight: 900, color: t.text }}>{title}</div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: doneCount === totalCount && totalCount > 0 ? "#10b981" : "#4f46e5" }}>{doneCount}/{totalCount} 완료</div>
       </div>
-      {extraRight}
+      {subtitle ? <div style={{ fontSize: 11, color: t.sub, marginBottom: 10 }}>{subtitle}</div> : null}
+      {groups.length === 0 ? (
+        <div style={{ color: t.sub, fontSize: 12, padding: "16px 0", textAlign: "center" }}>등록된 업무가 없습니다.</div>
+      ) : (
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 220 + periods.length * colWidth }}>
+            <thead>
+              <tr>
+                <th style={{ position: "sticky", left: 0, zIndex: 2, background: t.card, textAlign: "left", padding: "6px 10px", fontSize: 12, color: t.sub, minWidth: 220, borderBottom: "1px solid " + t.border }}>업무</th>
+                {periods.map(function (p) {
+                  var isHighlight = highlightKey && p.key === highlightKey;
+                  return <th key={p.key} style={{ padding: "6px 4px", fontSize: 11, fontWeight: isHighlight ? 900 : 700, color: isHighlight ? "#4f46e5" : t.sub, textAlign: "center", minWidth: colWidth, borderBottom: "1px solid " + t.border }}>{p.label}</th>;
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {groups.map(function (g) {
+                return (
+                  <>
+                    <tr key={g.category + "_hdr"}>
+                      <td colSpan={periods.length + 1} style={{ padding: "6px 10px", fontSize: 11, fontWeight: 800, color: "#4f46e5", background: t.thead, position: "sticky", left: 0 }}>{g.category}</td>
+                    </tr>
+                    {g.tasks.map(function (tp) {
+                      return (
+                        <tr key={tp.id}>
+                          <td title={tp.desc} style={{ position: "sticky", left: 0, background: t.card2, padding: "6px 10px", fontSize: 12, color: t.text, fontWeight: 700, borderBottom: "1px solid " + t.border, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 220 }}>{tp.title}</td>
+                          {periods.map(function (p) {
+                            var key = tp.id + "|" + p.key;
+                            var checked = !!completions[key];
+                            var isHighlight = highlightKey && p.key === highlightKey;
+                            return (
+                              <td key={p.key} style={{ textAlign: "center", padding: 3, borderBottom: "1px solid " + t.border, background: isHighlight ? (dark ? "#1e2a4a" : "#eef2ff") : "transparent" }}>
+                                <button onClick={function () { onToggle(tp.id, p.key); }} style={{ width: 26, height: 26, borderRadius: 6, border: checked ? "none" : "1px solid " + t.ib, background: checked ? "#10b981" : "transparent", color: "#fff", cursor: "pointer", fontWeight: 900, fontSize: 12 }}>{checked ? "✓" : ""}</button>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AdhocSection({ groups, adhocLogs, onToggle, t, dark }) {
+  var today = dateStr(new Date());
+  return (
+    <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 16, marginBottom: 20 }}>
+      <div style={{ fontSize: 18, fontWeight: 900, color: t.text, marginBottom: 10 }}>비정기 업무</div>
+      {groups.length === 0 && <div style={{ color: t.sub, fontSize: 12, padding: "16px 0", textAlign: "center" }}>등록된 비정기 업무가 없습니다.</div>}
+      {groups.map(function (g) {
+        return (
+          <div key={g.category} style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: "#4f46e5", marginBottom: 6 }}>{g.category}</div>
+            {g.tasks.map(function (tp) {
+              var log = adhocLogs[tp.id] || [];
+              var doneToday = log.indexOf(today) >= 0;
+              return (
+                <div key={tp.id} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", background: doneToday ? (dark ? "#0f2a1e" : "#ecfdf5") : t.card2, border: "1px solid " + (doneToday ? "#10b981" : t.border), borderRadius: 10, marginBottom: 8 }}>
+                  <button onClick={function () { onToggle(tp.id); }} style={{ width: 24, height: 24, borderRadius: 7, border: doneToday ? "none" : "1px solid " + t.ib, background: doneToday ? "#10b981" : "transparent", color: "#fff", fontWeight: 900, fontSize: 13, cursor: "pointer", flexShrink: 0, marginTop: 2 }}>{doneToday ? "✓" : ""}</button>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: t.text }}>{tp.title}</div>
+                    {tp.desc ? <div style={{ fontSize: 11, color: t.sub, lineHeight: 1.4 }}>{tp.desc}</div> : null}
+                  </div>
+                  <div style={{ fontSize: 10, color: t.sub, whiteSpace: "nowrap", flexShrink: 0 }}>{log.length > 0 ? "최근: " + log[0] : "기록 없음"}</div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -86,7 +184,7 @@ function TemplateManager({ templates, onChange, dark, t }) {
   };
 
   return (
-    <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 12, overflow: "hidden", marginTop: 16 }}>
+    <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 12, overflow: "hidden", marginTop: 4 }}>
       <button onClick={function () { setOpen(!open); }} style={{ width: "100%", padding: "10px 12px", background: t.thead, border: "none", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
         <span style={{ fontSize: 12, fontWeight: 800, color: t.text }}>업무 항목 관리 (추가/수정/삭제)</span>
         <span style={{ fontSize: 11, color: t.sub }}>{open ? "접기 ▲" : "펼치기 ▼"}</span>
@@ -116,21 +214,6 @@ function TemplateManager({ templates, onChange, dark, t }) {
   );
 }
 
-function groupByCategory(list) {
-  var groups = {};
-  var order = [];
-  list.forEach(function (tp) {
-    if (!groups[tp.category]) { groups[tp.category] = []; order.push(tp.category); }
-    groups[tp.category].push(tp);
-  });
-  order.sort(function (a, b) {
-    var ia = CATEGORIES_DEFAULT_ORDER.indexOf(a), ib = CATEGORIES_DEFAULT_ORDER.indexOf(b);
-    if (ia === -1) ia = 999; if (ib === -1) ib = 999;
-    return ia - ib;
-  });
-  return order.map(function (cat) { return { category: cat, tasks: groups[cat] }; });
-}
-
 export default function TaskChecklistTab({ dark }) {
   var t = {
     bg: dark ? "#0f172a" : "#f1f5f9", card: dark ? "#1e293b" : "#fff", border: dark ? "#334155" : "#e2e8f0",
@@ -142,8 +225,8 @@ export default function TaskChecklistTab({ dark }) {
   var [templates, setTemplates] = useState(DEFAULT_TEMPLATES);
   var [completions, setCompletions] = useState({});
   var [adhocLogs, setAdhocLogs] = useState({});
-  var [view, setView] = useState("daily");
-  var [curDate, setCurDate] = useState(new Date());
+  var [year, setYear] = useState(TODAY.getFullYear());
+  var [month, setMonth] = useState(TODAY.getMonth() + 1);
   var [saveStatus, setSaveStatus] = useState("idle");
 
   useEffect(function () {
@@ -160,7 +243,6 @@ export default function TaskChecklistTab({ dark }) {
 
   var persist = useCallback(async function (nextTemplates, nextCompletions, nextAdhocLogs) {
     setSaveStatus("saving");
-    // 기존 WorkData 탭에 다른 용도로 저장된 값이 있다면 보존하기 위해 먼저 읽어와 병합
     var current = (await loadWork()) || {};
     var merged = Object.assign({}, current, {
       checklistTemplates: nextTemplates, checklistCompletions: nextCompletions, checklistAdhocLogs: nextAdhocLogs,
@@ -204,104 +286,50 @@ export default function TaskChecklistTab({ dark }) {
     return <div style={{ padding: 30, textAlign: "center", color: t.sub }}>업무 체크리스트 불러오는 중...</div>;
   }
 
-  var dailyTasks = groupByCategory(templates.filter(function (tp) { return tp.frequency === "daily"; }));
-  var weeklyTasks = groupByCategory(templates.filter(function (tp) { return tp.frequency === "weekly"; }));
-  var monthlyTasks = groupByCategory(templates.filter(function (tp) { return tp.frequency === "monthly"; }));
-  var adhocTasks = groupByCategory(templates.filter(function (tp) { return tp.frequency === "adhoc"; }));
+  var monthlyGroups = groupByCategory(templates.filter(function (tp) { return tp.frequency === "monthly"; }));
+  var weeklyGroups = groupByCategory(templates.filter(function (tp) { return tp.frequency === "weekly"; }));
+  var dailyGroups = groupByCategory(templates.filter(function (tp) { return tp.frequency === "daily"; }));
+  var adhocGroups = groupByCategory(templates.filter(function (tp) { return tp.frequency === "adhoc"; }));
 
-  var dKey = dateStr(curDate);
-  var wStart = weekStartOf(curDate);
-  var wEnd = addDays(wStart, 6);
-  var wKey = dateStr(wStart);
-  var mKey = monthKeyOf(curDate);
+  var monthlyPeriods = MONTHS_LABEL.map(function (label, i) { return { key: year + "-" + pad2(i + 1), label: label }; });
+  var weeks = weeksInMonth(year, month);
+  var weeklyPeriods = weeks.map(function (mon, i) { return { key: dateStr(mon), label: (mon.getMonth() + 1) + "." + mon.getDate() + "~" }; });
+  var daysInMonth = new Date(year, month, 0).getDate();
+  var dailyPeriods = [];
+  for (var d = 1; d <= daysInMonth; d++) dailyPeriods.push({ key: year + "-" + pad2(month) + "-" + pad2(d), label: "" + d });
 
-  var renderGroup = function (groups, periodKey) {
-    var totalCount = 0, doneCount = 0;
-    groups.forEach(function (g) { g.tasks.forEach(function (tp) { totalCount++; if (completions[tp.id + "|" + periodKey]) doneCount++; }); });
-    return (
-      <div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: t.text }}>진행률</div>
-          <div style={{ fontSize: 13, fontWeight: 900, color: doneCount === totalCount && totalCount > 0 ? "#10b981" : "#4f46e5" }}>{doneCount}/{totalCount}</div>
-        </div>
-        {groups.length === 0 && <div style={{ color: t.sub, fontSize: 12, padding: "20px 0", textAlign: "center" }}>등록된 업무가 없습니다.</div>}
-        {groups.map(function (g) {
-          return (
-            <div key={g.category} style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 11, fontWeight: 800, color: "#4f46e5", marginBottom: 6 }}>{g.category}</div>
-              {g.tasks.map(function (tp) {
-                var key = tp.id + "|" + periodKey;
-                return <TaskRow key={tp.id} task={tp} checked={!!completions[key]} onToggle={function () { toggleCompletion(tp.id, periodKey); }} t={t} dark={dark} />;
-              })}
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
+  var todayMonthKey = year + "-" + pad2(month);
+  var todayWeekKey = dateStr(weekStartOf(new Date(year, month - 1, Math.min(TODAY.getDate(), daysInMonth))));
+  var todayDayKey = (year === TODAY.getFullYear() && month === TODAY.getMonth() + 1) ? dateStr(TODAY) : null;
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
         <div style={{ fontSize: 24, fontWeight: 900, color: t.text, letterSpacing: -0.5 }}>업무 체크리스트</div>
         <div style={{ fontSize: 11, color: t.sub }}>{saveStatus === "saving" ? "저장 중..." : saveStatus === "saved" ? "저장됨" : saveStatus === "error" ? "저장 실패" : ""}</div>
       </div>
 
-      <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
-        {[["daily", "일별"], ["weekly", "주별"], ["monthly", "월별"], ["adhoc", "비정기"]].map(function (v) {
-          var active = view === v[0];
-          return (
-            <button key={v[0]} onClick={function () { setView(v[0]); }} style={{ padding: "8px 16px", borderRadius: 9, border: active ? "none" : "1px solid " + t.border, background: active ? "#4f46e5" : t.card, color: active ? "#fff" : t.text, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>{v[1]}</button>
-          );
-        })}
-      </div>
-
-      {view !== "adhoc" && (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-          <button onClick={function () {
-            if (view === "daily") setCurDate(addDays(curDate, -1));
-            else if (view === "weekly") setCurDate(addDays(curDate, -7));
-            else setCurDate(new Date(curDate.getFullYear(), curDate.getMonth() - 1, 1));
-          }} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid " + t.border, background: t.card, color: t.text, cursor: "pointer" }}>‹</button>
-          <div style={{ fontSize: 16, fontWeight: 800, color: t.text, minWidth: 180, textAlign: "center" }}>
-            {view === "daily" && (curDate.getFullYear() + "년 " + (curDate.getMonth() + 1) + "월 " + curDate.getDate() + "일")}
-            {view === "weekly" && ((wStart.getMonth() + 1) + "/" + wStart.getDate() + " ~ " + (wEnd.getMonth() + 1) + "/" + wEnd.getDate())}
-            {view === "monthly" && (curDate.getFullYear() + "년 " + (curDate.getMonth() + 1) + "월")}
-          </div>
-          <button onClick={function () {
-            if (view === "daily") setCurDate(addDays(curDate, 1));
-            else if (view === "weekly") setCurDate(addDays(curDate, 7));
-            else setCurDate(new Date(curDate.getFullYear(), curDate.getMonth() + 1, 1));
-          }} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid " + t.border, background: t.card, color: t.text, cursor: "pointer" }}>›</button>
-          <button onClick={function () { setCurDate(new Date()); }} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid " + t.border, background: "transparent", color: t.sub, fontSize: 12, cursor: "pointer" }}>오늘</button>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
+        <select value={year} onChange={function (e) { setYear(Number(e.target.value)); }} style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 13, fontWeight: 700 }}>
+          {YEARS_LIST.map(function (y) { return <option key={y} value={y}>{y}년</option>; })}
+        </select>
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          {MONTHS_LABEL.map(function (label, i) {
+            var m = i + 1;
+            var active = m === month;
+            return <button key={m} onClick={function () { setMonth(m); }} style={{ padding: "6px 11px", borderRadius: 8, border: active ? "none" : "1px solid " + t.border, background: active ? "#4f46e5" : (dark ? t.card2 : t.card), color: active ? "#fff" : t.text, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>{label}</button>;
+          })}
         </div>
-      )}
-
-      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 16 }}>
-        {view === "daily" && renderGroup(dailyTasks, dKey)}
-        {view === "weekly" && renderGroup(weeklyTasks, wKey)}
-        {view === "monthly" && renderGroup(monthlyTasks, mKey)}
-        {view === "adhoc" && (
-          <div>
-            {adhocTasks.length === 0 && <div style={{ color: t.sub, fontSize: 12, padding: "20px 0", textAlign: "center" }}>등록된 비정기 업무가 없습니다.</div>}
-            {adhocTasks.map(function (g) {
-              return (
-                <div key={g.category} style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: "#4f46e5", marginBottom: 6 }}>{g.category}</div>
-                  {g.tasks.map(function (tp) {
-                    var log = adhocLogs[tp.id] || [];
-                    var doneToday = log.indexOf(dateStr(new Date())) >= 0;
-                    return (
-                      <TaskRow key={tp.id} task={tp} checked={doneToday} onToggle={function () { toggleAdhoc(tp.id); }} t={t} dark={dark}
-                        extraRight={<div style={{ fontSize: 10, color: t.sub, whiteSpace: "nowrap", flexShrink: 0 }}>{log.length > 0 ? "최근: " + log[0] : "기록 없음"}</div>} />
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
-        )}
+        <button onClick={function () { setYear(TODAY.getFullYear()); setMonth(TODAY.getMonth() + 1); }} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid " + t.border, background: "transparent", color: t.sub, fontSize: 12, cursor: "pointer" }}>오늘</button>
       </div>
+
+      <GridSection title={year + "년 월별 업무"} subtitle="매월 반복되는 업무 - 가로축은 해당 연도의 1~12월" periods={monthlyPeriods} groups={monthlyGroups} completions={completions} onToggle={toggleCompletion} t={t} dark={dark} colWidth={44} highlightKey={todayMonthKey} />
+
+      <GridSection title={year + "년 " + month + "월 주별 업무"} subtitle="매주 반복되는 업무 - 가로축은 이번 달의 각 주(월요일 기준)" periods={weeklyPeriods} groups={weeklyGroups} completions={completions} onToggle={toggleCompletion} t={t} dark={dark} colWidth={56} highlightKey={todayWeekKey} />
+
+      <GridSection title={year + "년 " + month + "월 일별 업무"} subtitle="매일 반복되는 업무 - 가로축은 이번 달의 날짜" periods={dailyPeriods} groups={dailyGroups} completions={completions} onToggle={toggleCompletion} t={t} dark={dark} colWidth={30} highlightKey={todayDayKey} />
+
+      <AdhocSection groups={adhocGroups} adhocLogs={adhocLogs} onToggle={toggleAdhoc} t={t} dark={dark} />
 
       <TemplateManager templates={templates} onChange={changeTemplates} dark={dark} t={t} />
     </div>
