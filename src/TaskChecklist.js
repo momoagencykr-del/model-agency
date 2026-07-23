@@ -39,8 +39,6 @@ var DEFAULT_TEMPLATES = [
   { id: uid(), category: "외국인 정산 정리", title: "정산 결과 제출 및 안내", desc: "정산 후 반영된 자료를 모델들에게 제출하고 확인 안내 공지", frequency: "monthly" },
   { id: uid(), category: "컨택", title: "신규 모델 프로필 수집", desc: "인스타그램/페이스북/스레드 등 SNS로 신규 국내외 모델에 촬영 제안(가짜) 후 프로필·포트폴리오 수집. 메일로 컨택한 인원은 별도 기재", frequency: "weekly" },
   { id: uid(), category: "컨택", title: "브랜드 컨택 메일 수집", desc: "영업 메일 발송용 브랜드 컨택 메일 주 5~10개 수집", frequency: "weekly" },
-  { id: uid(), category: "자료 업데이트", title: "모델 DB 업데이트", desc: "비정기적으로 발생 - 모델 DB 최신화", frequency: "adhoc" },
-  { id: uid(), category: "비자 준비", title: "비자 준비", desc: "비정기적으로 발생 - 비자 서류/절차 준비", frequency: "adhoc" },
 ];
 
 async function loadWork() {
@@ -61,10 +59,6 @@ async function saveWork(payload) {
   } catch (e) { return false; }
 }
 
-function inputStyle(t) {
-  return { width: "100%", padding: "7px 9px", borderRadius: 7, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 12, boxSizing: "border-box" };
-}
-
 function groupByCategory(list) {
   var groups = {};
   var order = [];
@@ -80,24 +74,35 @@ function groupByCategory(list) {
   return order.map(function (cat) { return { category: cat, tasks: groups[cat] }; });
 }
 
-function PeriodCard({ topLabel, mainLabel, isCurrent, groups, periodKey, completions, onToggle, t, dark, width }) {
+
+// ── 전체 업무 정리 (상단 마스터 목록) ──────────────────────────────────────
+function OverviewSection({ templates, onUpdateTask, onRemoveTask, onAddTask, t, dark }) {
+  var groups = groupByCategory(templates);
+  var addTask = function () { onAddTask(); };
+
   return (
-    <div style={{ minWidth: width, maxWidth: width, background: isCurrent ? (dark ? "#1e2a4a" : "#eef2ff") : t.card2, border: isCurrent ? "2px solid #4f46e5" : "1px solid " + t.border, borderRadius: 12, padding: "12px 14px", flexShrink: 0 }}>
-      {topLabel ? <div style={{ fontSize: 11, fontWeight: 700, color: isCurrent ? "#4f46e5" : t.sub, marginBottom: 2 }}>{topLabel}</div> : null}
-      <div style={{ fontSize: 19, fontWeight: 900, color: isCurrent ? "#4f46e5" : t.text, marginBottom: 10 }}>{mainLabel}</div>
-      {groups.length === 0 && <div style={{ fontSize: 11, color: t.sub }}>업무 없음</div>}
+    <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 16, marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+        <div style={{ fontSize: 18, fontWeight: 900, color: t.text }}>전체 업무 정리 ({templates.length}개)</div>
+        <button onClick={addTask} style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>+ 업무 추가</button>
+      </div>
+      {groups.length === 0 && <div style={{ color: t.sub, fontSize: 12, padding: "12px 0", textAlign: "center" }}>등록된 업무가 없습니다.</div>}
       {groups.map(function (g) {
         return (
-          <div key={g.category} style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 10, fontWeight: 800, color: "#7c7fdb", marginBottom: 4 }}>{g.category}</div>
+          <div key={g.category} style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: "#4f46e5", marginBottom: 4 }}>{g.category}</div>
             {g.tasks.map(function (tp) {
-              var key = tp.id + "|" + periodKey;
-              var checked = !!completions[key];
               return (
-                <label key={tp.id} title={tp.desc} style={{ display: "flex", alignItems: "flex-start", gap: 7, fontSize: 12, marginBottom: 6, cursor: "pointer", color: checked ? t.sub : t.text }}>
-                  <input type="checkbox" checked={checked} onChange={function () { onToggle(tp.id, periodKey); }} style={{ marginTop: 2, width: 15, height: 15, flexShrink: 0, accentColor: "#4f46e5" }} />
-                  <span style={{ textDecoration: checked ? "line-through" : "none", lineHeight: 1.35 }}>{tp.title}</span>
-                </label>
+                <div key={tp.id} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 90px 32px", gap: 6, marginBottom: 5, alignItems: "center" }}>
+                  <input value={tp.category} onChange={function (e) { onUpdateTask(tp.id, "category", e.target.value); }} style={{ padding: "6px 8px", borderRadius: 7, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 12 }} />
+                  <input value={tp.title} onChange={function (e) { onUpdateTask(tp.id, "title", e.target.value); }} placeholder="업무명" style={{ padding: "6px 8px", borderRadius: 7, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 12 }} />
+                  <select value={tp.frequency} onChange={function (e) { onUpdateTask(tp.id, "frequency", e.target.value); }} style={{ padding: "6px 4px", borderRadius: 7, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 11 }}>
+                    <option value="daily">매일</option>
+                    <option value="weekly">매주</option>
+                    <option value="monthly">매월</option>
+                  </select>
+                  <button onClick={function () { onRemoveTask(tp.id); }} style={{ width: 28, height: 28, borderRadius: 7, border: "none", background: "#ef444440", color: "#ef4444", cursor: "pointer" }}>✕</button>
+                </div>
               );
             })}
           </div>
@@ -107,7 +112,37 @@ function PeriodCard({ topLabel, mainLabel, isCurrent, groups, periodKey, complet
   );
 }
 
-function PeriodCardsSection({ title, subtitle, cards, t, dark }) {
+// ── 기간 카드 (월/주차/일 공통) ───────────────────────────────────────────
+function PeriodCard({ topLabel, mainLabel, isCurrent, groups, periodKey, completions, onToggle, onUpdateTitle, onRemoveTask, onAddTask, t, dark, style }) {
+  return (
+    <div style={Object.assign({ background: isCurrent ? (dark ? "#1e2a4a" : "#eef2ff") : t.card2, border: isCurrent ? "2.5px solid #4f46e5" : "1px solid " + t.border, borderRadius: 12, padding: "12px 12px", boxShadow: isCurrent ? "0 0 0 3px rgba(79,70,229,0.15)" : "none" }, style)}>
+      {topLabel ? <div style={{ fontSize: 11, fontWeight: 700, color: isCurrent ? "#4f46e5" : t.sub, marginBottom: 2 }}>{topLabel}</div> : null}
+      <div style={{ fontSize: 18, fontWeight: 900, color: isCurrent ? "#4f46e5" : t.text, marginBottom: 8 }}>{mainLabel}</div>
+      {groups.length === 0 && <div style={{ fontSize: 11, color: t.sub, marginBottom: 6 }}>업무 없음</div>}
+      {groups.map(function (g) {
+        return (
+          <div key={g.category} style={{ marginBottom: 6 }}>
+            <div style={{ fontSize: 10, fontWeight: 800, color: "#7c7fdb", marginBottom: 3 }}>{g.category}</div>
+            {g.tasks.map(function (tp) {
+              var key = tp.id + "|" + periodKey;
+              var checked = !!completions[key];
+              return (
+                <div key={tp.id} style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4 }}>
+                  <input type="checkbox" checked={checked} onChange={function () { onToggle(tp.id, periodKey); }} style={{ width: 14, height: 14, flexShrink: 0, accentColor: "#4f46e5" }} />
+                  <input value={tp.title} onChange={function (e) { onUpdateTitle(tp.id, e.target.value); }} title={tp.desc} style={{ flex: 1, minWidth: 0, fontSize: 11.5, background: "transparent", border: "none", color: checked ? t.sub : t.text, textDecoration: checked ? "line-through" : "none", padding: "2px 3px", borderRadius: 4 }} />
+                  <button onClick={function () { onRemoveTask(tp.id); }} style={{ width: 18, height: 18, flexShrink: 0, borderRadius: 5, border: "none", background: "transparent", color: "#ef4444", cursor: "pointer", fontSize: 11, lineHeight: 1 }}>✕</button>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+      <button onClick={onAddTask} style={{ width: "100%", marginTop: 4, padding: "4px 0", borderRadius: 6, border: "1px dashed " + t.ib, background: "transparent", color: t.sub, fontSize: 11, cursor: "pointer" }}>+ 업무 추가</button>
+    </div>
+  );
+}
+
+function PeriodSection({ title, subtitle, cards, gridStyle, t, dark }) {
   var totalCount = 0, doneCount = 0;
   cards.forEach(function (c) {
     c.groups.forEach(function (g) { g.tasks.forEach(function (tp) { totalCount++; if (c.completions[tp.id + "|" + c.periodKey]) doneCount++; }); });
@@ -120,10 +155,11 @@ function PeriodCardsSection({ title, subtitle, cards, t, dark }) {
         <div style={{ fontSize: 13, fontWeight: 800, color: doneCount === totalCount && totalCount > 0 ? "#10b981" : "#4f46e5" }}>{doneCount}/{totalCount} 완료</div>
       </div>
       {subtitle ? <div style={{ fontSize: 11, color: t.sub, marginBottom: 12 }}>{subtitle}</div> : null}
-      <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 6 }}>
+      <div style={gridStyle}>
         {cards.map(function (c) {
           return (
-            <PeriodCard key={c.periodKey} topLabel={c.topLabel} mainLabel={c.mainLabel} isCurrent={c.isCurrent} groups={c.groups} periodKey={c.periodKey} completions={c.completions} onToggle={c.onToggle} t={t} dark={dark} width={c.width} />
+            <PeriodCard key={c.periodKey} topLabel={c.topLabel} mainLabel={c.mainLabel} isCurrent={c.isCurrent} groups={c.groups} periodKey={c.periodKey}
+              completions={c.completions} onToggle={c.onToggle} onUpdateTitle={c.onUpdateTitle} onRemoveTask={c.onRemoveTask} onAddTask={c.onAddTask} t={t} dark={dark} style={c.cardStyle} />
           );
         })}
       </div>
@@ -131,30 +167,29 @@ function PeriodCardsSection({ title, subtitle, cards, t, dark }) {
   );
 }
 
-function AdhocSection({ groups, adhocLogs, onToggle, t, dark }) {
-  var today = dateStr(new Date());
+// ── 비정기 업무: 등록과 동시에 완료 처리하는 빠른 로그 ─────────────────────
+function AdhocSection({ entries, onAdd, onRemove, t, dark }) {
+  var [text, setText] = useState("");
+  var submit = function () {
+    if (!text.trim()) return;
+    onAdd(text.trim());
+    setText("");
+  };
   return (
     <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 16, marginBottom: 20 }}>
-      <div style={{ fontSize: 18, fontWeight: 900, color: t.text, marginBottom: 10 }}>비정기 업무</div>
-      {groups.length === 0 && <div style={{ color: t.sub, fontSize: 12, padding: "16px 0", textAlign: "center" }}>등록된 비정기 업무가 없습니다.</div>}
-      {groups.map(function (g) {
+      <div style={{ fontSize: 18, fontWeight: 900, color: t.text, marginBottom: 4 }}>비정기 업무</div>
+      <div style={{ fontSize: 11, color: t.sub, marginBottom: 10 }}>미리 등록할 필요 없이, 처리한 업무를 바로 입력하고 등록하면 오늘 날짜로 기록됩니다.</div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+        <input value={text} onChange={function (e) { setText(e.target.value); }} onKeyDown={function (e) { if (e.key === "Enter") submit(); }} placeholder="예: 모델 DB 업데이트, 비자 서류 준비" style={{ flex: 1, padding: "9px 12px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 13 }} />
+        <button onClick={submit} style={{ padding: "0 16px", borderRadius: 8, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>완료 등록</button>
+      </div>
+      {entries.length === 0 && <div style={{ color: t.sub, fontSize: 12, textAlign: "center", padding: "10px 0" }}>등록된 기록이 없습니다.</div>}
+      {entries.slice(0, 20).map(function (e) {
         return (
-          <div key={g.category} style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 11, fontWeight: 800, color: "#4f46e5", marginBottom: 6 }}>{g.category}</div>
-            {g.tasks.map(function (tp) {
-              var log = adhocLogs[tp.id] || [];
-              var doneToday = log.indexOf(today) >= 0;
-              return (
-                <div key={tp.id} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", background: doneToday ? (dark ? "#0f2a1e" : "#ecfdf5") : t.card2, border: "1px solid " + (doneToday ? "#10b981" : t.border), borderRadius: 10, marginBottom: 8 }}>
-                  <button onClick={function () { onToggle(tp.id); }} style={{ width: 24, height: 24, borderRadius: 7, border: doneToday ? "none" : "1px solid " + t.ib, background: doneToday ? "#10b981" : "transparent", color: "#fff", fontWeight: 900, fontSize: 13, cursor: "pointer", flexShrink: 0, marginTop: 2 }}>{doneToday ? "✓" : ""}</button>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: t.text }}>{tp.title}</div>
-                    {tp.desc ? <div style={{ fontSize: 11, color: t.sub, lineHeight: 1.4 }}>{tp.desc}</div> : null}
-                  </div>
-                  <div style={{ fontSize: 10, color: t.sub, whiteSpace: "nowrap", flexShrink: 0 }}>{log.length > 0 ? "최근: " + log[0] : "기록 없음"}</div>
-                </div>
-              );
-            })}
+          <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: t.card2, border: "1px solid " + t.border, borderRadius: 9, marginBottom: 6 }}>
+            <span style={{ fontSize: 11, color: "#4f46e5", fontWeight: 800, flexShrink: 0 }}>{e.date}</span>
+            <span style={{ flex: 1, fontSize: 13, color: t.text }}>{e.title}</span>
+            <button onClick={function () { onRemove(e.id); }} style={{ width: 22, height: 22, borderRadius: 6, border: "none", background: "#ef444440", color: "#ef4444", cursor: "pointer", fontSize: 11, flexShrink: 0 }}>✕</button>
           </div>
         );
       })}
@@ -162,48 +197,28 @@ function AdhocSection({ groups, adhocLogs, onToggle, t, dark }) {
   );
 }
 
-function TemplateManager({ templates, onChange, dark, t }) {
-  var [open, setOpen] = useState(false);
-  var addTemplate = function () {
-    onChange(templates.concat([{ id: uid(), category: "기타", title: "", desc: "", frequency: "daily" }]));
-  };
-  var update = function (id, key, value) {
-    onChange(templates.map(function (tp) { return tp.id === id ? Object.assign({}, tp, { [key]: value }) : tp; }));
-  };
-  var remove = function (id) {
-    if (!window.confirm("이 업무 항목을 삭제할까요? 지금까지의 체크 기록은 남지만 목록에서 사라집니다.")) return;
-    onChange(templates.filter(function (tp) { return tp.id !== id; }));
-  };
+function normalizeLoaded(saved) {
+  var templates = DEFAULT_TEMPLATES;
+  var completions = {};
+  var adhocEntries = [];
 
-  return (
-    <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 12, overflow: "hidden", marginTop: 4 }}>
-      <button onClick={function () { setOpen(!open); }} style={{ width: "100%", padding: "10px 12px", background: t.thead, border: "none", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
-        <span style={{ fontSize: 12, fontWeight: 800, color: t.text }}>업무 항목 관리 (추가/수정/삭제)</span>
-        <span style={{ fontSize: 11, color: t.sub }}>{open ? "접기 ▲" : "펼치기 ▼"}</span>
-      </button>
-      {open && (
-        <div style={{ padding: 12 }}>
-          <button onClick={addTemplate} style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer", marginBottom: 10 }}>+ 업무 항목 추가</button>
-          {templates.map(function (tp) {
-            return (
-              <div key={tp.id} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.6fr 0.8fr 32px", gap: 6, marginBottom: 6, alignItems: "center" }}>
-                <input value={tp.category} onChange={function (e) { update(tp.id, "category", e.target.value); }} placeholder="카테고리" style={inputStyle(t)} />
-                <input value={tp.title} onChange={function (e) { update(tp.id, "title", e.target.value); }} placeholder="업무명" style={inputStyle(t)} />
-                <input value={tp.desc} onChange={function (e) { update(tp.id, "desc", e.target.value); }} placeholder="설명" style={inputStyle(t)} />
-                <select value={tp.frequency} onChange={function (e) { update(tp.id, "frequency", e.target.value); }} style={inputStyle(t)}>
-                  <option value="daily">매일</option>
-                  <option value="weekly">매주</option>
-                  <option value="monthly">매월</option>
-                  <option value="adhoc">비정기</option>
-                </select>
-                <button onClick={function () { remove(tp.id); }} style={{ width: 28, height: 28, borderRadius: 7, border: "none", background: "#ef444440", color: "#ef4444", cursor: "pointer" }}>✕</button>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
+  if (saved && saved.checklistTemplates && saved.checklistTemplates.length) {
+    templates = saved.checklistTemplates.filter(function (tp) { return tp.frequency !== "adhoc"; });
+  }
+  if (saved && saved.checklistCompletions) completions = saved.checklistCompletions;
+
+  if (saved && Array.isArray(saved.checklistAdhocEntries)) {
+    adhocEntries = saved.checklistAdhocEntries;
+  } else if (saved && saved.checklistAdhocLogs && saved.checklistTemplates) {
+    var oldAdhocTemplates = saved.checklistTemplates.filter(function (tp) { return tp.frequency === "adhoc"; });
+    oldAdhocTemplates.forEach(function (tp) {
+      var dates = saved.checklistAdhocLogs[tp.id] || [];
+      dates.forEach(function (d) { adhocEntries.push({ id: uid(), title: tp.title, date: d }); });
+    });
+  }
+  adhocEntries.sort(function (a, b) { return b.date.localeCompare(a.date); });
+
+  return { templates: templates, completions: completions, adhocEntries: adhocEntries };
 }
 
 export default function TaskChecklistTab({ dark }) {
@@ -216,29 +231,29 @@ export default function TaskChecklistTab({ dark }) {
   var [loading, setLoading] = useState(true);
   var [templates, setTemplates] = useState(DEFAULT_TEMPLATES);
   var [completions, setCompletions] = useState({});
-  var [adhocLogs, setAdhocLogs] = useState({});
+  var [adhocEntries, setAdhocEntries] = useState([]);
   var [year, setYear] = useState(TODAY.getFullYear());
   var [month, setMonth] = useState(TODAY.getMonth() + 1);
   var [saveStatus, setSaveStatus] = useState("idle");
 
   useEffect(function () {
     loadWork().then(function (saved) {
-      if (saved) {
-        setTemplates(saved.checklistTemplates && saved.checklistTemplates.length ? saved.checklistTemplates : DEFAULT_TEMPLATES);
-        setCompletions(saved.checklistCompletions || {});
-        setAdhocLogs(saved.checklistAdhocLogs || {});
-      }
+      var norm = normalizeLoaded(saved);
+      setTemplates(norm.templates);
+      setCompletions(norm.completions);
+      setAdhocEntries(norm.adhocEntries);
       setLoading(false);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     });
   }, []);
 
-  var persist = useCallback(async function (nextTemplates, nextCompletions, nextAdhocLogs) {
+  var persist = useCallback(async function (nextTemplates, nextCompletions, nextAdhocEntries) {
     setSaveStatus("saving");
     var current = (await loadWork()) || {};
     var merged = Object.assign({}, current, {
-      checklistTemplates: nextTemplates, checklistCompletions: nextCompletions, checklistAdhocLogs: nextAdhocLogs,
+      checklistTemplates: nextTemplates, checklistCompletions: nextCompletions, checklistAdhocEntries: nextAdhocEntries,
     });
+    delete merged.checklistAdhocLogs;
     var ok = await saveWork(merged);
     setSaveStatus(ok ? "saved" : "error");
     setTimeout(function () { setSaveStatus("idle"); }, 2000);
@@ -249,29 +264,47 @@ export default function TaskChecklistTab({ dark }) {
     setCompletions(function (prev) {
       var next = Object.assign({}, prev);
       if (next[key]) { delete next[key]; } else { next[key] = true; }
-      persist(templates, next, adhocLogs);
+      persist(templates, next, adhocEntries);
       return next;
     });
   };
 
-  var toggleAdhoc = function (taskId) {
-    var today = dateStr(new Date());
-    setAdhocLogs(function (prev) {
-      var list = prev[taskId] || [];
-      var next;
-      if (list.indexOf(today) >= 0) {
-        next = Object.assign({}, prev, { [taskId]: list.filter(function (d) { return d !== today; }) });
-      } else {
-        next = Object.assign({}, prev, { [taskId]: [today].concat(list).slice(0, 30) });
-      }
+  var updateTask = function (id, key, value) {
+    setTemplates(function (prev) {
+      var next = prev.map(function (tp) { return tp.id === id ? Object.assign({}, tp, { [key]: value }) : tp; });
+      persist(next, completions, adhocEntries);
+      return next;
+    });
+  };
+  var updateTaskTitle = function (id, title) { updateTask(id, "title", title); };
+  var removeTask = function (id) {
+    setTemplates(function (prev) {
+      var next = prev.filter(function (tp) { return tp.id !== id; });
+      persist(next, completions, adhocEntries);
+      return next;
+    });
+  };
+  var addTask = function (frequency) {
+    setTemplates(function (prev) {
+      var next = prev.concat([{ id: uid(), category: "기타", title: "", desc: "", frequency: frequency || "daily" }]);
+      persist(next, completions, adhocEntries);
+      return next;
+    });
+  };
+
+  var addAdhoc = function (title) {
+    setAdhocEntries(function (prev) {
+      var next = [{ id: uid(), title: title, date: dateStr(new Date()) }].concat(prev);
       persist(templates, completions, next);
       return next;
     });
   };
-
-  var changeTemplates = function (next) {
-    setTemplates(next);
-    persist(next, completions, adhocLogs);
+  var removeAdhoc = function (id) {
+    setAdhocEntries(function (prev) {
+      var next = prev.filter(function (e) { return e.id !== id; });
+      persist(templates, completions, next);
+      return next;
+    });
   };
 
   if (loading) {
@@ -281,7 +314,6 @@ export default function TaskChecklistTab({ dark }) {
   var monthlyGroups = groupByCategory(templates.filter(function (tp) { return tp.frequency === "monthly"; }));
   var weeklyGroups = groupByCategory(templates.filter(function (tp) { return tp.frequency === "weekly"; }));
   var dailyGroups = groupByCategory(templates.filter(function (tp) { return tp.frequency === "daily"; }));
-  var adhocGroups = groupByCategory(templates.filter(function (tp) { return tp.frequency === "adhoc"; }));
 
   var todayMonthKey = TODAY.getFullYear() + "-" + pad2(TODAY.getMonth() + 1);
   var monthlyCards = MONTHS_LABEL.map(function (label, i) {
@@ -289,7 +321,8 @@ export default function TaskChecklistTab({ dark }) {
     var periodKey = year + "-" + pad2(m);
     return {
       periodKey: periodKey, topLabel: null, mainLabel: label, isCurrent: periodKey === todayMonthKey,
-      groups: monthlyGroups, completions: completions, onToggle: toggleCompletion, width: 190,
+      groups: monthlyGroups, completions: completions, onToggle: toggleCompletion,
+      onUpdateTitle: updateTaskTitle, onRemoveTask: removeTask, onAddTask: function () { addTask("monthly"); },
     };
   });
 
@@ -301,7 +334,9 @@ export default function TaskChecklistTab({ dark }) {
     return {
       periodKey: periodKey, topLabel: (i + 1) + "주차" + (periodKey === todayWeekKey ? " · 이번 주" : ""),
       mainLabel: (mon.getMonth() + 1) + "." + mon.getDate() + " ~ " + (end.getMonth() + 1) + "." + end.getDate(),
-      isCurrent: periodKey === todayWeekKey, groups: weeklyGroups, completions: completions, onToggle: toggleCompletion, width: 210,
+      isCurrent: periodKey === todayWeekKey, groups: weeklyGroups, completions: completions, onToggle: toggleCompletion,
+      onUpdateTitle: updateTaskTitle, onRemoveTask: removeTask, onAddTask: function () { addTask("weekly"); },
+      cardStyle: { minWidth: 210, flexShrink: 0 },
     };
   });
 
@@ -313,7 +348,8 @@ export default function TaskChecklistTab({ dark }) {
     var periodKey = year + "-" + pad2(month) + "-" + pad2(d);
     dailyCards.push({
       periodKey: periodKey, topLabel: WEEKDAYS_KR[dObj.getDay()] + (periodKey === todayDayKey ? " · 오늘" : ""),
-      mainLabel: month + "." + d, isCurrent: periodKey === todayDayKey, groups: dailyGroups, completions: completions, onToggle: toggleCompletion, width: 170,
+      mainLabel: month + "." + d, isCurrent: periodKey === todayDayKey, groups: dailyGroups, completions: completions, onToggle: toggleCompletion,
+      onUpdateTitle: updateTaskTitle, onRemoveTask: removeTask, onAddTask: function () { addTask("daily"); },
     });
   }
 
@@ -338,13 +374,18 @@ export default function TaskChecklistTab({ dark }) {
         <button onClick={function () { setYear(TODAY.getFullYear()); setMonth(TODAY.getMonth() + 1); }} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid " + t.border, background: "transparent", color: t.sub, fontSize: 12, cursor: "pointer" }}>오늘</button>
       </div>
 
-      <PeriodCardsSection title={year + "년 월별 업무"} subtitle="가로로 넘기면 다른 달 확인 가능" cards={monthlyCards} t={t} dark={dark} />
-      <PeriodCardsSection title={year + "년 " + month + "월 주차별 업무"} subtitle="가로로 넘기면 다른 주 확인 가능" cards={weeklyCards} t={t} dark={dark} />
-      <PeriodCardsSection title={year + "년 " + month + "월 일별 업무"} subtitle="가로로 넘기면 다른 날짜 확인 가능" cards={dailyCards} t={t} dark={dark} />
+      <OverviewSection templates={templates} onUpdateTask={updateTask} onRemoveTask={removeTask} onAddTask={function () { addTask("daily"); }} t={t} dark={dark} />
 
-      <AdhocSection groups={adhocGroups} adhocLogs={adhocLogs} onToggle={toggleAdhoc} t={t} dark={dark} />
+      <PeriodSection title={year + "년 월별 업무"} subtitle="1~6월, 7~12월 두 줄로 표시" cards={monthlyCards} t={t} dark={dark}
+        gridStyle={{ display: "grid", gridTemplateColumns: "repeat(6,minmax(0,1fr))", gap: 10 }} />
 
-      <TemplateManager templates={templates} onChange={changeTemplates} dark={dark} t={t} />
+      <PeriodSection title={year + "년 " + month + "월 주차별 업무"} subtitle="가로로 넘기면 다른 주 확인 가능" cards={weeklyCards} t={t} dark={dark}
+        gridStyle={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 6 }} />
+
+      <PeriodSection title={year + "년 " + month + "월 일별 업무"} subtitle="7일씩 한 줄로 표시" cards={dailyCards} t={t} dark={dark}
+        gridStyle={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(0,1fr))", gap: 8 }} />
+
+      <AdhocSection entries={adhocEntries} onAdd={addAdhoc} onRemove={removeAdhoc} t={t} dark={dark} />
     </div>
   );
 }
