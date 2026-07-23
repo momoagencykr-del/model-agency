@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import TaskChecklistTab from "./TaskChecklist";
 
 const MODEL_META_KEY = "modelAgencyMeta_v3";
 const MODEL_DATA_KEY = "modelAgencyData_v3";
@@ -1175,7 +1176,7 @@ export default function App({ currentUser, onLogout }) {
 
   var NavContent = (
     <div style={{ padding:8 }}>
-      {[["overview","연간 요약","📊"],["tax","세무 요약","📋"],["calendar","촬영 캘린더","📅"]].map(function(item) {
+      {[["overview","연간 요약","📊"],["tax","세무 요약","📋"],["calendar","촬영 캘린더","📅"],["checklist","업무 체크리스트","📝"]].map(function(item) {
         return (
           <button key={item[0]} onClick={function(){ setTab(item[0]); setMobileNavOpen(false); }} style={{ width:"100%", display:"flex", alignItems:"center", gap:8, padding:"7px 10px", borderRadius:9, border:"none", cursor:"pointer", background:tab===item[0]?"#4f46e5":"transparent", color:tab===item[0]?"#fff":t.sub, fontWeight:700, fontSize:13, marginBottom:2, textAlign:"left" }}>
             <span>{item[2]}</span>{item[1]}
@@ -1270,13 +1271,14 @@ export default function App({ currentUser, onLogout }) {
           {tab === "overview" && <Overview data={data} modelMeta={modelMeta} dark={dark} setTab={setTab} />}
           {tab === "tax" && <TaxSummary data={data} modelMeta={modelMeta} onUpdateRegNo={updateRegNo} dark={dark} />}
           {tab === "calendar" && <BookingCalendarTab modelMeta={modelMeta} dark={dark} />}
+          {tab === "checklist" && <TaskChecklistTab dark={dark} />}
           {Object.keys(modelMeta).includes(tab) && <ModelDetail model={tab} meta={modelMeta[tab]} data={data} addEntry={addEntry} removeEntry={removeEntry} onUpdateAF={updateAF} dark={dark} />}
         </main>
       </div>
 
       {isMobile && (
         <div style={{ position:"fixed", bottom:0, left:0, right:0, background:t.card, borderTop:"1px solid "+t.border, display:"flex", zIndex:50, boxShadow:"0 -2px 10px rgba(0,0,0,0.1)" }}>
-          {[["overview","연간요약","📊"],["tax","세무요약","📋"],["calendar","캘린더","📅"]].concat(Object.keys(modelMeta).slice(0,3).map(function(m){ return [m, modelMeta[m].nameKr, modelMeta[m].nameEn[0]]; })).map(function(item) {
+          {[["overview","연간요약","📊"],["tax","세무요약","📋"],["calendar","캘린더","📅"],["checklist","체크리스트","📝"]].concat(Object.keys(modelMeta).slice(0,2).map(function(m){ return [m, modelMeta[m].nameKr, modelMeta[m].nameEn[0]]; })).map(function(item) {
             return (
               <button key={item[0]} onClick={function(){ setTab(item[0]); }} style={{ flex:1, padding:"8px 4px 10px", border:"none", background:"transparent", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
                 <span style={{ fontSize:tab===item[0]?20:16 }}>{item[2]}</span>
