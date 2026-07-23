@@ -75,16 +75,111 @@ function groupByCategory(list) {
 }
 
 
+// ── 업무 추가 모달: 카테고리 + 업무 형태(주기)를 선택 ──────────────────────
+function AddTaskModal({ categories, defaultFrequency, onAdd, onClose, t, dark }) {
+  var [category, setCategory] = useState(categories[0] || "기타");
+  var [customCategory, setCustomCategory] = useState("");
+  var [useCustom, setUseCustom] = useState(false);
+  var [frequency, setFrequency] = useState(defaultFrequency || "daily");
+  var [title, setTitle] = useState("");
+
+  var submit = function () {
+    var finalCategory = useCustom ? customCategory.trim() : category;
+    if (!finalCategory) { alert("카테고리를 입력해주세요."); return; }
+    if (!title.trim()) { alert("업무명을 입력해주세요."); return; }
+    onAdd({ category: finalCategory, title: title.trim(), frequency: frequency, desc: "" });
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }} onClick={onClose}>
+      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 16, padding: 22, width: "100%", maxWidth: 400 }} onClick={function (e) { e.stopPropagation(); }}>
+        <h3 style={{ color: t.text, fontWeight: 900, marginBottom: 16, fontSize: 16 }}>업무 추가</h3>
+
+        <div style={{ fontSize: 11, fontWeight: 700, color: t.sub, marginBottom: 4 }}>업무 형태 (반복 주기)</div>
+        <select value={frequency} onChange={function (e) { setFrequency(e.target.value); }} style={{ width: "100%", padding: "9px 10px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 13, marginBottom: 14 }}>
+          <option value="daily">매일 반복 (일별 업무)</option>
+          <option value="weekly">매주 반복 (주차별 업무)</option>
+          <option value="monthly">매월 반복 (월별 업무)</option>
+        </select>
+
+        <div style={{ fontSize: 11, fontWeight: 700, color: t.sub, marginBottom: 4 }}>카테고리</div>
+        {!useCustom ? (
+          <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+            <select value={category} onChange={function (e) { setCategory(e.target.value); }} style={{ flex: 1, padding: "9px 10px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 13 }}>
+              {categories.map(function (c) { return <option key={c} value={c}>{c}</option>; })}
+            </select>
+            <button onClick={function () { setUseCustom(true); }} style={{ padding: "0 12px", borderRadius: 8, border: "1px solid " + t.border, background: "transparent", color: t.text, fontSize: 12, cursor: "pointer" }}>+ 새 카테고리</button>
+          </div>
+        ) : (
+          <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+            <input value={customCategory} onChange={function (e) { setCustomCategory(e.target.value); }} placeholder="새 카테고리명" style={{ flex: 1, padding: "9px 10px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 13 }} />
+            <button onClick={function () { setUseCustom(false); }} style={{ padding: "0 12px", borderRadius: 8, border: "1px solid " + t.border, background: "transparent", color: t.sub, fontSize: 12, cursor: "pointer" }}>취소</button>
+          </div>
+        )}
+
+        <div style={{ fontSize: 11, fontWeight: 700, color: t.sub, marginBottom: 4 }}>업무명</div>
+        <input value={title} onChange={function (e) { setTitle(e.target.value); }} onKeyDown={function (e) { if (e.key === "Enter") submit(); }} placeholder="예: 단톡방 모니터링" style={{ width: "100%", padding: "9px 10px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 13, marginBottom: 18, boxSizing: "border-box" }} />
+
+        <div style={{ display: "flex", gap: 10 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: "10px 0", borderRadius: 9, border: "1px solid " + t.border, background: "transparent", color: t.sub, fontWeight: 700, cursor: "pointer" }}>취소</button>
+          <button onClick={submit} style={{ flex: 1, padding: "10px 0", borderRadius: 9, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, cursor: "pointer" }}>추가</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 카테고리(업무 형태 분류) 관리 ─────────────────────────────────────────
+function CategoryManager({ categories, onChange, dark, t }) {
+  var [open, setOpen] = useState(false);
+  var updateName = function (idx, value) {
+    var next = categories.slice();
+    var oldName = next[idx];
+    next[idx] = value;
+    onChange(next, oldName, value);
+  };
+  var addCategory = function () {
+    onChange(categories.concat(["새 카테고리"]), null, null);
+  };
+  var removeCategory = function (idx) {
+    if (!window.confirm("이 카테고리를 목록에서 삭제할까요? 이미 등록된 업무의 카테고리 값은 그대로 남습니다.")) return;
+    var next = categories.slice();
+    next.splice(idx, 1);
+    onChange(next, null, null);
+  };
+
+  return (
+    <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 12, overflow: "hidden", marginBottom: 20 }}>
+      <button onClick={function () { setOpen(!open); }} style={{ width: "100%", padding: "10px 12px", background: t.thead, border: "none", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
+        <span style={{ fontSize: 12, fontWeight: 800, color: t.text }}>카테고리 관리 (추가/이름 수정/삭제)</span>
+        <span style={{ fontSize: 11, color: t.sub }}>{open ? "접기 ▲" : "펼치기 ▼"}</span>
+      </button>
+      {open && (
+        <div style={{ padding: 12 }}>
+          <button onClick={addCategory} style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer", marginBottom: 10 }}>+ 카테고리 추가</button>
+          {categories.map(function (c, idx) {
+            return (
+              <div key={idx} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                <input value={c} onChange={function (e) { updateName(idx, e.target.value); }} style={{ flex: 1, padding: "7px 9px", borderRadius: 7, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 12 }} />
+                <button onClick={function () { removeCategory(idx); }} style={{ width: 28, height: 28, borderRadius: 7, border: "none", background: "#ef444440", color: "#ef4444", cursor: "pointer" }}>✕</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── 전체 업무 정리 (상단 마스터 목록) ──────────────────────────────────────
-function OverviewSection({ templates, onUpdateTask, onRemoveTask, onAddTask, t, dark }) {
+function OverviewSection({ templates, onUpdateTask, onRemoveTask, onOpenAdd, t, dark }) {
   var groups = groupByCategory(templates);
-  var addTask = function () { onAddTask(); };
 
   return (
     <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 16, marginBottom: 20 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
         <div style={{ fontSize: 18, fontWeight: 900, color: t.text }}>전체 업무 정리 ({templates.length}개)</div>
-        <button onClick={addTask} style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>+ 업무 추가</button>
+        <button onClick={function () { onOpenAdd(null); }} style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>+ 업무 추가</button>
       </div>
       {groups.length === 0 && <div style={{ color: t.sub, fontSize: 12, padding: "12px 0", textAlign: "center" }}>등록된 업무가 없습니다.</div>}
       {groups.map(function (g) {
@@ -201,11 +296,17 @@ function normalizeLoaded(saved) {
   var templates = DEFAULT_TEMPLATES;
   var completions = {};
   var adhocEntries = [];
+  var categories = CATEGORIES_DEFAULT_ORDER.slice();
 
   if (saved && saved.checklistTemplates && saved.checklistTemplates.length) {
     templates = saved.checklistTemplates.filter(function (tp) { return tp.frequency !== "adhoc"; });
   }
   if (saved && saved.checklistCompletions) completions = saved.checklistCompletions;
+
+  if (saved && Array.isArray(saved.checklistCategories) && saved.checklistCategories.length) {
+    categories = saved.checklistCategories.slice();
+  }
+  templates.forEach(function (tp) { if (categories.indexOf(tp.category) === -1) categories.push(tp.category); });
 
   if (saved && Array.isArray(saved.checklistAdhocEntries)) {
     adhocEntries = saved.checklistAdhocEntries;
@@ -218,7 +319,7 @@ function normalizeLoaded(saved) {
   }
   adhocEntries.sort(function (a, b) { return b.date.localeCompare(a.date); });
 
-  return { templates: templates, completions: completions, adhocEntries: adhocEntries };
+  return { templates: templates, completions: completions, adhocEntries: adhocEntries, categories: categories };
 }
 
 export default function TaskChecklistTab({ dark }) {
@@ -232,6 +333,8 @@ export default function TaskChecklistTab({ dark }) {
   var [templates, setTemplates] = useState(DEFAULT_TEMPLATES);
   var [completions, setCompletions] = useState({});
   var [adhocEntries, setAdhocEntries] = useState([]);
+  var [categories, setCategories] = useState(CATEGORIES_DEFAULT_ORDER.slice());
+  var [addModalFreq, setAddModalFreq] = useState(null);
   var [year, setYear] = useState(TODAY.getFullYear());
   var [month, setMonth] = useState(TODAY.getMonth() + 1);
   var [dailyWeekStart, setDailyWeekStart] = useState(weekStartOf(TODAY));
@@ -243,16 +346,18 @@ export default function TaskChecklistTab({ dark }) {
       setTemplates(norm.templates);
       setCompletions(norm.completions);
       setAdhocEntries(norm.adhocEntries);
+      setCategories(norm.categories);
       setLoading(false);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     });
   }, []);
 
-  var persist = useCallback(async function (nextTemplates, nextCompletions, nextAdhocEntries) {
+  var persist = useCallback(async function (nextTemplates, nextCompletions, nextAdhocEntries, nextCategories) {
     setSaveStatus("saving");
     var current = (await loadWork()) || {};
     var merged = Object.assign({}, current, {
       checklistTemplates: nextTemplates, checklistCompletions: nextCompletions, checklistAdhocEntries: nextAdhocEntries,
+      checklistCategories: nextCategories,
     });
     delete merged.checklistAdhocLogs;
     var ok = await saveWork(merged);
@@ -265,7 +370,7 @@ export default function TaskChecklistTab({ dark }) {
     setCompletions(function (prev) {
       var next = Object.assign({}, prev);
       if (next[key]) { delete next[key]; } else { next[key] = true; }
-      persist(templates, next, adhocEntries);
+      persist(templates, next, adhocEntries, categories);
       return next;
     });
   };
@@ -273,7 +378,7 @@ export default function TaskChecklistTab({ dark }) {
   var updateTask = function (id, key, value) {
     setTemplates(function (prev) {
       var next = prev.map(function (tp) { return tp.id === id ? Object.assign({}, tp, { [key]: value }) : tp; });
-      persist(next, completions, adhocEntries);
+      persist(next, completions, adhocEntries, categories);
       return next;
     });
   };
@@ -281,29 +386,50 @@ export default function TaskChecklistTab({ dark }) {
   var removeTask = function (id) {
     setTemplates(function (prev) {
       var next = prev.filter(function (tp) { return tp.id !== id; });
-      persist(next, completions, adhocEntries);
+      persist(next, completions, adhocEntries, categories);
       return next;
     });
   };
-  var addTask = function (frequency) {
+  var openAddModal = function (frequency) { setAddModalFreq(frequency || "daily"); };
+  var confirmAddTask = function (newTask) {
     setTemplates(function (prev) {
-      var next = prev.concat([{ id: uid(), category: "기타", title: "", desc: "", frequency: frequency || "daily" }]);
-      persist(next, completions, adhocEntries);
+      var next = prev.concat([{ id: uid(), category: newTask.category, title: newTask.title, desc: newTask.desc || "", frequency: newTask.frequency }]);
+      persist(next, completions, adhocEntries, categories);
       return next;
     });
+    if (categories.indexOf(newTask.category) === -1) {
+      setCategories(function (prev) {
+        var next = prev.concat([newTask.category]);
+        persist(templates.concat([]), completions, adhocEntries, next);
+        return next;
+      });
+    }
+    setAddModalFreq(null);
+  };
+  var changeCategories = function (nextCategories, oldName, newName) {
+    setCategories(nextCategories);
+    if (oldName && newName && oldName !== newName) {
+      setTemplates(function (prev) {
+        var next = prev.map(function (tp) { return tp.category === oldName ? Object.assign({}, tp, { category: newName }) : tp; });
+        persist(next, completions, adhocEntries, nextCategories);
+        return next;
+      });
+    } else {
+      persist(templates, completions, adhocEntries, nextCategories);
+    }
   };
 
   var addAdhoc = function (title) {
     setAdhocEntries(function (prev) {
       var next = [{ id: uid(), title: title, date: dateStr(new Date()) }].concat(prev);
-      persist(templates, completions, next);
+      persist(templates, completions, next, categories);
       return next;
     });
   };
   var removeAdhoc = function (id) {
     setAdhocEntries(function (prev) {
       var next = prev.filter(function (e) { return e.id !== id; });
-      persist(templates, completions, next);
+      persist(templates, completions, next, categories);
       return next;
     });
   };
@@ -323,7 +449,7 @@ export default function TaskChecklistTab({ dark }) {
     return {
       periodKey: periodKey, topLabel: null, mainLabel: label, isCurrent: periodKey === todayMonthKey,
       groups: monthlyGroups, completions: completions, onToggle: toggleCompletion,
-      onUpdateTitle: updateTaskTitle, onRemoveTask: removeTask, onAddTask: function () { addTask("monthly"); },
+      onUpdateTitle: updateTaskTitle, onRemoveTask: removeTask, onAddTask: function () { openAddModal("monthly"); },
     };
   });
 
@@ -336,7 +462,7 @@ export default function TaskChecklistTab({ dark }) {
       periodKey: periodKey, topLabel: (i + 1) + "주차" + (periodKey === todayWeekKey ? " · 이번 주" : ""),
       mainLabel: (mon.getMonth() + 1) + "." + mon.getDate() + " ~ " + (end.getMonth() + 1) + "." + end.getDate(),
       isCurrent: periodKey === todayWeekKey, groups: weeklyGroups, completions: completions, onToggle: toggleCompletion,
-      onUpdateTitle: updateTaskTitle, onRemoveTask: removeTask, onAddTask: function () { addTask("weekly"); },
+      onUpdateTitle: updateTaskTitle, onRemoveTask: removeTask, onAddTask: function () { openAddModal("weekly"); },
       cardStyle: { minWidth: 210, flexShrink: 0 },
     };
   });
@@ -349,7 +475,7 @@ export default function TaskChecklistTab({ dark }) {
     dailyCards.push({
       periodKey: periodKey, topLabel: WEEKDAYS_KR[dObj.getDay()] + (periodKey === todayDayKey ? " · 오늘" : ""),
       mainLabel: (dObj.getMonth() + 1) + "." + dObj.getDate(), isCurrent: periodKey === todayDayKey, groups: dailyGroups, completions: completions, onToggle: toggleCompletion,
-      onUpdateTitle: updateTaskTitle, onRemoveTask: removeTask, onAddTask: function () { addTask("daily"); },
+      onUpdateTitle: updateTaskTitle, onRemoveTask: removeTask, onAddTask: function () { openAddModal("daily"); },
     });
   }
   var dailyWeekEnd = addDays(dailyWeekStart, 6);
@@ -357,6 +483,8 @@ export default function TaskChecklistTab({ dark }) {
 
   return (
     <div>
+      {addModalFreq && <AddTaskModal categories={categories} defaultFrequency={addModalFreq} onAdd={confirmAddTask} onClose={function () { setAddModalFreq(null); }} t={t} dark={dark} />}
+
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
         <div style={{ fontSize: 24, fontWeight: 900, color: t.text, letterSpacing: -0.5 }}>업무 체크리스트</div>
         <div style={{ fontSize: 11, color: t.sub }}>{saveStatus === "saving" ? "저장 중..." : saveStatus === "saved" ? "저장됨" : saveStatus === "error" ? "저장 실패" : ""}</div>
@@ -376,7 +504,9 @@ export default function TaskChecklistTab({ dark }) {
         <button onClick={function () { setYear(TODAY.getFullYear()); setMonth(TODAY.getMonth() + 1); }} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid " + t.border, background: "transparent", color: t.sub, fontSize: 12, cursor: "pointer" }}>오늘</button>
       </div>
 
-      <OverviewSection templates={templates} onUpdateTask={updateTask} onRemoveTask={removeTask} onAddTask={function () { addTask("daily"); }} t={t} dark={dark} />
+      <CategoryManager categories={categories} onChange={changeCategories} dark={dark} t={t} />
+
+      <OverviewSection templates={templates} onUpdateTask={updateTask} onRemoveTask={removeTask} onOpenAdd={openAddModal} t={t} dark={dark} />
 
       <PeriodSection title={year + "년 월별 업무"} subtitle="1~6월, 7~12월 두 줄로 표시" cards={monthlyCards} t={t} dark={dark}
         gridStyle={{ display: "grid", gridTemplateColumns: "repeat(6,minmax(0,1fr))", gap: 10 }} />
