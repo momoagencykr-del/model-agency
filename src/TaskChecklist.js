@@ -172,37 +172,46 @@ function CategoryManager({ categories, onChange, dark, t }) {
 }
 
 // ── 전체 업무 정리 (상단 마스터 목록) ──────────────────────────────────────
-function OverviewSection({ templates, onUpdateTask, onRemoveTask, onOpenAdd, t, dark }) {
-  var groups = groupByCategory(templates);
+var FREQ_SECTIONS = [["monthly", "월별"], ["weekly", "주차별"], ["daily", "일별"]];
 
+function OverviewSection({ templates, onRemoveTask, onOpenAdd, t, dark }) {
   return (
     <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 16, marginBottom: 20 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
         <div style={{ fontSize: 18, fontWeight: 900, color: t.text }}>전체 업무 정리 ({templates.length}개)</div>
         <button onClick={function () { onOpenAdd(null); }} style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>+ 업무 추가</button>
       </div>
-      {groups.length === 0 && <div style={{ color: t.sub, fontSize: 12, padding: "12px 0", textAlign: "center" }}>등록된 업무가 없습니다.</div>}
-      {groups.map(function (g) {
-        return (
-          <div key={g.category} style={{ marginBottom: 10 }}>
-            <div style={{ fontSize: 11, fontWeight: 800, color: "#4f46e5", marginBottom: 4 }}>{g.category}</div>
-            {g.tasks.map(function (tp) {
-              return (
-                <div key={tp.id} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 90px 32px", gap: 6, marginBottom: 5, alignItems: "center" }}>
-                  <input value={tp.category} onChange={function (e) { onUpdateTask(tp.id, "category", e.target.value); }} style={{ padding: "6px 8px", borderRadius: 7, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 12 }} />
-                  <input value={tp.title} onChange={function (e) { onUpdateTask(tp.id, "title", e.target.value); }} placeholder="업무명" style={{ padding: "6px 8px", borderRadius: 7, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 12 }} />
-                  <select value={tp.frequency} onChange={function (e) { onUpdateTask(tp.id, "frequency", e.target.value); }} style={{ padding: "6px 4px", borderRadius: 7, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 11 }}>
-                    <option value="daily">매일</option>
-                    <option value="weekly">매주</option>
-                    <option value="monthly">매월</option>
-                  </select>
-                  <button onClick={function () { onRemoveTask(tp.id); }} style={{ width: 28, height: 28, borderRadius: 7, border: "none", background: "#ef444440", color: "#ef4444", cursor: "pointer" }}>✕</button>
-                </div>
-              );
-            })}
-          </div>
-        );
-      })}
+      {templates.length === 0 && <div style={{ color: t.sub, fontSize: 12, padding: "12px 0", textAlign: "center" }}>등록된 업무가 없습니다.</div>}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14 }}>
+        {FREQ_SECTIONS.map(function (fs) {
+          var freq = fs[0], label = fs[1];
+          var list = templates.filter(function (tp) { return tp.frequency === freq; });
+          var groups = groupByCategory(list);
+          return (
+            <div key={freq}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: t.text, marginBottom: 8 }}>{label} <span style={{ color: t.sub, fontWeight: 600 }}>({list.length}개)</span></div>
+              {list.length === 0 && <div style={{ fontSize: 11, color: t.sub }}>등록된 업무 없음</div>}
+              {groups.map(function (g) {
+                return (
+                  <div key={g.category} style={{ marginBottom: 8 }}>
+                    <div style={{ fontSize: 10, fontWeight: 800, color: "#7c7fdb", marginBottom: 4 }}>{g.category}</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                      {g.tasks.map(function (tp) {
+                        return (
+                          <span key={tp.id} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: t.text, background: t.card2, border: "1px solid " + t.border, borderRadius: 20, padding: "3px 5px 3px 10px" }}>
+                            {tp.title || "(제목 없음)"}
+                            <button onClick={function () { onRemoveTask(tp.id); }} style={{ width: 16, height: 16, borderRadius: "50%", border: "none", background: "transparent", color: "#ef4444", cursor: "pointer", fontSize: 10, lineHeight: 1, padding: 0 }}>✕</button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
