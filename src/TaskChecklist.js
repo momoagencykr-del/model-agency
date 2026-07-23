@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 
 var CATEGORIES_DEFAULT_ORDER = ["외국인 정산 정리", "컨택", "자료 업데이트", "비자 준비"];
 var MONTHS_LABEL = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+var WEEKDAYS_KR = ["일","월","화","수","목","금","토"];
 var TODAY = new Date();
 var YEARS_LIST = [TODAY.getFullYear() - 1, TODAY.getFullYear(), TODAY.getFullYear() + 1];
 
@@ -79,9 +80,38 @@ function groupByCategory(list) {
   return order.map(function (cat) { return { category: cat, tasks: groups[cat] }; });
 }
 
-function GridSection({ title, subtitle, periods, groups, completions, onToggle, t, dark, colWidth, highlightKey }) {
+function PeriodCard({ topLabel, mainLabel, isCurrent, groups, periodKey, completions, onToggle, t, dark, width }) {
+  return (
+    <div style={{ minWidth: width, maxWidth: width, background: isCurrent ? (dark ? "#1e2a4a" : "#eef2ff") : t.card2, border: isCurrent ? "2px solid #4f46e5" : "1px solid " + t.border, borderRadius: 12, padding: "12px 14px", flexShrink: 0 }}>
+      {topLabel ? <div style={{ fontSize: 11, fontWeight: 700, color: isCurrent ? "#4f46e5" : t.sub, marginBottom: 2 }}>{topLabel}</div> : null}
+      <div style={{ fontSize: 19, fontWeight: 900, color: isCurrent ? "#4f46e5" : t.text, marginBottom: 10 }}>{mainLabel}</div>
+      {groups.length === 0 && <div style={{ fontSize: 11, color: t.sub }}>업무 없음</div>}
+      {groups.map(function (g) {
+        return (
+          <div key={g.category} style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 10, fontWeight: 800, color: "#7c7fdb", marginBottom: 4 }}>{g.category}</div>
+            {g.tasks.map(function (tp) {
+              var key = tp.id + "|" + periodKey;
+              var checked = !!completions[key];
+              return (
+                <label key={tp.id} title={tp.desc} style={{ display: "flex", alignItems: "flex-start", gap: 7, fontSize: 12, marginBottom: 6, cursor: "pointer", color: checked ? t.sub : t.text }}>
+                  <input type="checkbox" checked={checked} onChange={function () { onToggle(tp.id, periodKey); }} style={{ marginTop: 2, width: 15, height: 15, flexShrink: 0, accentColor: "#4f46e5" }} />
+                  <span style={{ textDecoration: checked ? "line-through" : "none", lineHeight: 1.35 }}>{tp.title}</span>
+                </label>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function PeriodCardsSection({ title, subtitle, cards, t, dark }) {
   var totalCount = 0, doneCount = 0;
-  groups.forEach(function (g) { g.tasks.forEach(function (tp) { periods.forEach(function (p) { totalCount++; if (completions[tp.id + "|" + p.key]) doneCount++; }); }); });
+  cards.forEach(function (c) {
+    c.groups.forEach(function (g) { g.tasks.forEach(function (tp) { totalCount++; if (c.completions[tp.id + "|" + c.periodKey]) doneCount++; }); });
+  });
 
   return (
     <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 16, marginBottom: 20 }}>
@@ -89,52 +119,14 @@ function GridSection({ title, subtitle, periods, groups, completions, onToggle, 
         <div style={{ fontSize: 18, fontWeight: 900, color: t.text }}>{title}</div>
         <div style={{ fontSize: 13, fontWeight: 800, color: doneCount === totalCount && totalCount > 0 ? "#10b981" : "#4f46e5" }}>{doneCount}/{totalCount} 완료</div>
       </div>
-      {subtitle ? <div style={{ fontSize: 11, color: t.sub, marginBottom: 10 }}>{subtitle}</div> : null}
-      {groups.length === 0 ? (
-        <div style={{ color: t.sub, fontSize: 12, padding: "16px 0", textAlign: "center" }}>등록된 업무가 없습니다.</div>
-      ) : (
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 220 + periods.length * colWidth }}>
-            <thead>
-              <tr>
-                <th style={{ position: "sticky", left: 0, zIndex: 2, background: t.card, textAlign: "left", padding: "6px 10px", fontSize: 12, color: t.sub, minWidth: 220, borderBottom: "1px solid " + t.border }}>업무</th>
-                {periods.map(function (p) {
-                  var isHighlight = highlightKey && p.key === highlightKey;
-                  return <th key={p.key} style={{ padding: "6px 4px", fontSize: 11, fontWeight: isHighlight ? 900 : 700, color: isHighlight ? "#4f46e5" : t.sub, textAlign: "center", minWidth: colWidth, borderBottom: "1px solid " + t.border }}>{p.label}</th>;
-                })}
-              </tr>
-            </thead>
-            <tbody>
-              {groups.map(function (g) {
-                return (
-                  <>
-                    <tr key={g.category + "_hdr"}>
-                      <td colSpan={periods.length + 1} style={{ padding: "6px 10px", fontSize: 11, fontWeight: 800, color: "#4f46e5", background: t.thead, position: "sticky", left: 0 }}>{g.category}</td>
-                    </tr>
-                    {g.tasks.map(function (tp) {
-                      return (
-                        <tr key={tp.id}>
-                          <td title={tp.desc} style={{ position: "sticky", left: 0, background: t.card2, padding: "6px 10px", fontSize: 12, color: t.text, fontWeight: 700, borderBottom: "1px solid " + t.border, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 220 }}>{tp.title}</td>
-                          {periods.map(function (p) {
-                            var key = tp.id + "|" + p.key;
-                            var checked = !!completions[key];
-                            var isHighlight = highlightKey && p.key === highlightKey;
-                            return (
-                              <td key={p.key} style={{ textAlign: "center", padding: 3, borderBottom: "1px solid " + t.border, background: isHighlight ? (dark ? "#1e2a4a" : "#eef2ff") : "transparent" }}>
-                                <button onClick={function () { onToggle(tp.id, p.key); }} style={{ width: 26, height: 26, borderRadius: 6, border: checked ? "none" : "1px solid " + t.ib, background: checked ? "#10b981" : "transparent", color: "#fff", cursor: "pointer", fontWeight: 900, fontSize: 12 }}>{checked ? "✓" : ""}</button>
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      );
-                    })}
-                  </>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {subtitle ? <div style={{ fontSize: 11, color: t.sub, marginBottom: 12 }}>{subtitle}</div> : null}
+      <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 6 }}>
+        {cards.map(function (c) {
+          return (
+            <PeriodCard key={c.periodKey} topLabel={c.topLabel} mainLabel={c.mainLabel} isCurrent={c.isCurrent} groups={c.groups} periodKey={c.periodKey} completions={c.completions} onToggle={c.onToggle} t={t} dark={dark} width={c.width} />
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -291,16 +283,39 @@ export default function TaskChecklistTab({ dark }) {
   var dailyGroups = groupByCategory(templates.filter(function (tp) { return tp.frequency === "daily"; }));
   var adhocGroups = groupByCategory(templates.filter(function (tp) { return tp.frequency === "adhoc"; }));
 
-  var monthlyPeriods = MONTHS_LABEL.map(function (label, i) { return { key: year + "-" + pad2(i + 1), label: label }; });
-  var weeks = weeksInMonth(year, month);
-  var weeklyPeriods = weeks.map(function (mon, i) { return { key: dateStr(mon), label: (mon.getMonth() + 1) + "." + mon.getDate() + "~" }; });
-  var daysInMonth = new Date(year, month, 0).getDate();
-  var dailyPeriods = [];
-  for (var d = 1; d <= daysInMonth; d++) dailyPeriods.push({ key: year + "-" + pad2(month) + "-" + pad2(d), label: "" + d });
+  var todayMonthKey = TODAY.getFullYear() + "-" + pad2(TODAY.getMonth() + 1);
+  var monthlyCards = MONTHS_LABEL.map(function (label, i) {
+    var m = i + 1;
+    var periodKey = year + "-" + pad2(m);
+    return {
+      periodKey: periodKey, topLabel: null, mainLabel: label, isCurrent: periodKey === todayMonthKey,
+      groups: monthlyGroups, completions: completions, onToggle: toggleCompletion, width: 190,
+    };
+  });
 
-  var todayMonthKey = year + "-" + pad2(month);
-  var todayWeekKey = dateStr(weekStartOf(new Date(year, month - 1, Math.min(TODAY.getDate(), daysInMonth))));
-  var todayDayKey = (year === TODAY.getFullYear() && month === TODAY.getMonth() + 1) ? dateStr(TODAY) : null;
+  var weeks = weeksInMonth(year, month);
+  var todayWeekKey = dateStr(weekStartOf(TODAY));
+  var weeklyCards = weeks.map(function (mon, i) {
+    var end = addDays(mon, 6);
+    var periodKey = dateStr(mon);
+    return {
+      periodKey: periodKey, topLabel: (i + 1) + "주차" + (periodKey === todayWeekKey ? " · 이번 주" : ""),
+      mainLabel: (mon.getMonth() + 1) + "." + mon.getDate() + " ~ " + (end.getMonth() + 1) + "." + end.getDate(),
+      isCurrent: periodKey === todayWeekKey, groups: weeklyGroups, completions: completions, onToggle: toggleCompletion, width: 210,
+    };
+  });
+
+  var daysInMonth = new Date(year, month, 0).getDate();
+  var todayDayKey = dateStr(TODAY);
+  var dailyCards = [];
+  for (var d = 1; d <= daysInMonth; d++) {
+    var dObj = new Date(year, month - 1, d);
+    var periodKey = year + "-" + pad2(month) + "-" + pad2(d);
+    dailyCards.push({
+      periodKey: periodKey, topLabel: WEEKDAYS_KR[dObj.getDay()] + (periodKey === todayDayKey ? " · 오늘" : ""),
+      mainLabel: month + "." + d, isCurrent: periodKey === todayDayKey, groups: dailyGroups, completions: completions, onToggle: toggleCompletion, width: 170,
+    });
+  }
 
   return (
     <div>
@@ -323,11 +338,9 @@ export default function TaskChecklistTab({ dark }) {
         <button onClick={function () { setYear(TODAY.getFullYear()); setMonth(TODAY.getMonth() + 1); }} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid " + t.border, background: "transparent", color: t.sub, fontSize: 12, cursor: "pointer" }}>오늘</button>
       </div>
 
-      <GridSection title={year + "년 월별 업무"} subtitle="매월 반복되는 업무 - 가로축은 해당 연도의 1~12월" periods={monthlyPeriods} groups={monthlyGroups} completions={completions} onToggle={toggleCompletion} t={t} dark={dark} colWidth={44} highlightKey={todayMonthKey} />
-
-      <GridSection title={year + "년 " + month + "월 주별 업무"} subtitle="매주 반복되는 업무 - 가로축은 이번 달의 각 주(월요일 기준)" periods={weeklyPeriods} groups={weeklyGroups} completions={completions} onToggle={toggleCompletion} t={t} dark={dark} colWidth={56} highlightKey={todayWeekKey} />
-
-      <GridSection title={year + "년 " + month + "월 일별 업무"} subtitle="매일 반복되는 업무 - 가로축은 이번 달의 날짜" periods={dailyPeriods} groups={dailyGroups} completions={completions} onToggle={toggleCompletion} t={t} dark={dark} colWidth={30} highlightKey={todayDayKey} />
+      <PeriodCardsSection title={year + "년 월별 업무"} subtitle="가로로 넘기면 다른 달 확인 가능" cards={monthlyCards} t={t} dark={dark} />
+      <PeriodCardsSection title={year + "년 " + month + "월 주차별 업무"} subtitle="가로로 넘기면 다른 주 확인 가능" cards={weeklyCards} t={t} dark={dark} />
+      <PeriodCardsSection title={year + "년 " + month + "월 일별 업무"} subtitle="가로로 넘기면 다른 날짜 확인 가능" cards={dailyCards} t={t} dark={dark} />
 
       <AdhocSection groups={adhocGroups} adhocLogs={adhocLogs} onToggle={toggleAdhoc} t={t} dark={dark} />
 
