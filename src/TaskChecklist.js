@@ -234,6 +234,7 @@ export default function TaskChecklistTab({ dark }) {
   var [adhocEntries, setAdhocEntries] = useState([]);
   var [year, setYear] = useState(TODAY.getFullYear());
   var [month, setMonth] = useState(TODAY.getMonth() + 1);
+  var [dailyWeekStart, setDailyWeekStart] = useState(weekStartOf(TODAY));
   var [saveStatus, setSaveStatus] = useState("idle");
 
   useEffect(function () {
@@ -340,18 +341,19 @@ export default function TaskChecklistTab({ dark }) {
     };
   });
 
-  var daysInMonth = new Date(year, month, 0).getDate();
   var todayDayKey = dateStr(TODAY);
   var dailyCards = [];
-  for (var d = 1; d <= daysInMonth; d++) {
-    var dObj = new Date(year, month - 1, d);
-    var periodKey = year + "-" + pad2(month) + "-" + pad2(d);
+  for (var di = 0; di < 7; di++) {
+    var dObj = addDays(dailyWeekStart, di);
+    var periodKey = dateStr(dObj);
     dailyCards.push({
       periodKey: periodKey, topLabel: WEEKDAYS_KR[dObj.getDay()] + (periodKey === todayDayKey ? " · 오늘" : ""),
-      mainLabel: month + "." + d, isCurrent: periodKey === todayDayKey, groups: dailyGroups, completions: completions, onToggle: toggleCompletion,
+      mainLabel: (dObj.getMonth() + 1) + "." + dObj.getDate(), isCurrent: periodKey === todayDayKey, groups: dailyGroups, completions: completions, onToggle: toggleCompletion,
       onUpdateTitle: updateTaskTitle, onRemoveTask: removeTask, onAddTask: function () { addTask("daily"); },
     });
   }
+  var dailyWeekEnd = addDays(dailyWeekStart, 6);
+  var dailyRangeLabel = (dailyWeekStart.getMonth() + 1) + "." + dailyWeekStart.getDate() + " ~ " + (dailyWeekEnd.getMonth() + 1) + "." + dailyWeekEnd.getDate();
 
   return (
     <div>
@@ -382,8 +384,26 @@ export default function TaskChecklistTab({ dark }) {
       <PeriodSection title={year + "년 " + month + "월 주차별 업무"} subtitle="가로로 넘기면 다른 주 확인 가능" cards={weeklyCards} t={t} dark={dark}
         gridStyle={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 6 }} />
 
-      <PeriodSection title={year + "년 " + month + "월 일별 업무"} subtitle="7일씩 한 줄로 표시" cards={dailyCards} t={t} dark={dark}
-        gridStyle={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(0,1fr))", gap: 8 }} />
+      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 16, marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, flexWrap: "wrap", gap: 8 }}>
+          <div style={{ fontSize: 18, fontWeight: 900, color: t.text }}>일별 업무 ({dailyRangeLabel})</div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+          <button onClick={function () { setDailyWeekStart(addDays(dailyWeekStart, -7)); }} style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid " + t.border, background: t.card2, color: t.text, cursor: "pointer" }}>‹</button>
+          <button onClick={function () { setDailyWeekStart(addDays(dailyWeekStart, 7)); }} style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid " + t.border, background: t.card2, color: t.text, cursor: "pointer" }}>›</button>
+          <button onClick={function () { setDailyWeekStart(weekStartOf(TODAY)); }} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid " + t.border, background: "transparent", color: t.sub, fontSize: 12, cursor: "pointer" }}>이번 주</button>
+          <input type="date" onChange={function (e) { if (e.target.value) setDailyWeekStart(weekStartOf(new Date(e.target.value + "T00:00:00"))); }} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 12 }} />
+          <span style={{ fontSize: 11, color: t.sub }}>날짜를 고르면 그 주로 이동합니다</span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(0,1fr))", gap: 8 }}>
+          {dailyCards.map(function (c) {
+            return (
+              <PeriodCard key={c.periodKey} topLabel={c.topLabel} mainLabel={c.mainLabel} isCurrent={c.isCurrent} groups={c.groups} periodKey={c.periodKey}
+                completions={c.completions} onToggle={c.onToggle} onUpdateTitle={c.onUpdateTitle} onRemoveTask={c.onRemoveTask} onAddTask={c.onAddTask} t={t} dark={dark} style={c.cardStyle} />
+            );
+          })}
+        </div>
+      </div>
 
       <AdhocSection entries={adhocEntries} onAdd={addAdhoc} onRemove={removeAdhoc} t={t} dark={dark} />
     </div>
