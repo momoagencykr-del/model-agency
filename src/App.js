@@ -584,6 +584,109 @@ function ScheduleEventModal({ dark, initial, onSave, onDelete, onClose }) {
   );
 }
 
+function parseScheduleText(text) {
+  var lines = text.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean);
+  var fields = {};
+  var order = [];
+  lines.forEach(function (line) {
+    var m = line.match(/^([^:：]{1,20})[:：]\s*(.*)$/);
+    if (m) {
+      var key = m[1].trim();
+      var val = m[2].trim();
+      fields[key] = val;
+      order.push(key);
+    }
+  });
+
+  var titleKey = ["업체명", "브랜드", "회사명", "클라이언트"].filter(function (k) { return fields[k]; })[0];
+  var title = titleKey ? fields[titleKey] : "";
+
+  var dateKey = ["촬영날짜/시간", "촬영일시", "촬영날짜", "일정"].filter(function (k) { return fields[k]; })[0];
+  var dateText = dateKey ? fields[dateKey] : "";
+
+  var guessedDate = "";
+  var dm = (dateText || text).match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
+  if (dm) {
+    var mo = Number(dm[1]), da = Number(dm[2]);
+    var yr = CAL_NOW.getFullYear();
+    guessedDate = yr + "-" + pad2(mo) + "-" + pad2(da);
+  }
+
+  var memoLines = order.map(function (k) { return k + ": " + fields[k]; });
+
+  return { title: title, date: guessedDate, time: dateText, memo: memoLines.join("\n"), fieldsFound: order.length };
+}
+
+function PasteImportModal({ dark, onImport, onClose }) {
+  var t = T(dark);
+  var rawState = useState("");
+  var raw = rawState[0], setRaw = rawState[1];
+  var parsedState = useState(null);
+  var parsed = parsedState[0], setParsed = parsedState[1];
+
+  var inputStyle = { width: "100%", padding: "9px 10px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 13, boxSizing: "border-box" };
+  var labelStyle = { fontSize: 11, fontWeight: 700, color: t.sub, marginBottom: 4, display: "block" };
+
+  var handleAnalyze = function () {
+    if (!raw.trim()) return;
+    setParsed(parseScheduleText(raw));
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }} onClick={onClose}>
+      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 16, padding: 22, width: "100%", maxWidth: 460, maxHeight: "88vh", overflowY: "auto" }} onClick={function (e) { e.stopPropagation(); }}>
+        <div style={{ fontSize: 17, fontWeight: 900, color: t.text, marginBottom: 4 }}>붙여넣기로 일정 등록</div>
+        <div style={{ fontSize: 11, color: t.sub, marginBottom: 12 }}>섭외 요청 텍스트를 그대로 붙여넣으면 자동으로 항목을 인식합니다.</div>
+
+        {!parsed && (
+          <>
+            <textarea value={raw} onChange={function (e) { setRaw(e.target.value); }} rows={10} placeholder={"업체명: ...\n촬영날짜/시간: ...\n사용매체/기간: ...\n섭외료(vat 별도): ...\n예상 지급일: ...\n입금자명: ...\n담당자 이름/연락처: ..."} style={Object.assign({}, inputStyle, { resize: "vertical", fontFamily: "inherit", marginBottom: 14 })} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={onClose} style={{ flex: 1, padding: "10px 0", borderRadius: 9, border: "1px solid " + t.border, background: "transparent", color: t.text, fontWeight: 700, cursor: "pointer" }}>취소</button>
+              <button onClick={handleAnalyze} style={{ flex: 1, padding: "10px 0", borderRadius: 9, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, cursor: "pointer" }}>분석하기</button>
+            </div>
+          </>
+        )}
+
+        {parsed && (
+          <>
+            <div style={{ fontSize: 11, color: parsed.fieldsFound > 0 ? "#10b981" : "#ef4444", fontWeight: 700, marginBottom: 10 }}>
+              {parsed.fieldsFound > 0 ? parsed.fieldsFound + "개 항목을 인식했습니다. 날짜는 직접 확인해주세요." : "항목을 인식하지 못했습니다. 아래 내용을 직접 입력해주세요."}
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <label style={labelStyle}>날짜 (자동 인식 — 꼭 확인하세요)</label>
+              <input type="date" value={parsed.date} onChange={function (e) { setParsed(Object.assign({}, parsed, { date: e.target.value })); }} style={inputStyle} />
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <label style={labelStyle}>제목</label>
+              <input type="text" value={parsed.title} onChange={function (e) { setParsed(Object.assign({}, parsed, { title: e.target.value })); }} style={inputStyle} />
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <label style={labelStyle}>시간/일정 메모</label>
+              <input type="text" value={parsed.time} onChange={function (e) { setParsed(Object.assign({}, parsed, { time: e.target.value })); }} style={inputStyle} />
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelStyle}>상세 메모 (전체 항목)</label>
+              <textarea value={parsed.memo} onChange={function (e) { setParsed(Object.assign({}, parsed, { memo: e.target.value })); }} rows={7} style={Object.assign({}, inputStyle, { resize: "vertical" })} />
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={function () { setParsed(null); }} style={{ padding: "10px 14px", borderRadius: 9, border: "1px solid " + t.border, background: "transparent", color: t.text, fontWeight: 700, cursor: "pointer" }}>다시 붙여넣기</button>
+              <button onClick={onClose} style={{ flex: 1, padding: "10px 0", borderRadius: 9, border: "1px solid " + t.border, background: "transparent", color: t.text, fontWeight: 700, cursor: "pointer" }}>취소</button>
+              <button
+                onClick={function () {
+                  if (!parsed.date || !parsed.title) return;
+                  onImport({ id: "ev_" + Date.now(), date: parsed.date, time: parsed.time, title: parsed.title, memo: parsed.memo });
+                }}
+                style={{ flex: 1, padding: "10px 0", borderRadius: 9, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, cursor: "pointer" }}
+              >캘린더에 등록</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function calcModelLite(m) {
   var agencyPrice = Number(m.agencyPrice) || 0;
   var handPay = Number(m.handPay) || 0;
@@ -649,6 +752,8 @@ function BookingCalendarTab({ modelMeta, dark }) {
   var calEvents = evState[0], setCalEvents = evState[1];
   var editState = useState(null); // { date, ...existing } or null
   var editingEvent = editState[0], setEditingEvent = editState[1];
+  var pasteState = useState(false);
+  var showPasteImport = pasteState[0], setShowPasteImport = pasteState[1];
 
   useEffect(function () {
     fetchBookedProjects().then(setProjects);
@@ -667,6 +772,14 @@ function BookingCalendarTab({ modelMeta, dark }) {
     setCalEvents(next);
     saveCalendarEvents(next);
     setEditingEvent(null);
+  };
+  var handleImportEvent = function (ev) {
+    var next = calEvents.concat([ev]);
+    setCalEvents(next);
+    saveCalendarEvents(next);
+    setShowPasteImport(false);
+    setYear(Number(ev.date.slice(0, 4)));
+    setMonth(Number(ev.date.slice(5, 7)));
   };
 
   var affiliatedNames = {};
@@ -709,9 +822,11 @@ function BookingCalendarTab({ modelMeta, dark }) {
     <div>
       {selected && <BookingDetailModal project={selected} dark={dark} onClose={function () { setSelected(null); }} />}
       {editingEvent && <ScheduleEventModal dark={dark} initial={editingEvent} onSave={handleSaveEvent} onDelete={handleDeleteEvent} onClose={function () { setEditingEvent(null); }} />}
+      {showPasteImport && <PasteImportModal dark={dark} onImport={handleImportEvent} onClose={function () { setShowPasteImport(false); }} />}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
         <div style={{ fontSize: 26, fontWeight: 900, color: t.text, letterSpacing: -0.5 }}>{year}년 {month}월</div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button onClick={function () { setShowPasteImport(true); }} style={{ padding: "0 12px", height: 32, borderRadius: 8, border: "none", background: "#4f46e5", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>📋 붙여넣기 등록</button>
           <button onClick={goPrev} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid " + t.border, background: t.card, color: t.text, cursor: "pointer", fontSize: 14 }}>‹</button>
           <button onClick={goNext} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid " + t.border, background: t.card, color: t.text, cursor: "pointer", fontSize: 14 }}>›</button>
         </div>
