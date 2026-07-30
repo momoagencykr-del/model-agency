@@ -514,6 +514,76 @@ async function fetchBookedProjects() {
   } catch (e) { return []; }
 }
 
+async function fetchCalendarEvents() {
+  try {
+    var r = await fetch("/api/calendar-sheets");
+    var j = await r.json();
+    var events = j && j.data && j.data.events;
+    return Array.isArray(events) ? events : [];
+  } catch (e) { return []; }
+}
+
+async function saveCalendarEvents(events) {
+  try {
+    await fetch("/api/calendar-sheets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data: { events: events } }),
+    });
+    return true;
+  } catch (e) { return false; }
+}
+
+function ScheduleEventModal({ dark, initial, onSave, onDelete, onClose }) {
+  var t = T(dark);
+  var dateState = useState(initial.date || "");
+  var date = dateState[0], setDate = dateState[1];
+  var timeState = useState(initial.time || "");
+  var time = timeState[0], setTime = timeState[1];
+  var titleState = useState(initial.title || "");
+  var title = titleState[0], setTitle = titleState[1];
+  var memoState = useState(initial.memo || "");
+  var memo = memoState[0], setMemo = memoState[1];
+
+  var inputStyle = { width: "100%", padding: "9px 10px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 13, boxSizing: "border-box" };
+  var labelStyle = { fontSize: 11, fontWeight: 700, color: t.sub, marginBottom: 4, display: "block" };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }} onClick={onClose}>
+      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 16, padding: 22, width: "100%", maxWidth: 420, maxHeight: "85vh", overflowY: "auto" }} onClick={function (e) { e.stopPropagation(); }}>
+        <div style={{ fontSize: 17, fontWeight: 900, color: t.text, marginBottom: 14 }}>{initial.id ? "일정 수정" : "일정 추가"}</div>
+        <div style={{ marginBottom: 10 }}>
+          <label style={labelStyle}>날짜</label>
+          <input type="date" value={date} onChange={function (e) { setDate(e.target.value); }} style={inputStyle} />
+        </div>
+        <div style={{ marginBottom: 10 }}>
+          <label style={labelStyle}>시간 (선택)</label>
+          <input type="text" placeholder="예: 14:00~17:00" value={time} onChange={function (e) { setTime(e.target.value); }} style={inputStyle} />
+        </div>
+        <div style={{ marginBottom: 10 }}>
+          <label style={labelStyle}>제목</label>
+          <input type="text" placeholder="예: 하이퍼로그 촬영" value={title} onChange={function (e) { setTitle(e.target.value); }} style={inputStyle} />
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <label style={labelStyle}>메모 (선택)</label>
+          <textarea value={memo} onChange={function (e) { setMemo(e.target.value); }} rows={3} style={Object.assign({}, inputStyle, { resize: "vertical" })} />
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          {initial.id && <button onClick={function () { onDelete(initial.id); }} style={{ padding: "10px 14px", borderRadius: 9, border: "1px solid #ef4444", background: "transparent", color: "#ef4444", fontWeight: 700, cursor: "pointer" }}>삭제</button>}
+          <button onClick={onClose} style={{ flex: 1, padding: "10px 0", borderRadius: 9, border: "1px solid " + t.border, background: "transparent", color: t.text, fontWeight: 700, cursor: "pointer" }}>취소</button>
+          <button
+            onClick={function () {
+              if (!date || !title) return;
+              onSave({ id: initial.id || ("ev_" + Date.now()), date: date, time: time, title: title, memo: memo });
+            }}
+            style={{ flex: 1, padding: "10px 0", borderRadius: 9, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, cursor: "pointer" }}
+          >저장</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function calcModelLite(m) {
   var agencyPrice = Number(m.agencyPrice) || 0;
   var handPay = Number(m.handPay) || 0;
@@ -575,11 +645,29 @@ function BookingCalendarTab({ modelMeta, dark }) {
   var projects = projState[0], setProjects = projState[1];
   var selState = useState(null);
   var selected = selState[0], setSelected = selState[1];
+  var evState = useState([]);
+  var calEvents = evState[0], setCalEvents = evState[1];
+  var editState = useState(null); // { date, ...existing } or null
+  var editingEvent = editState[0], setEditingEvent = editState[1];
 
   useEffect(function () {
     fetchBookedProjects().then(setProjects);
+    fetchCalendarEvents().then(setCalEvents);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  var handleSaveEvent = function (ev) {
+    var next = calEvents.filter(function (e) { return e.id !== ev.id; }).concat([ev]);
+    setCalEvents(next);
+    saveCalendarEvents(next);
+    setEditingEvent(null);
+  };
+  var handleDeleteEvent = function (id) {
+    var next = calEvents.filter(function (e) { return e.id !== id; });
+    setCalEvents(next);
+    saveCalendarEvents(next);
+    setEditingEvent(null);
+  };
 
   var affiliatedNames = {};
   Object.keys(modelMeta || {}).forEach(function (k) { affiliatedNames[modelMeta[k].nameKr] = true; });
@@ -607,12 +695,20 @@ function BookingCalendarTab({ modelMeta, dark }) {
   });
   var monthModelCount = Object.keys(monthModelSet).length;
 
+  var byDateEvents = {};
+  calEvents.forEach(function (ev) {
+    if (!ev.date || ev.date.slice(0, 7) !== mKeyStr) return;
+    if (!byDateEvents[ev.date]) byDateEvents[ev.date] = [];
+    byDateEvents[ev.date].push(ev);
+  });
+
   var goPrev = function () { if (month === 1) { setYear(year - 1); setMonth(12); } else { setMonth(month - 1); } };
   var goNext = function () { if (month === 12) { setYear(year + 1); setMonth(1); } else { setMonth(month + 1); } };
 
   return (
     <div>
       {selected && <BookingDetailModal project={selected} dark={dark} onClose={function () { setSelected(null); }} />}
+      {editingEvent && <ScheduleEventModal dark={dark} initial={editingEvent} onSave={handleSaveEvent} onDelete={handleDeleteEvent} onClose={function () { setEditingEvent(null); }} />}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
         <div style={{ fontSize: 26, fontWeight: 900, color: t.text, letterSpacing: -0.5 }}>{year}년 {month}월</div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -623,7 +719,7 @@ function BookingCalendarTab({ modelMeta, dark }) {
       <div style={{ marginBottom: 10 }}>
         <CalMonthStrip year={year} month={month} setYear={setYear} setMonth={setMonth} t={t} dark={dark} />
       </div>
-      <div style={{ fontSize: 12, color: t.sub, marginBottom: 12 }}>소속모델이 포함된 촬영 건만 표시됩니다. (촬영 정산내역 데이터를 읽기 전용으로 보여줍니다)</div>
+      <div style={{ fontSize: 12, color: t.sub, marginBottom: 12 }}>파란 카드는 소속모델이 포함된 촬영 건(읽기 전용), 초록 카드는 직접 등록한 일정입니다. 날짜 칸의 + 버튼으로 일정을 추가하세요.</div>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
         <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: "14px 18px", flex: 1, minWidth: 150 }}>
@@ -649,11 +745,19 @@ function BookingCalendarTab({ modelMeta, dark }) {
             if (d === null) return <div key={idx} style={{ minHeight: 118 }} />;
             var dateStr = year + "-" + pad2(month) + "-" + pad2(d);
             var dayProjects = byDate[dateStr] || [];
+            var dayEvents = byDateEvents[dateStr] || [];
             var isToday = dateStr === todayStr;
             var weekday = idx % 7;
             return (
-              <div key={idx} style={{ minHeight: 118, borderRadius: 8, border: isToday ? "2px solid #4f46e5" : "1px solid " + t.border, background: t.card2, padding: "6px 6px", display: "flex", flexDirection: "column", gap: 3 }}>
-                <div style={{ fontSize: 23, fontWeight: 900, color: weekday === 0 ? "#ef4444" : (weekday === 6 ? "#4f46e5" : t.text) }}>{d}</div>
+              <div key={idx} style={{ minHeight: 118, borderRadius: 8, border: isToday ? "2px solid #4f46e5" : "1px solid " + t.border, background: t.card2, padding: "6px 6px", display: "flex", flexDirection: "column", gap: 3, position: "relative" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{ fontSize: 23, fontWeight: 900, color: weekday === 0 ? "#ef4444" : (weekday === 6 ? "#4f46e5" : t.text) }}>{d}</div>
+                  <button
+                    onClick={function () { setEditingEvent({ date: dateStr }); }}
+                    title="일정 추가"
+                    style={{ width: 20, height: 20, borderRadius: 5, border: "1px solid " + t.border, background: "transparent", color: t.sub, cursor: "pointer", fontSize: 13, fontWeight: 900, lineHeight: "18px", padding: 0 }}
+                  >+</button>
+                </div>
                 {dayProjects.map(function (p) {
                   return (
                     <button key={p.id} onClick={function () { setSelected(p); }} style={{ textAlign: "left", background: dark ? "#1e2a4a" : "#eef2ff", border: "1px solid " + (dark ? "#3730a3" : "#c7d2fe"), borderRadius: 6, padding: "5px 7px", cursor: "pointer", width: "100%" }}>
@@ -663,6 +767,14 @@ function BookingCalendarTab({ modelMeta, dark }) {
                         {p.time ? " · " + p.time : ""}
                       </div>
                       <div style={{ fontSize: 11, fontWeight: 800, color: "#4f46e5" }}>{fmt(p.totalCost)}</div>
+                    </button>
+                  );
+                })}
+                {dayEvents.map(function (ev) {
+                  return (
+                    <button key={ev.id} onClick={function () { setEditingEvent(ev); }} style={{ textAlign: "left", background: dark ? "#1a3a2e" : "#ecfdf5", border: "1px solid " + (dark ? "#166534" : "#a7f3d0"), borderRadius: 6, padding: "5px 7px", cursor: "pointer", width: "100%" }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ev.title}</div>
+                      {ev.time && <div style={{ fontSize: 10, color: "#10b981", fontWeight: 800 }}>⏱ {ev.time}</div>}
                     </button>
                   );
                 })}
