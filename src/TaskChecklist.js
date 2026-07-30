@@ -274,10 +274,18 @@ function PeriodSection({ title, subtitle, cards, gridStyle, t, dark }) {
 // ── 비정기 업무: 등록과 동시에 완료 처리하는 빠른 로그 ─────────────────────
 function AdhocSection({ entries, onAdd, onRemove, onDeleteMonth, t, dark }) {
   var [text, setText] = useState("");
+  var [rangeMode, setRangeMode] = useState(false);
+  var [startDate, setStartDate] = useState(dateStr(TODAY));
+  var [endDate, setEndDate] = useState(dateStr(TODAY));
   var [delMonth, setDelMonth] = useState(dateStr(TODAY).slice(0, 7));
   var submit = function () {
     if (!text.trim()) return;
-    onAdd(text.trim());
+    if (rangeMode) {
+      if (!startDate || !endDate || startDate > endDate) return;
+      onAdd(text.trim(), startDate, endDate);
+    } else {
+      onAdd(text.trim());
+    }
     setText("");
   };
   var monthCount = entries.filter(function (e) { return (e.date || "").slice(0, 7) === delMonth; }).length;
@@ -286,12 +294,24 @@ function AdhocSection({ entries, onAdd, onRemove, onDeleteMonth, t, dark }) {
     if (!window.confirm(delMonth + " 기록 " + monthCount + "건을 모두 삭제할까요? 되돌릴 수 없습니다.")) return;
     onDeleteMonth(delMonth);
   };
+  var inputStyleSm = { padding: "7px 9px", borderRadius: 7, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 12 };
   return (
     <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 16, marginBottom: 20 }}>
       <div style={{ fontSize: 18, fontWeight: 900, color: t.text, marginBottom: 4 }}>비정기 업무</div>
-      <div style={{ fontSize: 11, color: t.sub, marginBottom: 10 }}>미리 등록할 필요 없이, 처리한 업무를 바로 입력하고 등록하면 오늘 날짜로 기록됩니다.</div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-        <input value={text} onChange={function (e) { setText(e.target.value); }} onKeyDown={function (e) { if (e.key === "Enter") submit(); }} placeholder="예: 모델 DB 업데이트, 비자 서류 준비" style={{ flex: 1, padding: "9px 12px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 13 }} />
+      <div style={{ fontSize: 11, color: t.sub, marginBottom: 10 }}>미리 등록할 필요 없이, 처리한 업무를 바로 입력하고 등록하면 오늘 날짜로 기록됩니다. 특정 기간에 걸친 업무는 "기간 등록"으로 날짜를 지정하세요.</div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+        <input value={text} onChange={function (e) { setText(e.target.value); }} onKeyDown={function (e) { if (e.key === "Enter" && !rangeMode) submit(); }} placeholder="예: 모델 DB 업데이트, 비자 서류 준비" style={{ flex: 1, minWidth: 180, padding: "9px 12px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 13 }} />
+        <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: t.sub, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+          <input type="checkbox" checked={rangeMode} onChange={function (e) { setRangeMode(e.target.checked); }} style={{ width: 14, height: 14 }} />
+          기간 등록
+        </label>
+        {rangeMode && (
+          <>
+            <input type="date" value={startDate} onChange={function (e) { setStartDate(e.target.value); }} style={inputStyleSm} />
+            <span style={{ color: t.sub, fontSize: 12, alignSelf: "center" }}>~</span>
+            <input type="date" value={endDate} onChange={function (e) { setEndDate(e.target.value); }} style={inputStyleSm} />
+          </>
+        )}
         <button onClick={submit} style={{ padding: "0 16px", borderRadius: 8, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>완료 등록</button>
       </div>
       <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12, padding: "8px 10px", background: t.card2, border: "1px solid " + t.border, borderRadius: 9 }}>
@@ -302,9 +322,10 @@ function AdhocSection({ entries, onAdd, onRemove, onDeleteMonth, t, dark }) {
       </div>
       {entries.length === 0 && <div style={{ color: t.sub, fontSize: 12, textAlign: "center", padding: "10px 0" }}>등록된 기록이 없습니다.</div>}
       {entries.slice(0, 20).map(function (e) {
+        var dateLabel = e.endDate && e.endDate !== e.date ? (e.date + " ~ " + e.endDate) : e.date;
         return (
           <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: t.card2, border: "1px solid " + t.border, borderRadius: 9, marginBottom: 6 }}>
-            <span style={{ fontSize: 11, color: "#4f46e5", fontWeight: 800, flexShrink: 0 }}>{e.date}</span>
+            <span style={{ fontSize: 11, color: "#4f46e5", fontWeight: 800, flexShrink: 0, whiteSpace: "nowrap" }}>{dateLabel}</span>
             <span style={{ flex: 1, fontSize: 13, color: t.text }}>{e.title}</span>
             <button onClick={function () { onRemove(e.id); }} style={{ width: 22, height: 22, borderRadius: 6, border: "none", background: "#ef444440", color: "#ef4444", cursor: "pointer", fontSize: 11, flexShrink: 0 }}>✕</button>
           </div>
@@ -441,9 +462,12 @@ export default function TaskChecklistTab({ dark }) {
     }
   };
 
-  var addAdhoc = function (title) {
+  var addAdhoc = function (title, startDate, endDate) {
     setAdhocEntries(function (prev) {
-      var next = [{ id: uid(), title: title, date: dateStr(new Date()) }].concat(prev);
+      var entry = startDate
+        ? { id: uid(), title: title, date: startDate, endDate: endDate || startDate }
+        : { id: uid(), title: title, date: dateStr(new Date()) };
+      var next = [entry].concat(prev);
       persist(templates, completions, next, categories);
       return next;
     });
