@@ -272,12 +272,19 @@ function PeriodSection({ title, subtitle, cards, gridStyle, t, dark }) {
 }
 
 // ── 비정기 업무: 등록과 동시에 완료 처리하는 빠른 로그 ─────────────────────
-function AdhocSection({ entries, onAdd, onRemove, t, dark }) {
+function AdhocSection({ entries, onAdd, onRemove, onDeleteMonth, t, dark }) {
   var [text, setText] = useState("");
+  var [delMonth, setDelMonth] = useState(dateStr(TODAY).slice(0, 7));
   var submit = function () {
     if (!text.trim()) return;
     onAdd(text.trim());
     setText("");
+  };
+  var monthCount = entries.filter(function (e) { return (e.date || "").slice(0, 7) === delMonth; }).length;
+  var handleDeleteMonth = function () {
+    if (monthCount === 0) return;
+    if (!window.confirm(delMonth + " 기록 " + monthCount + "건을 모두 삭제할까요? 되돌릴 수 없습니다.")) return;
+    onDeleteMonth(delMonth);
   };
   return (
     <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 16, marginBottom: 20 }}>
@@ -286,6 +293,12 @@ function AdhocSection({ entries, onAdd, onRemove, t, dark }) {
       <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
         <input value={text} onChange={function (e) { setText(e.target.value); }} onKeyDown={function (e) { if (e.key === "Enter") submit(); }} placeholder="예: 모델 DB 업데이트, 비자 서류 준비" style={{ flex: 1, padding: "9px 12px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 13 }} />
         <button onClick={submit} style={{ padding: "0 16px", borderRadius: 8, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>완료 등록</button>
+      </div>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12, padding: "8px 10px", background: t.card2, border: "1px solid " + t.border, borderRadius: 9 }}>
+        <span style={{ fontSize: 11, color: t.sub, fontWeight: 700 }}>월별 일괄삭제</span>
+        <input type="month" value={delMonth} onChange={function (e) { setDelMonth(e.target.value); }} style={{ padding: "5px 8px", borderRadius: 6, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 12 }} />
+        <span style={{ fontSize: 11, color: t.sub }}>{monthCount}건</span>
+        <button onClick={handleDeleteMonth} disabled={monthCount === 0} style={{ marginLeft: "auto", padding: "6px 12px", borderRadius: 7, border: "none", background: monthCount === 0 ? (dark ? "#334155" : "#e2e8f0") : "#ef4444", color: monthCount === 0 ? t.sub : "#fff", fontWeight: 700, fontSize: 11, cursor: monthCount === 0 ? "default" : "pointer" }}>이 달 기록 삭제</button>
       </div>
       {entries.length === 0 && <div style={{ color: t.sub, fontSize: 12, textAlign: "center", padding: "10px 0" }}>등록된 기록이 없습니다.</div>}
       {entries.slice(0, 20).map(function (e) {
@@ -442,6 +455,13 @@ export default function TaskChecklistTab({ dark }) {
       return next;
     });
   };
+  var deleteAdhocMonth = function (monthKey) {
+    setAdhocEntries(function (prev) {
+      var next = prev.filter(function (e) { return (e.date || "").slice(0, 7) !== monthKey; });
+      persist(templates, completions, next, categories);
+      return next;
+    });
+  };
 
   if (loading) {
     return <div style={{ padding: 30, textAlign: "center", color: t.sub }}>업무 체크리스트 불러오는 중...</div>;
@@ -544,7 +564,7 @@ export default function TaskChecklistTab({ dark }) {
         </div>
       </div>
 
-      <AdhocSection entries={adhocEntries} onAdd={addAdhoc} onRemove={removeAdhoc} t={t} dark={dark} />
+      <AdhocSection entries={adhocEntries} onAdd={addAdhoc} onRemove={removeAdhoc} onDeleteMonth={deleteAdhocMonth} t={t} dark={dark} />
     </div>
   );
 }
