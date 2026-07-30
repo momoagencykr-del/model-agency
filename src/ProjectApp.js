@@ -733,6 +733,46 @@ function buildPaymentRows(mKey, allProjects, paymentInfo) {
   return rows;
 }
 
+function taxTypeLabelKr(taxType) {
+  if (taxType === "vat10") return "부가세 10%";
+  if (taxType === "none") return "공제없음";
+  return "3.3% 원천징수";
+}
+
+function csvEscape(v) {
+  var s = v === null || v === undefined ? "" : String(v);
+  if (/[",\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+
+function downloadPaymentsCSV(rows, year, month) {
+  var headers = ["촬영날짜", "브랜드", "모델명", "주민등록번호", "손Pay", "공제방식", "공제액", "최종 입금액", "입금은행", "입금계좌", "지급여부"];
+  var lines = [headers.map(csvEscape).join(",")];
+  var totalHandPay = 0, totalDeduction = 0, totalFinal = 0;
+  rows.forEach(function (r) {
+    var c = calcPayment(r.handPay, r.taxType);
+    totalHandPay += Number(r.handPay) || 0;
+    totalDeduction += c.deduction;
+    totalFinal += c.final;
+    lines.push([
+      r.date, r.brand, r.modelName, r.regNo, r.handPay,
+      taxTypeLabelKr(r.taxType), c.deduction, c.final, r.bank, r.account, r.paid ? "입금완료" : "미입금",
+    ].map(csvEscape).join(","));
+  });
+  lines.push(["합계", "", "", "", totalHandPay, "", totalDeduction, totalFinal, "", "", ""].map(csvEscape).join(","));
+
+  var csvContent = "\uFEFF" + lines.join("\r\n");
+  var blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url;
+  a.download = year + "년_" + month + "월_인건비지급내역.csv";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 function PaymentsTab({ year, month, setYear, setMonth, allProjects, paymentInfo, onChangeInfo, dark }) {
   var t = T(dark);
   var mKey = monthKey(year, month);
@@ -750,6 +790,10 @@ function PaymentsTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
         <MonthHeading year={year} month={month} t={t} />
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <MonthPicker year={year} month={month} setYear={setYear} setMonth={setMonth} t={t} />
+          <button
+            onClick={function () { downloadPaymentsCSV(rows, year, month); }}
+            style={{ padding: "8px 14px", borderRadius: 9, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}
+          >📥 인건비 제출용 다운로드</button>
         </div>
       </div>
       <div style={{ fontSize: 12, color: t.sub, fontWeight: 700, marginBottom: 10 }}>지급 예정일: {dueDateLabel(mKey)} (익월말)</div>
