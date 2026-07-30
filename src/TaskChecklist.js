@@ -492,7 +492,6 @@ export default function TaskChecklistTab({ dark }) {
       mainLabel: (mon.getMonth() + 1) + "." + mon.getDate() + " ~ " + (end.getMonth() + 1) + "." + end.getDate(),
       isCurrent: periodKey === todayWeekKey, groups: weeklyGroups, completions: completions, onToggle: toggleCompletion,
       onUpdateTitle: updateTaskTitle, onRemoveTask: removeTask, onAddTask: function () { openAddModal("weekly"); },
-      cardStyle: { minWidth: 210, flexShrink: 0 },
     };
   });
 
@@ -540,8 +539,8 @@ export default function TaskChecklistTab({ dark }) {
       <PeriodSection title={year + "년 월별 업무"} subtitle="1~6월, 7~12월 두 줄로 표시" cards={monthlyCards} t={t} dark={dark}
         gridStyle={{ display: "grid", gridTemplateColumns: "repeat(6,minmax(0,1fr))", gap: 10 }} />
 
-      <PeriodSection title={year + "년 " + month + "월 주차별 업무"} subtitle="가로로 넘기면 다른 주 확인 가능" cards={weeklyCards} t={t} dark={dark}
-        gridStyle={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 6 }} />
+      <PeriodSection title={year + "년 " + month + "월 주차별 업무"} subtitle="화면 너비에 맞춰 모든 주차가 한 번에 표시됩니다" cards={weeklyCards} t={t} dark={dark}
+        gridStyle={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }} />
 
       <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 16, marginBottom: 20 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, flexWrap: "wrap", gap: 8 }}>
