@@ -916,47 +916,49 @@ function BookingCalendarTab({ modelMeta, dark }) {
       </div>
 
       <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 14, overflowX: "auto" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 6, minWidth: 700 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gridAutoRows: 132, gap: 6, minWidth: 700 }}>
           {WEEKDAYS_KR.map(function (w, i) {
             return <div key={w} style={{ textAlign: "center", fontSize: 19, fontWeight: 900, color: i === 0 ? "#ef4444" : (i === 6 ? "#4f46e5" : t.sub), padding: "7px 0" }}>{w}</div>;
           })}
           {cells.map(function (d, idx) {
-            if (d === null) return <div key={idx} style={{ minHeight: 118 }} />;
+            if (d === null) return <div key={idx} style={{ height: 132 }} />;
             var dateStr = year + "-" + pad2(month) + "-" + pad2(d);
             var dayProjects = byDate[dateStr] || [];
             var dayEvents = byDateEvents[dateStr] || [];
             var isToday = dateStr === todayStr;
             var weekday = idx % 7;
             return (
-              <div key={idx} style={{ minHeight: 118, borderRadius: 8, border: isToday ? "2px solid #4f46e5" : "1px solid " + t.border, background: t.card2, padding: "6px 6px", display: "flex", flexDirection: "column", gap: 3, position: "relative" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div key={idx} style={{ height: 132, borderRadius: 8, border: isToday ? "2px solid #4f46e5" : "1px solid " + t.border, background: t.card2, padding: "6px 6px", display: "flex", flexDirection: "column", gap: 3, position: "relative", overflow: "hidden" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
                   <div style={{ fontSize: 23, fontWeight: 900, color: weekday === 0 ? "#ef4444" : (weekday === 6 ? "#4f46e5" : t.text) }}>{d}</div>
                   <button
                     onClick={function () { setEditingEvent({ date: dateStr }); }}
                     title="일정 추가"
-                    style={{ width: 20, height: 20, borderRadius: 5, border: "1px solid " + t.border, background: "transparent", color: t.sub, cursor: "pointer", fontSize: 13, fontWeight: 900, lineHeight: "18px", padding: 0 }}
+                    style={{ width: 20, height: 20, borderRadius: 5, border: "1px solid " + t.border, background: "transparent", color: t.sub, cursor: "pointer", fontSize: 13, fontWeight: 900, lineHeight: "18px", padding: 0, flexShrink: 0 }}
                   >+</button>
                 </div>
-                {dayProjects.map(function (p) {
-                  return (
-                    <button key={p.id} onClick={function () { setSelected(p); }} style={{ textAlign: "left", background: dark ? "#1e2a4a" : "#eef2ff", border: "1px solid " + (dark ? "#3730a3" : "#c7d2fe"), borderRadius: 6, padding: "5px 7px", cursor: "pointer", width: "100%" }}>
-                      <div style={{ fontSize: 12, fontWeight: 800, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.brand}</div>
-                      <div style={{ fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "#4f46e5", fontWeight: 800 }}>
-                        {(p.models || []).map(function (m, i2) { return (i2 > 0 ? ", " : "") + m.name; }).join("")}
-                        {p.time ? " · " + p.time : ""}
-                      </div>
-                      <div style={{ fontSize: 11, fontWeight: 800, color: "#4f46e5" }}>{fmt(p.totalCost)}</div>
-                    </button>
-                  );
-                })}
-                {dayEvents.map(function (ev) {
-                  return (
-                    <button key={ev.id} onClick={function () { setEditingEvent(ev); }} style={{ textAlign: "left", background: dark ? "#1a3a2e" : "#ecfdf5", border: "1px solid " + (dark ? "#166534" : "#a7f3d0"), borderRadius: 6, padding: "5px 7px", cursor: "pointer", width: "100%" }}>
-                      <div style={{ fontSize: 12, fontWeight: 800, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ev.title}</div>
-                      {ev.time && <div style={{ fontSize: 10, color: "#10b981", fontWeight: 800 }}>⏱ {ev.time}</div>}
-                    </button>
-                  );
-                })}
+                <div style={{ display: "flex", flexDirection: "column", gap: 3, overflowY: "auto", flex: 1, minHeight: 0 }}>
+                  {dayProjects.map(function (p) {
+                    return (
+                      <button key={p.id} onClick={function () { setSelected(p); }} style={{ textAlign: "left", background: dark ? "#1e2a4a" : "#eef2ff", border: "1px solid " + (dark ? "#3730a3" : "#c7d2fe"), borderRadius: 6, padding: "5px 7px", cursor: "pointer", width: "100%", flexShrink: 0, boxSizing: "border-box" }}>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.brand}</div>
+                        <div style={{ fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "#4f46e5", fontWeight: 800 }}>
+                          {(p.models || []).map(function (m, i2) { return (i2 > 0 ? ", " : "") + m.name; }).join("")}
+                          {p.time ? " · " + p.time : ""}
+                        </div>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: "#4f46e5" }}>{fmt(p.totalCost)}</div>
+                      </button>
+                    );
+                  })}
+                  {dayEvents.map(function (ev) {
+                    return (
+                      <button key={ev.id} onClick={function () { setEditingEvent(ev); }} style={{ textAlign: "left", background: dark ? "#1a3a2e" : "#ecfdf5", border: "1px solid " + (dark ? "#166534" : "#a7f3d0"), borderRadius: 6, padding: "5px 7px", cursor: "pointer", width: "100%", flexShrink: 0, boxSizing: "border-box" }}>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ev.title}</div>
+                        {ev.time && <div style={{ fontSize: 10, color: "#10b981", fontWeight: 800 }}>⏱ {ev.time}</div>}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             );
           })}
