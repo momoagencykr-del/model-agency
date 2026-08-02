@@ -1048,7 +1048,7 @@ function buildCalendarGrid(year, month) {
   return cells;
 }
 
-function CalendarDetailModal({ project, onClose, dark }) {
+function CalendarDetailModal({ project, paymentInfo, onChangeInfo, onClose, dark }) {
   var t = T(dark);
   var agg = projectAgg(project);
   return (
@@ -1073,26 +1073,47 @@ function CalendarDetailModal({ project, onClose, dark }) {
           </div>
         </div>
 
-        <div style={{ fontSize: 12, fontWeight: 800, color: t.text, marginBottom: 6 }}>모델별 내역</div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: t.text, marginBottom: 6 }}>모델별 내역 · 지급정보 (클릭해서 수정)</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
           {(project.models || []).map(function (m, i2) {
             var c = calcModel(m);
             var timeLabel = m.time || project.time;
+            var pid = project.id + "_" + m.id;
+            var info = (paymentInfo && paymentInfo[pid]) || { regNo: "", taxType: "3.3%", bank: "", account: "", paid: false };
+            var pc = calcPayment(m.handPay, info.taxType);
             return (
               <div key={i2} style={{ background: t.card2, border: "1px solid " + t.border, borderRadius: 10, padding: "10px 12px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                   <span style={{ fontSize: 14, fontWeight: 900, color: t.text }}>{m.name}</span>
                   {timeLabel ? <span style={{ fontSize: 12, fontWeight: 800, color: "#4f46e5" }}>⏱ {timeLabel}</span> : null}
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, fontSize: 12, color: t.sub }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, fontSize: 12, color: t.sub, marginBottom: 8 }}>
                   <div>섭외료 <b style={{ color: t.text }}>{fmt(m.agencyPrice)}</b></div>
                   <div>손Pay <b style={{ color: t.text }}>{fmt(m.handPay)}</b></div>
                   <div>운영비 <b style={{ color: t.text }}>{fmt(m.opCost)}</b></div>
                   <div>협력비율 <b style={{ color: t.text }}>{Number(m.partnerRate) || 0}%</b></div>
                 </div>
-                <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px solid " + t.border, display: "flex", justifyContent: "space-between" }}>
+                <div style={{ marginBottom: 8, paddingTop: 6, borderTop: "1px solid " + t.border, display: "flex", justifyContent: "space-between" }}>
                   <span style={{ fontSize: 11, color: t.sub }}>모델 라인 순수익</span>
                   <span style={{ fontSize: 13, fontWeight: 900, color: "#10b981" }}>{fmt(c.net)}</span>
+                </div>
+
+                <div style={{ paddingTop: 6, borderTop: "1px dashed " + t.border }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#4f46e5", marginBottom: 6 }}>지급 정보 (모델 지급관리 연동)</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 6 }}>
+                    <input value={info.regNo} onChange={function (e) { onChangeInfo(pid, "regNo", e.target.value); }} placeholder="주민등록번호" style={Object.assign({}, inputStyle(t), { padding: "6px 8px", fontSize: 11 })} />
+                    <select value={info.taxType} onChange={function (e) { onChangeInfo(pid, "taxType", e.target.value); }} style={{ padding: "6px 8px", borderRadius: 6, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 11 }}>
+                      <option value="3.3%">3.3% 원천징수</option>
+                      <option value="vat10">부가세 10% (세금계산서)</option>
+                      <option value="none">공제없음</option>
+                    </select>
+                    <input value={info.bank} onChange={function (e) { onChangeInfo(pid, "bank", e.target.value); }} placeholder="입금은행" style={Object.assign({}, inputStyle(t), { padding: "6px 8px", fontSize: 11 })} />
+                    <input value={info.account} onChange={function (e) { onChangeInfo(pid, "account", e.target.value); }} placeholder="입금계좌" style={Object.assign({}, inputStyle(t), { padding: "6px 8px", fontSize: 11 })} />
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span style={{ fontSize: 11, color: t.sub }}>최종 입금액 <b style={{ color: t.text }}>{fmt(pc.final)}</b></span>
+                    <button onClick={function () { onChangeInfo(pid, "paid", !info.paid); }} style={{ padding: "4px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 11, background: info.paid ? "#d1fae5" : "#fee2e2", color: info.paid ? "#065f46" : "#991b1b" }}>{info.paid ? "입금완료" : "미입금"}</button>
+                  </div>
                 </div>
               </div>
             );
@@ -1107,7 +1128,7 @@ function CalendarDetailModal({ project, onClose, dark }) {
   );
 }
 
-function CalendarTab({ year, month, setYear, setMonth, allProjects, dark }) {
+function CalendarTab({ year, month, setYear, setMonth, allProjects, paymentInfo, onChangeInfo, dark }) {
   var t = T(dark);
   var mKey = monthKey(year, month);
   var [selected, setSelected] = useState(null);
@@ -1136,7 +1157,7 @@ function CalendarTab({ year, month, setYear, setMonth, allProjects, dark }) {
 
   return (
     <div>
-      {selected && <CalendarDetailModal project={selected} onClose={function () { setSelected(null); }} dark={dark} />}
+      {selected && <CalendarDetailModal project={selected} paymentInfo={paymentInfo} onChangeInfo={onChangeInfo} onClose={function () { setSelected(null); }} dark={dark} />}
 
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
         <MonthHeading year={year} month={month} t={t} />
@@ -1148,6 +1169,7 @@ function CalendarTab({ year, month, setYear, setMonth, allProjects, dark }) {
       <div style={{ marginBottom: 14 }}>
         <MonthStrip year={year} month={month} setYear={setYear} setMonth={setMonth} t={t} dark={dark} />
       </div>
+      <div style={{ fontSize: 12, color: t.sub, marginBottom: 12 }}>촬영 카드를 클릭하면 모델별 지급 정보(주민등록번호, 공제방식, 계좌, 입금여부)를 바로 등록·수정할 수 있고, 모델 지급관리 탭에도 동일하게 반영됩니다.</div>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
         <Card title="총 섭외비용" value={fmt(monthTotalCost)} color="#4f46e5" t={t} />
@@ -1156,29 +1178,31 @@ function CalendarTab({ year, month, setYear, setMonth, allProjects, dark }) {
       </div>
 
       <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 14, overflowX: "auto" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 6, minWidth: 700 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gridAutoRows: 132, gap: 6, minWidth: 700 }}>
           {WEEKDAYS_KR.map(function (w, i) {
             return <div key={w} style={{ textAlign: "center", fontSize: 19, fontWeight: 900, color: i === 0 ? "#ef4444" : (i === 6 ? "#4f46e5" : t.sub), padding: "7px 0" }}>{w}</div>;
           })}
           {cells.map(function (d, idx) {
-            if (d === null) return <div key={idx} style={{ minHeight: 118 }} />;
+            if (d === null) return <div key={idx} style={{ height: 132 }} />;
             var dateStr = year + "-" + pad2(month) + "-" + pad2(d);
             var dayProjects = projectsByDate[dateStr] || [];
             var isToday = dateStr === todayStr;
             var weekday = idx % 7;
             return (
-              <div key={idx} style={{ minHeight: 118, borderRadius: 8, border: isToday ? "2px solid #4f46e5" : "1px solid " + t.border, background: t.card2, padding: "6px 6px", display: "flex", flexDirection: "column", gap: 3 }}>
-                <div style={{ fontSize: 23, fontWeight: 900, color: weekday === 0 ? "#ef4444" : (weekday === 6 ? "#4f46e5" : t.text) }}>{d}</div>
-                {dayProjects.map(function (p) {
-                  var names = (p.models || []).map(function (m) { return m.name; }).filter(Boolean).join(", ");
-                  return (
-                    <button key={p.id} onClick={function () { setSelected(p); }} style={{ textAlign: "left", background: dark ? "#1e2a4a" : "#eef2ff", border: "1px solid " + (dark ? "#3730a3" : "#c7d2fe"), borderRadius: 6, padding: "5px 7px", cursor: "pointer", width: "100%" }}>
-                      <div style={{ fontSize: 12, fontWeight: 800, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.brand}</div>
-                      <div style={{ fontSize: 10, color: t.sub, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{names}{p.time ? " · " + p.time : ""}</div>
-                      <div style={{ fontSize: 11, fontWeight: 800, color: "#4f46e5" }}>{fmt(p.totalCost)}</div>
-                    </button>
-                  );
-                })}
+              <div key={idx} style={{ height: 132, borderRadius: 8, border: isToday ? "2px solid #4f46e5" : "1px solid " + t.border, background: t.card2, padding: "6px 6px", display: "flex", flexDirection: "column", gap: 3, overflow: "hidden" }}>
+                <div style={{ fontSize: 23, fontWeight: 900, color: weekday === 0 ? "#ef4444" : (weekday === 6 ? "#4f46e5" : t.text), flexShrink: 0 }}>{d}</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 3, overflowY: "auto", flex: 1, minHeight: 0 }}>
+                  {dayProjects.map(function (p) {
+                    var names = (p.models || []).map(function (m) { return m.name; }).filter(Boolean).join(", ");
+                    return (
+                      <button key={p.id} onClick={function () { setSelected(p); }} style={{ textAlign: "left", background: dark ? "#1e2a4a" : "#eef2ff", border: "1px solid " + (dark ? "#3730a3" : "#c7d2fe"), borderRadius: 6, padding: "5px 7px", cursor: "pointer", width: "100%", flexShrink: 0, boxSizing: "border-box" }}>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.brand}</div>
+                        <div style={{ fontSize: 10, color: t.sub, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{names}{p.time ? " · " + p.time : ""}</div>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: "#4f46e5" }}>{fmt(p.totalCost)}</div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             );
           })}
@@ -1411,7 +1435,7 @@ export default function ProjectApp({ currentUser, onLogout }) {
         <main style={{ flex: 1, minWidth: 0 }}>
           {tab === "dashboard" && <DashboardTab year={year} setYear={setYear} allProjects={allProjects} expenses={expenses} recurringExpenses={recurringExpenses} dark={dark} />}
           {tab === "projects" && <ProjectsTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} expenses={expenses} recurringExpenses={recurringExpenses} affiliatedModels={affiliatedModels} onAdd={addProject} onUpdate={updateProject} onRemove={removeProject} dark={dark} />}
-          {tab === "calendar" && <CalendarTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} dark={dark} />}
+          {tab === "calendar" && <CalendarTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} dark={dark} />}
           {tab === "expenses" && <ExpensesTab year={year} month={month} setYear={setYear} setMonth={setMonth} expenses={expenses} recurringExpenses={recurringExpenses} allProjects={allProjects} onChange={changeExpenses} onChangeRecurring={changeRecurringExpenses} dark={dark} />}
           {tab === "payments" && <PaymentsTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} dark={dark} />}
         </main>
