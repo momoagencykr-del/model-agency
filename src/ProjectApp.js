@@ -1048,9 +1048,21 @@ function buildCalendarGrid(year, month) {
   return cells;
 }
 
-function CalendarDetailModal({ project, paymentInfo, onChangeInfo, onClose, dark }) {
+function CalendarDetailModal({ project, paymentInfo, onChangeInfo, affiliatedModels, onUpdateProject, onClose, dark }) {
   var t = T(dark);
   var agg = projectAgg(project);
+  var [editingProject, setEditingProject] = useState(false);
+  if (editingProject) {
+    return (
+      <ProjectFormModal
+        existing={project}
+        affiliatedModels={affiliatedModels}
+        onSave={function (p) { onUpdateProject(p); setEditingProject(false); onClose(); }}
+        onClose={function () { setEditingProject(false); }}
+        dark={dark}
+      />
+    );
+  }
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }} onClick={onClose}>
       <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 16, padding: 22, width: "100%", maxWidth: 480, maxHeight: "85vh", overflowY: "auto" }} onClick={function (e) { e.stopPropagation(); }}>
@@ -1059,7 +1071,10 @@ function CalendarDetailModal({ project, paymentInfo, onChangeInfo, onClose, dark
             <div style={{ fontSize: 11, color: t.sub, fontWeight: 700 }}>{project.date}{project.time ? " · ⏱ " + project.time : ""}</div>
             <div style={{ fontSize: 19, fontWeight: 900, color: t.text }}>{project.brand}</div>
           </div>
-          <span style={{ display: "inline-block", padding: "3px 8px", borderRadius: 6, fontSize: 10, fontWeight: 700, background: project.depositStatus === "입금" ? "#d1fae5" : "#fee2e2", color: project.depositStatus === "입금" ? "#065f46" : "#991b1b" }}>{project.depositStatus || "미입금"}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ display: "inline-block", padding: "3px 8px", borderRadius: 6, fontSize: 10, fontWeight: 700, background: project.depositStatus === "입금" ? "#d1fae5" : "#fee2e2", color: project.depositStatus === "입금" ? "#065f46" : "#991b1b" }}>{project.depositStatus || "미입금"}</span>
+            <button onClick={function () { setEditingProject(true); }} style={{ padding: "3px 9px", borderRadius: 6, fontSize: 10, fontWeight: 700, border: "1px solid #4f46e5", background: "transparent", color: "#4f46e5", cursor: "pointer" }}>✎ 촬영 정보 수정</button>
+          </div>
         </div>
 
         <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
@@ -1073,7 +1088,7 @@ function CalendarDetailModal({ project, paymentInfo, onChangeInfo, onClose, dark
           </div>
         </div>
 
-        <div style={{ fontSize: 12, fontWeight: 800, color: t.text, marginBottom: 6 }}>모델별 내역 · 지급정보 (클릭해서 수정)</div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: t.text, marginBottom: 6 }}>모델별 내역 · 지급정보 (클릭해서 수정, 섭외료/손Pay 등은 위 "✎ 촬영 정보 수정"에서 변경)</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
           {(project.models || []).map(function (m, i2) {
             var c = calcModel(m);
@@ -1128,7 +1143,7 @@ function CalendarDetailModal({ project, paymentInfo, onChangeInfo, onClose, dark
   );
 }
 
-function CalendarTab({ year, month, setYear, setMonth, allProjects, paymentInfo, onChangeInfo, dark }) {
+function CalendarTab({ year, month, setYear, setMonth, allProjects, paymentInfo, onChangeInfo, affiliatedModels, onUpdateProject, dark }) {
   var t = T(dark);
   var mKey = monthKey(year, month);
   var [selected, setSelected] = useState(null);
@@ -1157,7 +1172,7 @@ function CalendarTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
 
   return (
     <div>
-      {selected && <CalendarDetailModal project={selected} paymentInfo={paymentInfo} onChangeInfo={onChangeInfo} onClose={function () { setSelected(null); }} dark={dark} />}
+      {selected && <CalendarDetailModal project={selected} paymentInfo={paymentInfo} onChangeInfo={onChangeInfo} affiliatedModels={affiliatedModels} onUpdateProject={onUpdateProject} onClose={function () { setSelected(null); }} dark={dark} />}
 
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
         <MonthHeading year={year} month={month} t={t} />
@@ -1435,7 +1450,7 @@ export default function ProjectApp({ currentUser, onLogout }) {
         <main style={{ flex: 1, minWidth: 0 }}>
           {tab === "dashboard" && <DashboardTab year={year} setYear={setYear} allProjects={allProjects} expenses={expenses} recurringExpenses={recurringExpenses} dark={dark} />}
           {tab === "projects" && <ProjectsTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} expenses={expenses} recurringExpenses={recurringExpenses} affiliatedModels={affiliatedModels} onAdd={addProject} onUpdate={updateProject} onRemove={removeProject} dark={dark} />}
-          {tab === "calendar" && <CalendarTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} dark={dark} />}
+          {tab === "calendar" && <CalendarTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} affiliatedModels={affiliatedModels} onUpdateProject={updateProject} dark={dark} />}
           {tab === "expenses" && <ExpensesTab year={year} month={month} setYear={setYear} setMonth={setMonth} expenses={expenses} recurringExpenses={recurringExpenses} allProjects={allProjects} onChange={changeExpenses} onChangeRecurring={changeRecurringExpenses} dark={dark} />}
           {tab === "payments" && <PaymentsTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} dark={dark} />}
         </main>
