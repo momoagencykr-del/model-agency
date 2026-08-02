@@ -37,16 +37,24 @@ function calc(income, af, otherDeduct) {
   return { inc, fee, oth: od, tax, final: after - tax };
 }
 
+// 실입금액(actualPaid)이 입력되어 있으면 그 값을, 없으면 자동계산값(final)을 모델순수익으로 사용
+function finalAmt(e, af) {
+  if (e && e.actualPaid !== undefined && e.actualPaid !== null && e.actualPaid !== "") {
+    return Number(e.actualPaid) || 0;
+  }
+  return calc(e.income, af, e.otherDeduct).final;
+}
+
 function monthTotals(modelKey, month, data, meta) {
   var sales = 0, agency = 0, model = 0, tax = 0;
   var md = (data && data[modelKey] && data[modelKey][month]) || { agency: [], self: [] };
   md.agency.forEach(function(e) {
     var c = calc(e.income, meta.agencyAF, e.otherDeduct);
-    sales += c.inc; agency += c.fee; model += c.final; tax += c.tax;
+    sales += c.inc; agency += c.fee; model += finalAmt(e, meta.agencyAF); tax += c.tax;
   });
   md.self.forEach(function(e) {
     var c = calc(e.income, meta.modelAF, e.otherDeduct);
-    sales += c.inc; agency += c.fee; model += c.final; tax += c.tax;
+    sales += c.inc; agency += c.fee; model += finalAmt(e, meta.modelAF); tax += c.tax;
   });
   return { sales: sales, agency: agency, model: model, tax: tax };
 }
@@ -301,8 +309,11 @@ function EntryForm({ af, label, onAdd, dark }) {
 }
 
 // ── 입력 테이블 ───────────────────────────────────────────────────────────────
-function EntryTable({ entries, af, onRemove, dark }) {
+function EntryTable({ entries, af, onRemove, onUpdate, dark }) {
   var t = T(dark);
+  var [editId, setEditId] = useState(null);
+  var [ef, setEf] = useState(null);
+
   if (!entries.length) {
     return (
       <div style={{ textAlign:"center", padding:"20px 0", color:t.sub }}>
@@ -311,10 +322,60 @@ function EntryTable({ entries, af, onRemove, dark }) {
       </div>
     );
   }
+
+  var startEdit = function(e) {
+    setEditId(e.id);
+    setEf({ brand:e.brand||"", income:e.income||"", otherDeduct:e.otherDeduct||"", note:e.note||"", actualPaid: e.actualPaid!==undefined && e.actualPaid!==null ? e.actualPaid : "" });
+  };
+  var setV = function(k, v) { setEf(function(p){ return Object.assign({}, p, { [k]: v }); }); };
+  var commit = function(id) {
+    if (onUpdate) onUpdate(id, { brand: ef.brand, income: ef.income, otherDeduct: ef.otherDeduct, note: ef.note, actualPaid: ef.actualPaid });
+    setEditId(null); setEf(null);
+  };
+
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
       {entries.map(function(e) {
         var c = calc(e.income, af, e.otherDeduct);
+        var editing = editId === e.id;
+
+        if (editing) {
+          var pc = calc(ef.income, af, ef.otherDeduct);
+          return (
+            <div key={e.id} style={{ background:dark?"#0f172a":"#f8f9ff", border:"2px solid #4f46e5", borderRadius:10, padding:"10px 12px" }}>
+              <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:8 }}>
+                <input value={ef.brand} onChange={function(ev){ setV("brand", ev.target.value); }} placeholder="브랜드명"
+                  style={{ border:"1px solid "+t.ib, borderRadius:7, padding:"7px 10px", fontSize:12, outline:"none", background:t.input, color:t.text }} />
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
+                  <div>
+                    <label style={{ fontSize:9, fontWeight:700, color:t.sub }}>업체 입금액</label>
+                    <input type="number" value={ef.income} onChange={function(ev){ setV("income", ev.target.value); }}
+                      style={{ width:"100%", border:"1px solid "+t.ib, borderRadius:7, padding:"7px 10px", fontSize:12, outline:"none", background:t.input, color:t.text, boxSizing:"border-box" }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize:9, fontWeight:700, color:t.sub }}>기타 공제</label>
+                    <input type="number" value={ef.otherDeduct} onChange={function(ev){ setV("otherDeduct", ev.target.value); }}
+                      style={{ width:"100%", border:"1px solid "+t.ib, borderRadius:7, padding:"7px 10px", fontSize:12, outline:"none", background:t.input, color:t.text, boxSizing:"border-box" }} />
+                  </div>
+                </div>
+                <input value={ef.note} onChange={function(ev){ setV("note", ev.target.value); }} placeholder="비고 (선택)"
+                  style={{ border:"1px solid "+t.ib, borderRadius:7, padding:"7px 10px", fontSize:12, outline:"none", background:t.input, color:t.text }} />
+                <div>
+                  <label style={{ fontSize:9, fontWeight:700, color:"#10b981" }}>모델 실입금액 (직접 입력, 비우면 자동계산값 사용)</label>
+                  <input type="number" value={ef.actualPaid} onChange={function(ev){ setV("actualPaid", ev.target.value); }} placeholder={String(pc.final)}
+                    style={{ width:"100%", border:"1px solid #10b981", borderRadius:7, padding:"7px 10px", fontSize:12, outline:"none", background:t.input, color:t.text, fontWeight:800, boxSizing:"border-box" }} />
+                </div>
+              </div>
+              <div style={{ display:"flex", gap:6 }}>
+                <button onClick={function(){ commit(e.id); }} style={{ flex:1, background:"#4f46e5", color:"#fff", border:"none", borderRadius:7, padding:"7px 0", fontWeight:700, fontSize:12, cursor:"pointer" }}>저장</button>
+                <button onClick={function(){ setEditId(null); setEf(null); }} style={{ flex:1, background:"transparent", color:t.sub, border:"1px solid "+t.border, borderRadius:7, padding:"7px 0", fontWeight:700, fontSize:12, cursor:"pointer" }}>취소</button>
+              </div>
+            </div>
+          );
+        }
+
+        var displayFinal = finalAmt(e, af);
+        var hasOverride = e.actualPaid !== undefined && e.actualPaid !== null && e.actualPaid !== "";
         return (
           <div key={e.id} style={{ background:dark?"#0f172a":"#f8fafc", border:"1px solid "+t.border, borderRadius:10, padding:"10px 12px" }}>
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
@@ -323,20 +384,23 @@ function EntryTable({ entries, af, onRemove, dark }) {
                 <span style={{ fontWeight:800, color:t.text, fontSize:13 }}>{e.brand || "브랜드 미입력"}</span>
                 {e.note && <span style={{ fontSize:11, color:t.sub, background:dark?"#1e293b":"#e2e8f0", padding:"1px 7px", borderRadius:10 }}>{e.note}</span>}
               </div>
-              <button onClick={function(){ onRemove(e.id); }} style={{ background:"none", border:"none", color:dark?"#475569":"#cbd5e1", cursor:"pointer", fontSize:14, padding:"2px 6px" }}>x</button>
+              <div style={{ display:"flex", gap:4 }}>
+                <button onClick={function(){ startEdit(e); }} style={{ background:"none", border:"none", color:dark?"#818cf8":"#4f46e5", cursor:"pointer", fontSize:12, padding:"2px 6px", fontWeight:700 }}>수정</button>
+                <button onClick={function(){ onRemove(e.id); }} style={{ background:"none", border:"none", color:dark?"#475569":"#cbd5e1", cursor:"pointer", fontSize:14, padding:"2px 6px" }}>x</button>
+              </div>
             </div>
             <div style={{ display:"flex", alignItems:"center", gap:4, flexWrap:"wrap" }}>
               {[
                 { label:"업체입금", value:fmt(c.inc), color:dark?"#94a3b8":"#475569", bg:dark?"#1e293b":"#fff" },
                 { label:"AF("+pct(af)+")", value:"-"+fmt(c.fee), color:"#7c3aed", bg:dark?"#1a0d2e":"#f5f3ff" },
                 { label:"세금(3.3%)", value:"-"+fmt(c.tax), color:"#ef4444", bg:dark?"#1a0808":"#fff1f2" },
-                { label:"모델순수익", value:fmt(c.final), color:"#10b981", bg:dark?"#0a1f1a":"#f0fdf4" },
+                { label:"모델입금액"+(hasOverride?"":""), value:fmt(displayFinal), color:"#10b981", bg:dark?"#0a1f1a":"#f0fdf4" },
               ].map(function(item, i) {
                 return (
                   <div key={i} style={{ display:"flex", alignItems:"center", gap:4 }}>
                     {i > 0 && <span style={{ color:t.sub, fontSize:12 }}>→</span>}
                     <div style={{ background:item.bg, border:"1px solid "+t.border, borderRadius:8, padding:"4px 10px", textAlign:"center" }}>
-                      <div style={{ fontSize:9, color:t.sub, marginBottom:1 }}>{item.label}</div>
+                      <div style={{ fontSize:9, color:t.sub, marginBottom:1 }}>{item.label}{hasOverride && i===3 ? " ✎" : ""}</div>
                       <div style={{ fontSize:12, fontWeight:900, color:item.color }}>{item.value}</div>
                     </div>
                   </div>
@@ -435,7 +499,7 @@ function SettlementReport({ model, meta, data, month, dark }) {
                         <td style={{ padding:"8px 10px", textAlign:"right", color:t.sub }}>{fmt(c.inc)}</td>
                         <td style={{ padding:"8px 10px", textAlign:"right", color:"#7c3aed", fontWeight:700 }}>{fmt(c.fee)}</td>
                         <td style={{ padding:"8px 10px", textAlign:"right", color:"#ef4444", fontWeight:700 }}>{fmt(c.tax)}</td>
-                        <td style={{ padding:"8px 10px", textAlign:"right", color:"#10b981", fontWeight:800 }}>{fmt(c.final)}</td>
+                        <td style={{ padding:"8px 10px", textAlign:"right", color:"#10b981", fontWeight:800 }}>{fmt(finalAmt(e, e.af))}</td>
                       </tr>
                     );
                   })}
@@ -903,7 +967,7 @@ function BookingCalendarTab({ modelMeta, dark }) {
 }
 
 
-function ModelDetail({ model, meta, data, addEntry, removeEntry, onUpdateAF, dark }) {
+function ModelDetail({ model, meta, data, addEntry, removeEntry, updateEntry, onUpdateAF, dark }) {
   var t = T(dark);
   var [month, setMonth] = useState(NOW_MONTH);
   var [view, setView] = useState("input");
@@ -1000,7 +1064,7 @@ function ModelDetail({ model, meta, data, addEntry, removeEntry, onUpdateAF, dar
               <span style={{ fontWeight:800, color:t.text, fontSize:13 }}>에이전시 촬영</span>
               <span style={{ background:dark?"#1e1b4b":"#eef2ff", color:"#4f46e5", fontSize:11, fontWeight:700, padding:"3px 9px", borderRadius:20 }}>AF {pct(meta.agencyAF)}</span>
             </div>
-            <EntryTable entries={md.agency} af={meta.agencyAF} onRemove={function(id){ removeEntry(model, month, "agency", id); }} dark={dark} />
+            <EntryTable entries={md.agency} af={meta.agencyAF} onRemove={function(id){ removeEntry(model, month, "agency", id); }} onUpdate={function(id, patch){ updateEntry(model, month, "agency", id, patch); }} dark={dark} />
             <EntryForm af={meta.agencyAF} label="에이전시 촬영" onAdd={function(e){ addEntry(model, month, "agency", e); }} dark={dark} />
           </div>
           <div style={{ background:t.card, border:"1px solid "+t.border, borderRadius:12, padding:14 }}>
@@ -1008,7 +1072,7 @@ function ModelDetail({ model, meta, data, addEntry, removeEntry, onUpdateAF, dar
               <span style={{ fontWeight:800, color:t.text, fontSize:13 }}>모델 직접 촬영</span>
               <span style={{ background:dark?"#2d1a4b":"#f5f3ff", color:"#7c3aed", fontSize:11, fontWeight:700, padding:"3px 9px", borderRadius:20 }}>AF {pct(meta.modelAF)}</span>
             </div>
-            <EntryTable entries={md.self} af={meta.modelAF} onRemove={function(id){ removeEntry(model, month, "self", id); }} dark={dark} />
+            <EntryTable entries={md.self} af={meta.modelAF} onRemove={function(id){ removeEntry(model, month, "self", id); }} onUpdate={function(id, patch){ updateEntry(model, month, "self", id, patch); }} dark={dark} />
             <EntryForm af={meta.modelAF} label="모델 직접 촬영" onAdd={function(e){ addEntry(model, month, "self", e); }} dark={dark} />
           </div>
         </div>
@@ -1062,7 +1126,7 @@ function TaxRow({ model, meta, inc, tax, final, agencyRev, monthData, editingReg
                     <span style={{ fontWeight:700, color:t.text, fontSize:12 }}>{e.brand || "-"}</span>
                     <span style={{ color:t.sub, fontSize:11 }}>{fmt(c.inc)}</span>
                     <span style={{ color:t.sub }}>→</span>
-                    <span style={{ color:"#10b981", fontWeight:800, fontSize:12 }}>순수익 {fmt(c.final)}</span>
+                    <span style={{ color:"#10b981", fontWeight:800, fontSize:12 }}>입금액 {fmt(finalAmt(e, e.af))}</span>
                   </div>
                 );
               })}
@@ -1085,8 +1149,8 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo, dark }) {
     var meta = modelMeta[model];
     var md = (data && data[model] && data[model][month]) || { agency: [], self: [] };
     var inc = 0, tax = 0, final = 0, agencyRev = 0;
-    md.agency.forEach(function(e){ var c=calc(e.income,meta.agencyAF,e.otherDeduct); inc+=c.inc; tax+=c.tax; final+=c.final; agencyRev+=c.fee; });
-    md.self.forEach(function(e){ var c=calc(e.income,meta.modelAF,e.otherDeduct); inc+=c.inc; tax+=c.tax; final+=c.final; agencyRev+=c.fee; });
+    md.agency.forEach(function(e){ var c=calc(e.income,meta.agencyAF,e.otherDeduct); inc+=c.inc; tax+=c.tax; final+=finalAmt(e, meta.agencyAF); agencyRev+=c.fee; });
+    md.self.forEach(function(e){ var c=calc(e.income,meta.modelAF,e.otherDeduct); inc+=c.inc; tax+=c.tax; final+=finalAmt(e, meta.modelAF); agencyRev+=c.fee; });
     return { model:model, meta:meta, inc:inc, tax:tax, final:final, agencyRev:agencyRev, monthData:md };
   });
 
@@ -1099,14 +1163,59 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo, dark }) {
   var startEdit = function(model, cur) { setEditingRegNo(model); setRegNoInput(cur || ""); };
   var commitEdit = function(model) { onUpdateRegNo(model, regNoInput); setEditingRegNo(null); };
 
+  var exportExcel = function() {
+    var head = ["모델","외국인등록번호","총매출","에이전시수익","세금(3.3%)","모델순수익(입금액)"];
+    var body = rows.map(function(r) {
+      return [r.meta.nameKr, r.meta.regNo || "", r.inc, r.agencyRev, r.tax, r.final];
+    });
+    var footer = ["합계", "", tI, tA, tT, tF];
+    var html = "<table border='1'><thead><tr>" + head.map(function(h){ return "<th>"+h+"</th>"; }).join("") + "</tr></thead><tbody>"
+      + body.map(function(row){ return "<tr>" + row.map(function(c){ return "<td>"+c+"</td>"; }).join("") + "</tr>"; }).join("")
+      + "<tr>" + footer.map(function(c){ return "<td><b>"+c+"</b></td>"; }).join("") + "</tr>"
+      + "</tbody></table>";
+    var blob = new Blob(["\ufeff", "<html><head><meta charset='utf-8'></head><body>" + html + "</body></html>"], { type: "application/vnd.ms-excel" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = month + "_세무요약.xls";
+    a.click();
+  };
+
+  var exportPDF = function() {
+    var head = ["모델","외국인등록번호","총매출","에이전시수익","세금(3.3%)","모델순수익(입금액)"];
+    var body = rows.map(function(r) {
+      return [r.meta.nameKr, r.meta.regNo || "-", fmt(r.inc), fmt(r.agencyRev), fmt(r.tax), fmt(r.final)];
+    });
+    var win = window.open("", "_blank");
+    if (!win) { alert("팝업이 차단되었습니다. 팝업 허용 후 다시 시도해주세요."); return; }
+    var rowsHtml = body.map(function(row){ return "<tr>" + row.map(function(c){ return "<td>"+c+"</td>"; }).join("") + "</tr>"; }).join("");
+    win.document.write(
+      "<html><head><meta charset='utf-8'><title>" + month + "_세무요약</title>" +
+      "<style>body{font-family:sans-serif;padding:24px;} h1{font-size:18px;} table{width:100%;border-collapse:collapse;margin-top:12px;} th,td{border:1px solid #ccc;padding:8px;font-size:12px;text-align:right;} th:nth-child(1),td:nth-child(1),th:nth-child(2),td:nth-child(2){text-align:left;} tfoot td{font-weight:800;background:#f1f5f9;}</style>" +
+      "</head><body>" +
+      "<h1>MoMo Agency — " + month + " 세무 요약</h1>" +
+      "<table><thead><tr>" + head.map(function(h){ return "<th>"+h+"</th>"; }).join("") + "</tr></thead><tbody>" + rowsHtml +
+      "</tbody><tfoot><tr><td>합계</td><td></td><td>" + fmt(tI) + "</td><td>" + fmt(tA) + "</td><td>" + fmt(tT) + "</td><td>" + fmt(tF) + "</td></tr></tfoot></table>" +
+      "</body></html>"
+    );
+    win.document.close();
+    win.focus();
+    setTimeout(function(){ win.print(); }, 300);
+  };
+
   return (
     <div>
       <div style={{ background:t.card, border:"1px solid "+t.border, borderRadius:14, padding:"14px 16px", marginBottom:12 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12, flexWrap:"wrap" }}>
-          <h2 style={{ fontSize:16, fontWeight:900, color:t.text, margin:0 }}>월별 세무 요약</h2>
-          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-            <span style={{ fontSize:18, fontWeight:900, color:"#4f46e5" }}>{month}</span>
-            {month === NOW_MONTH && <span style={{ background:"#4f46e5", color:"#fff", fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:10 }}>이번 달</span>}
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12, flexWrap:"wrap", justifyContent:"space-between" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+            <h2 style={{ fontSize:16, fontWeight:900, color:t.text, margin:0 }}>월별 세무 요약</h2>
+            <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+              <span style={{ fontSize:18, fontWeight:900, color:"#4f46e5" }}>{month}</span>
+              {month === NOW_MONTH && <span style={{ background:"#4f46e5", color:"#fff", fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:10 }}>이번 달</span>}
+            </div>
+          </div>
+          <div style={{ display:"flex", gap:6 }}>
+            <button onClick={exportExcel} style={{ padding:"6px 12px", borderRadius:8, border:"1px solid "+t.border, background:dark?"#0a1f1a":"#f0fdf4", color:"#10b981", fontWeight:700, fontSize:12, cursor:"pointer" }}>⬇ 엑셀</button>
+            <button onClick={exportPDF} style={{ padding:"6px 12px", borderRadius:8, border:"1px solid "+t.border, background:dark?"#1a0808":"#fff1f2", color:"#ef4444", fontWeight:700, fontSize:12, cursor:"pointer" }}>⬇ PDF</button>
           </div>
         </div>
         <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
@@ -1329,6 +1438,27 @@ export default function App({ currentUser, onLogout }) {
     setTimeout(function() { setSaveStatus("idle"); }, 2500);
   }, [data, modelMeta]);
 
+  // 10분마다 자동 저장 — 저장 안 된 변경사항이 있을 때만 저장
+  var unsavedRef = useRef(unsaved);
+  useEffect(function() { unsavedRef.current = unsaved; }, [unsaved]);
+  var handleSaveRef = useRef(handleSave);
+  useEffect(function() { handleSaveRef.current = handleSave; }, [handleSave]);
+  useEffect(function() {
+    var AUTOSAVE_MS = 10 * 60 * 1000; // 10분
+    var id = setInterval(function() {
+      if (unsavedRef.current) { handleSaveRef.current(); }
+    }, AUTOSAVE_MS);
+    return function() { clearInterval(id); };
+  }, []);
+  // 탭을 닫거나 새로고침할 때 저장 안 된 변경사항이 있으면 경고
+  useEffect(function() {
+    var onBeforeUnload = function(e) {
+      if (unsavedRef.current) { e.preventDefault(); e.returnValue = ""; }
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return function() { window.removeEventListener("beforeunload", onBeforeUnload); };
+  }, []);
+
   var addEntry = useCallback(function(model, month, type, entry) {
     setData(function(prev) {
       var d = JSON.parse(JSON.stringify(prev));
@@ -1342,6 +1472,16 @@ export default function App({ currentUser, onLogout }) {
     setData(function(prev) {
       var d = JSON.parse(JSON.stringify(prev));
       d[model][month][type] = d[model][month][type].filter(function(e) { return e.id !== id; });
+      saveData(d); pushH(d, modelMeta); return d;
+    });
+  }, [modelMeta]);
+
+  var updateEntry = useCallback(function(model, month, type, id, patch) {
+    setData(function(prev) {
+      var d = JSON.parse(JSON.stringify(prev));
+      d[model][month][type] = d[model][month][type].map(function(e) {
+        return e.id === id ? Object.assign({}, e, patch) : e;
+      });
       saveData(d); pushH(d, modelMeta); return d;
     });
   }, [modelMeta]);
@@ -1499,7 +1639,7 @@ export default function App({ currentUser, onLogout }) {
           {tab === "tax" && <TaxSummary data={data} modelMeta={modelMeta} onUpdateRegNo={updateRegNo} dark={dark} />}
           {tab === "calendar" && <BookingCalendarTab modelMeta={modelMeta} dark={dark} />}
           {tab === "checklist" && <TaskChecklistTab dark={dark} />}
-          {Object.keys(modelMeta).includes(tab) && <ModelDetail model={tab} meta={modelMeta[tab]} data={data} addEntry={addEntry} removeEntry={removeEntry} onUpdateAF={updateAF} dark={dark} />}
+          {Object.keys(modelMeta).includes(tab) && <ModelDetail model={tab} meta={modelMeta[tab]} data={data} addEntry={addEntry} removeEntry={removeEntry} updateEntry={updateEntry} onUpdateAF={updateAF} dark={dark} />}
         </main>
       </div>
 
