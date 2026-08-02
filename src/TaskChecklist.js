@@ -197,7 +197,7 @@ function OverviewSection({ templates, onRemoveTask, onOpenAdd, t, dark }) {
 }
 
 // ── 기간 카드 (주간) ───────────────────────────────────────────────────────
-function PeriodCard({ topLabel, mainLabel, isCurrent, groups, periodKey, completions, onToggle, onUpdateTitle, onRemoveTask, onQuickAdd, categories, t, dark, style }) {
+function PeriodCard({ topLabel, mainLabel, isCurrent, groups, periodKey, completions, onToggle, onUpdateTitle, onRemoveTask, onQuickAdd, adhocItems, onToggleAdhocDone, onRemoveAdhoc, categories, t, dark, style }) {
   var [quickText, setQuickText] = useState("");
   var [quickCat, setQuickCat] = useState((categories && categories[0]) || "기타");
   var submitQuick = function () {
@@ -209,7 +209,7 @@ function PeriodCard({ topLabel, mainLabel, isCurrent, groups, periodKey, complet
     <div style={Object.assign({ background: isCurrent ? (dark ? "#1e2a4a" : "#eef2ff") : t.card2, border: isCurrent ? "2.5px solid #4f46e5" : "1px solid " + t.border, borderRadius: 12, padding: "12px 12px", boxShadow: isCurrent ? "0 0 0 3px rgba(79,70,229,0.15)" : "none" }, style)}>
       {topLabel ? <div style={{ fontSize: 11, fontWeight: 700, color: isCurrent ? "#4f46e5" : t.sub, marginBottom: 2 }}>{topLabel}</div> : null}
       <div style={{ fontSize: 18, fontWeight: 900, color: isCurrent ? "#4f46e5" : t.text, marginBottom: 8 }}>{mainLabel}</div>
-      {groups.length === 0 && <div style={{ fontSize: 11, color: t.sub, marginBottom: 6 }}>업무 없음</div>}
+      {groups.length === 0 && (!adhocItems || adhocItems.length === 0) && <div style={{ fontSize: 11, color: t.sub, marginBottom: 6 }}>업무 없음</div>}
       {groups.map(function (g) {
         return (
           <div key={g.category} style={{ marginBottom: 6 }}>
@@ -228,6 +228,20 @@ function PeriodCard({ topLabel, mainLabel, isCurrent, groups, periodKey, complet
           </div>
         );
       })}
+      {adhocItems && adhocItems.length > 0 && (
+        <div style={{ marginBottom: 6 }}>
+          <div style={{ fontSize: 10, fontWeight: 800, color: "#f59e0b", marginBottom: 3 }}>비정기</div>
+          {adhocItems.map(function (e) {
+            return (
+              <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4 }}>
+                <input type="checkbox" checked={!!e.done} onChange={function () { if (!e.done) onToggleAdhocDone(e.id); }} style={{ width: 14, height: 14, flexShrink: 0, accentColor: "#f59e0b" }} />
+                <span style={{ flex: 1, minWidth: 0, fontSize: 11.5, color: e.done ? t.sub : t.text, textDecoration: e.done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.title}</span>
+                <button onClick={function () { onRemoveAdhoc(e.id); }} style={{ width: 18, height: 18, flexShrink: 0, borderRadius: 5, border: "none", background: "transparent", color: "#ef4444", cursor: "pointer", fontSize: 11, lineHeight: 1 }}>✕</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
       <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
         {categories && categories.length > 1 && (
           <select value={quickCat} onChange={function (e) { setQuickCat(e.target.value); }} style={{ width: 60, flexShrink: 0, padding: "4px 2px", borderRadius: 6, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 9.5 }}>
@@ -240,7 +254,7 @@ function PeriodCard({ topLabel, mainLabel, isCurrent, groups, periodKey, complet
   );
 }
 
-function PeriodSection({ title, subtitle, cards, gridStyle, categories, t, dark }) {
+function PeriodSection({ title, subtitle, cards, gridStyle, categories, onToggleAdhocDone, onRemoveAdhoc, t, dark }) {
   var totalCount = 0, doneCount = 0;
   cards.forEach(function (c) {
     c.groups.forEach(function (g) { g.tasks.forEach(function (tp) { totalCount++; if (c.completions[tp.id + "|" + c.periodKey]) doneCount++; }); });
@@ -257,7 +271,8 @@ function PeriodSection({ title, subtitle, cards, gridStyle, categories, t, dark 
         {cards.map(function (c) {
           return (
             <PeriodCard key={c.periodKey} topLabel={c.topLabel} mainLabel={c.mainLabel} isCurrent={c.isCurrent} groups={c.groups} periodKey={c.periodKey}
-              completions={c.completions} onToggle={c.onToggle} onUpdateTitle={c.onUpdateTitle} onRemoveTask={c.onRemoveTask} onQuickAdd={c.onQuickAdd} categories={categories} t={t} dark={dark} style={c.cardStyle} />
+              completions={c.completions} onToggle={c.onToggle} onUpdateTitle={c.onUpdateTitle} onRemoveTask={c.onRemoveTask} onQuickAdd={c.onQuickAdd}
+              adhocItems={c.adhocItems} onToggleAdhocDone={onToggleAdhocDone} onRemoveAdhoc={onRemoveAdhoc} categories={categories} t={t} dark={dark} style={c.cardStyle} />
           );
         })}
       </div>
@@ -268,18 +283,31 @@ function PeriodSection({ title, subtitle, cards, gridStyle, categories, t, dark 
 // ── 비정기 업무: 기한을 등록해두고 처리하면 체크, 또는 즉시 완료 로그 ─────
 function AdhocSection({ entries, onAdd, onToggleDone, onRemove, onDeleteMonth, t, dark }) {
   var [text, setText] = useState("");
-  var [dueDate, setDueDate] = useState("");
+  var [rangeMode, setRangeMode] = useState(false);
+  var [startDate, setStartDate] = useState("");
+  var [endDate, setEndDate] = useState("");
   var [delMonth, setDelMonth] = useState(dateStr(TODAY).slice(0, 7));
 
   var submitInstant = function () {
     if (!text.trim()) return;
-    onAdd(text.trim(), null, true); // 기한 없이 바로 완료 처리
-    setText("");
+    if (rangeMode) {
+      if (!startDate || !endDate || startDate > endDate) { alert("시작일/종료일을 확인해주세요."); return; }
+      onAdd(text.trim(), startDate, true, endDate);
+    } else {
+      onAdd(text.trim(), null, true); // 기한 없이 바로 완료 처리 (오늘 날짜)
+    }
+    setText(""); setStartDate(""); setEndDate("");
   };
   var submitDue = function () {
-    if (!text.trim() || !dueDate) return;
-    onAdd(text.trim(), dueDate, false); // 기한 등록, 아직 미완료
-    setText(""); setDueDate("");
+    if (!text.trim()) return;
+    if (rangeMode) {
+      if (!startDate || !endDate || startDate > endDate) { alert("시작일/종료일을 확인해주세요."); return; }
+      onAdd(text.trim(), startDate, false, endDate);
+    } else {
+      if (!startDate) return;
+      onAdd(text.trim(), startDate, false);
+    }
+    setText(""); setStartDate(""); setEndDate("");
   };
 
   var pending = entries.filter(function (e) { return !e.done; }).sort(function (a, b) { return (a.dueDate || "").localeCompare(b.dueDate || ""); });
@@ -297,24 +325,37 @@ function AdhocSection({ entries, onAdd, onToggleDone, onRemove, onDeleteMonth, t
   return (
     <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 16, marginBottom: 20 }}>
       <div style={{ fontSize: 18, fontWeight: 900, color: t.text, marginBottom: 4 }}>비정기 업무</div>
-      <div style={{ fontSize: 11, color: t.sub, marginBottom: 10 }}>기한이 있는 업무는 "기한 등록"으로 날짜를 지정해두면 목록에 남고, 처리하면 체크하세요. 이미 처리한 업무는 바로 "완료 등록"하면 오늘 날짜로 기록됩니다.</div>
+      <div style={{ fontSize: 11, color: t.sub, marginBottom: 10 }}>기한이 있는 업무는 "기한 등록"으로 날짜를 지정해두면 목록에 남고, 처리하면 체크하세요. 이미 처리한 업무는 바로 "완료 등록"하면 오늘 날짜로 기록됩니다. "기간 등록"을 켜면 시작~종료일을 지정할 수 있고, 해당 기간이 걸치는 주간 업무 카드에도 자동으로 표시됩니다.</div>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-        <input value={text} onChange={function (e) { setText(e.target.value); }} onKeyDown={function (e) { if (e.key === "Enter" && !dueDate) submitInstant(); }} placeholder="예: 모델 DB 업데이트, 비자 서류 준비" style={{ flex: 1, minWidth: 180, padding: "9px 12px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 13 }} />
-        <input type="date" value={dueDate} onChange={function (e) { setDueDate(e.target.value); }} style={inputStyleSm} title="기한 (선택 시 '기한 등록' 버튼 사용)" />
+      <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
+        <input value={text} onChange={function (e) { setText(e.target.value); }} onKeyDown={function (e) { if (e.key === "Enter" && !rangeMode) submitInstant(); }} placeholder="예: 모델 DB 업데이트, 비자 서류 준비" style={{ flex: 1, minWidth: 180, padding: "9px 12px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 13 }} />
+        <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: t.sub, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+          <input type="checkbox" checked={rangeMode} onChange={function (e) { setRangeMode(e.target.checked); }} style={{ width: 14, height: 14 }} />
+          기간 등록
+        </label>
+        {rangeMode ? (
+          <>
+            <input type="date" value={startDate} onChange={function (e) { setStartDate(e.target.value); }} style={inputStyleSm} title="시작일" />
+            <span style={{ color: t.sub, fontSize: 12 }}>~</span>
+            <input type="date" value={endDate} onChange={function (e) { setEndDate(e.target.value); }} style={inputStyleSm} title="종료일" />
+          </>
+        ) : (
+          <input type="date" value={startDate} onChange={function (e) { setStartDate(e.target.value); }} style={inputStyleSm} title="기한 (선택 시 '기한 등록' 버튼 사용)" />
+        )}
         <button onClick={submitInstant} style={{ padding: "0 14px", borderRadius: 8, border: "none", background: "#10b981", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>완료 등록</button>
-        <button onClick={submitDue} disabled={!dueDate} style={{ padding: "0 14px", borderRadius: 8, border: "none", background: dueDate ? "#4f46e5" : (dark ? "#334155" : "#e2e8f0"), color: dueDate ? "#fff" : t.sub, fontWeight: 700, fontSize: 12, cursor: dueDate ? "pointer" : "default" }}>기한 등록</button>
+        <button onClick={submitDue} disabled={!startDate} style={{ padding: "0 14px", borderRadius: 8, border: "none", background: startDate ? "#4f46e5" : (dark ? "#334155" : "#e2e8f0"), color: startDate ? "#fff" : t.sub, fontWeight: 700, fontSize: 12, cursor: startDate ? "pointer" : "default" }}>기한 등록</button>
       </div>
 
       {pending.length > 0 && (
         <div style={{ marginBottom: 14 }}>
           <div style={{ fontSize: 12, fontWeight: 800, color: t.text, marginBottom: 6 }}>처리 대기 중 ({pending.length}건)</div>
           {pending.map(function (e) {
-            var overdue = e.dueDate && e.dueDate < todayStr;
+            var overdue = (e.endDate || e.dueDate) && (e.endDate || e.dueDate) < todayStr;
+            var dueLabel = e.endDate && e.endDate !== e.dueDate ? (e.dueDate + " ~ " + e.endDate) : e.dueDate;
             return (
               <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: overdue ? (dark ? "#2a1010" : "#fef2f2") : t.card2, border: "1px solid " + (overdue ? "#ef4444" : t.border), borderRadius: 9, marginBottom: 6 }}>
                 <input type="checkbox" checked={false} onChange={function () { onToggleDone(e.id); }} style={{ width: 15, height: 15, flexShrink: 0, accentColor: "#4f46e5" }} />
-                <span style={{ fontSize: 11, color: overdue ? "#ef4444" : "#4f46e5", fontWeight: 800, flexShrink: 0, whiteSpace: "nowrap" }}>{overdue ? "지연 · " : "기한 "}{e.dueDate}</span>
+                <span style={{ fontSize: 11, color: overdue ? "#ef4444" : "#4f46e5", fontWeight: 800, flexShrink: 0, whiteSpace: "nowrap" }}>{overdue ? "지연 · " : "기한 "}{dueLabel}</span>
                 <span style={{ flex: 1, fontSize: 13, color: t.text }}>{e.title}</span>
                 <button onClick={function () { onRemove(e.id); }} style={{ width: 22, height: 22, borderRadius: 6, border: "none", background: "#ef444440", color: "#ef4444", cursor: "pointer", fontSize: 11, flexShrink: 0 }}>✕</button>
               </div>
@@ -480,11 +521,11 @@ export default function TaskChecklistTab({ dark }) {
     confirmAddTask({ category: category, title: title, frequency: "weekly", desc: "" });
   };
 
-  var addAdhoc = function (title, dueDate, doneFlag) {
+  var addAdhoc = function (title, startDate, doneFlag, endDate) {
     setAdhocEntries(function (prev) {
       var entry = doneFlag
-        ? { id: uid(), title: title, done: true, completedDate: dateStr(new Date()) }
-        : { id: uid(), title: title, done: false, dueDate: dueDate };
+        ? { id: uid(), title: title, done: true, completedDate: startDate || dateStr(new Date()), endDate: endDate || null }
+        : { id: uid(), title: title, done: false, dueDate: startDate, endDate: endDate || null };
       var next = [entry].concat(prev);
       persist(templates, completions, next, categories);
       return next;
@@ -522,27 +563,53 @@ export default function TaskChecklistTab({ dark }) {
 
   var weeks = weeksInMonth(year, month);
   var todayWeekKey = dateStr(weekStartOf(TODAY));
+
+  // 비정기 업무의 유효 기간(시작~종료)을 계산
+  var adhocRange = function (e) {
+    var start = e.done ? (e.completedDate || e.date) : e.dueDate;
+    var end = e.endDate || start;
+    return { start: start, end: end };
+  };
+
   var weeklyCards = weeks.map(function (mon, i) {
     var end = addDays(mon, 6);
     var periodKey = dateStr(mon);
+    var weekStartStr = periodKey, weekEndStr = dateStr(end);
+    var adhocItems = adhocEntries.filter(function (e) {
+      var r = adhocRange(e);
+      if (!r.start) return false;
+      return r.start <= weekEndStr && r.end >= weekStartStr;
+    });
     return {
       periodKey: periodKey, topLabel: (i + 1) + "주차" + (periodKey === todayWeekKey ? " · 이번 주" : ""),
       mainLabel: (mon.getMonth() + 1) + "." + mon.getDate() + " ~ " + (end.getMonth() + 1) + "." + end.getDate(),
       isCurrent: periodKey === todayWeekKey, groups: weeklyGroups, completions: completions, onToggle: toggleCompletion,
-      onUpdateTitle: updateTaskTitle, onRemoveTask: removeTask, onQuickAdd: quickAddWeeklyTask,
+      onUpdateTitle: updateTaskTitle, onRemoveTask: removeTask, onQuickAdd: quickAddWeeklyTask, adhocItems: adhocItems,
     };
   });
 
-  // 월간 정리: 이번 달에 속한 주차들의 완료 현황을 업무별로 합산
+  // 월간 정리: 이번 달에 속한 주차별로 어떤 업무가 완료됐는지 정리
   var monthlyRollup = weeklyGroups.map(function (g) {
     return {
       category: g.category,
       tasks: g.tasks.map(function (tp) {
-        var doneWeeks = weeklyCards.filter(function (c) { return !!completions[tp.id + "|" + c.periodKey]; }).length;
-        return { id: tp.id, title: tp.title, done: doneWeeks, total: weeklyCards.length };
+        var weekFlags = weeklyCards.map(function (c) { return !!completions[tp.id + "|" + c.periodKey]; });
+        var doneWeeks = weekFlags.filter(Boolean).length;
+        return { id: tp.id, title: tp.title, weekFlags: weekFlags, done: doneWeeks, total: weeklyCards.length };
       }),
     };
   });
+  var monthlyAdhoc = (function () {
+    var seen = {};
+    var list = [];
+    weeklyCards.forEach(function (c, wi) {
+      (c.adhocItems || []).forEach(function (e) {
+        if (!seen[e.id]) { seen[e.id] = { id: e.id, title: e.title, done: e.done, weeks: [] }; list.push(seen[e.id]); }
+        seen[e.id].weeks.push(wi + 1);
+      });
+    });
+    return list;
+  })();
 
   return (
     <div>
@@ -567,17 +634,10 @@ export default function TaskChecklistTab({ dark }) {
         <button onClick={function () { setYear(TODAY.getFullYear()); setMonth(TODAY.getMonth() + 1); }} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid " + t.border, background: "transparent", color: t.sub, fontSize: 12, cursor: "pointer" }}>오늘</button>
       </div>
 
-      <CategoryManager categories={categories} onChange={changeCategories} dark={dark} t={t} />
-
-      <OverviewSection templates={templates} onUpdateTask={updateTask} onRemoveTask={removeTask} onOpenAdd={openAddModal} t={t} dark={dark} />
-
-      <PeriodSection title={year + "년 " + month + "월 주간 업무"} subtitle="화면 너비에 맞춰 모든 주차가 한 번에 표시됩니다. 카드 아래 입력창에 바로 업무를 적고 Enter로 추가하세요." cards={weeklyCards} categories={categories} t={t} dark={dark}
-        gridStyle={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }} />
-
       <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 16, marginBottom: 20 }}>
         <div style={{ fontSize: 18, fontWeight: 900, color: t.text, marginBottom: 4 }}>{year}년 {month}월 월간 정리</div>
-        <div style={{ fontSize: 11, color: t.sub, marginBottom: 12 }}>이 달의 주간 업무 완료 현황을 업무별로 모아서 보여줍니다.</div>
-        {monthlyRollup.every(function (g) { return g.tasks.length === 0; }) && <div style={{ color: t.sub, fontSize: 12, textAlign: "center", padding: "10px 0" }}>등록된 주간 업무가 없습니다.</div>}
+        <div style={{ fontSize: 11, color: t.sub, marginBottom: 12 }}>이 달의 주간 업무를 몇 주차에 처리했는지 모아서 보여줍니다.</div>
+        {monthlyRollup.every(function (g) { return g.tasks.length === 0; }) && monthlyAdhoc.length === 0 && <div style={{ color: t.sub, fontSize: 12, textAlign: "center", padding: "10px 0" }}>등록된 업무가 없습니다.</div>}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 14 }}>
           {monthlyRollup.map(function (g) {
             if (g.tasks.length === 0) return null;
@@ -585,7 +645,6 @@ export default function TaskChecklistTab({ dark }) {
               <div key={g.category}>
                 <div style={{ fontSize: 11, fontWeight: 800, color: "#7c7fdb", marginBottom: 6 }}>{g.category}</div>
                 {g.tasks.map(function (tp) {
-                  var ratio = tp.total > 0 ? tp.done / tp.total : 0;
                   var full = tp.total > 0 && tp.done === tp.total;
                   return (
                     <div key={tp.id} style={{ marginBottom: 8 }}>
@@ -593,8 +652,12 @@ export default function TaskChecklistTab({ dark }) {
                         <span style={{ fontSize: 12, color: t.text }}>{tp.title}</span>
                         <span style={{ fontSize: 11, fontWeight: 800, color: full ? "#10b981" : t.sub }}>{tp.done}/{tp.total}주</span>
                       </div>
-                      <div style={{ height: 5, borderRadius: 3, background: t.card2, overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: (ratio * 100) + "%", background: full ? "#10b981" : "#4f46e5", borderRadius: 3 }} />
+                      <div style={{ display: "flex", gap: 3 }}>
+                        {tp.weekFlags.map(function (done, wi) {
+                          return (
+                            <div key={wi} title={(wi + 1) + "주차" + (done ? " 완료" : " 미완료")} style={{ flex: 1, textAlign: "center", padding: "3px 0", borderRadius: 5, fontSize: 9.5, fontWeight: 800, background: done ? "#10b981" : t.card2, color: done ? "#fff" : t.sub, border: done ? "none" : "1px solid " + t.border }}>{wi + 1}주</div>
+                          );
+                        })}
                       </div>
                     </div>
                   );
@@ -602,8 +665,31 @@ export default function TaskChecklistTab({ dark }) {
               </div>
             );
           })}
+          {monthlyAdhoc.length > 0 && (
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 800, color: "#f59e0b", marginBottom: 6 }}>비정기</div>
+              {monthlyAdhoc.map(function (e) {
+                return (
+                  <div key={e.id} style={{ marginBottom: 8 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                      <span style={{ fontSize: 12, color: t.text }}>{e.title}</span>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: e.done ? "#10b981" : "#f59e0b" }}>{e.done ? "완료" : "진행중"}</span>
+                    </div>
+                    <div style={{ fontSize: 10, color: t.sub }}>{e.weeks.map(function (w) { return w + "주차"; }).join(", ")}</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
+
+      <CategoryManager categories={categories} onChange={changeCategories} dark={dark} t={t} />
+
+      <OverviewSection templates={templates} onUpdateTask={updateTask} onRemoveTask={removeTask} onOpenAdd={openAddModal} t={t} dark={dark} />
+
+      <PeriodSection title={year + "년 " + month + "월 주간 업무"} subtitle="화면 너비에 맞춰 모든 주차가 한 번에 표시됩니다. 카드 아래 입력창에 바로 업무를 적고 Enter로 추가하세요." cards={weeklyCards} categories={categories} onToggleAdhocDone={toggleAdhocDone} onRemoveAdhoc={removeAdhoc} t={t} dark={dark}
+        gridStyle={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }} />
 
       <AdhocSection entries={adhocEntries} onAdd={addAdhoc} onToggleDone={toggleAdhocDone} onRemove={removeAdhoc} onDeleteMonth={deleteAdhocMonth} t={t} dark={dark} />
     </div>
