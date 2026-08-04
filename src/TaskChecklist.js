@@ -58,6 +58,15 @@ async function saveWork(payload) {
   } catch (e) { return false; }
 }
 
+var CATEGORY_PALETTE = ["#4f46e5", "#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6"];
+var UNSORTED_CATEGORY = "미분류";
+function categoryColor(cat) {
+  var str = cat || "";
+  var h = 0;
+  for (var i = 0; i < str.length; i++) { h = (h * 31 + str.charCodeAt(i)) >>> 0; }
+  return CATEGORY_PALETTE[h % CATEGORY_PALETTE.length];
+}
+
 function groupByCategory(list) {
   var groups = {};
   var order = [];
@@ -120,9 +129,9 @@ function AddTaskModal({ categories, defaultFrequency, onAdd, onClose, t, dark })
   );
 }
 
-// ── 카테고리(업무 형태 분류) 관리 ─────────────────────────────────────────
-function CategoryManager({ categories, onChange, dark, t }) {
-  var [open, setOpen] = useState(false);
+// ── 카테고리(업무 형태 분류) 관리 — 별도 버튼으로 여는 모달 ────────────────
+function CategoryManagerModal({ open, categories, onChange, onClose, dark, t }) {
+  if (!open) return null;
   var updateName = function (idx, value) {
     var next = categories.slice();
     var oldName = next[idx];
@@ -140,58 +149,85 @@ function CategoryManager({ categories, onChange, dark, t }) {
   };
 
   return (
-    <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 12, overflow: "hidden", marginBottom: 20 }}>
-      <button onClick={function () { setOpen(!open); }} style={{ width: "100%", padding: "10px 12px", background: t.thead, border: "none", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
-        <span style={{ fontSize: 12, fontWeight: 800, color: t.text }}>카테고리 관리 (추가/이름 수정/삭제)</span>
-        <span style={{ fontSize: 11, color: t.sub }}>{open ? "접기 ▲" : "펼치기 ▼"}</span>
-      </button>
-      {open && (
-        <div style={{ padding: 12 }}>
-          <button onClick={addCategory} style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer", marginBottom: 10 }}>+ 카테고리 추가</button>
-          {categories.map(function (c, idx) {
-            return (
-              <div key={idx} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
-                <input value={c} onChange={function (e) { updateName(idx, e.target.value); }} style={{ flex: 1, padding: "7px 9px", borderRadius: 7, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 12 }} />
-                <button onClick={function () { removeCategory(idx); }} style={{ width: 28, height: 28, borderRadius: 7, border: "none", background: "#ef444440", color: "#ef4444", cursor: "pointer" }}>✕</button>
-              </div>
-            );
-          })}
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }} onClick={onClose}>
+      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 16, padding: 22, width: "100%", maxWidth: 420, maxHeight: "80vh", overflowY: "auto" }} onClick={function (e) { e.stopPropagation(); }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <h3 style={{ color: t.text, fontWeight: 900, fontSize: 16, margin: 0 }}>카테고리 관리</h3>
+          <button onClick={onClose} style={{ border: "none", background: "transparent", color: t.sub, fontSize: 18, cursor: "pointer", padding: 0, lineHeight: 1 }}>✕</button>
         </div>
-      )}
+        <div style={{ fontSize: 11, color: t.sub, marginBottom: 14 }}>업무를 분류하는 카테고리를 추가·수정·삭제합니다.</div>
+        <button onClick={addCategory} style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer", marginBottom: 12 }}>+ 카테고리 추가</button>
+        {categories.map(function (c, idx) {
+          return (
+            <div key={idx} style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 8 }}>
+              <span style={{ width: 9, height: 9, borderRadius: "50%", background: categoryColor(c), flexShrink: 0 }} />
+              <input value={c} onChange={function (e) { updateName(idx, e.target.value); }} style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 13 }} />
+              <button onClick={function () { removeCategory(idx); }} style={{ width: 30, height: 30, flexShrink: 0, borderRadius: 8, border: "none", background: "#ef444440", color: "#ef4444", cursor: "pointer" }}>✕</button>
+            </div>
+          );
+        })}
+        <div style={{ marginTop: 16, textAlign: "right" }}>
+          <button onClick={onClose} style={{ padding: "9px 18px", borderRadius: 9, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>완료</button>
+        </div>
+      </div>
     </div>
   );
 }
 
 // ── 전체 업무 정리 (상단 마스터 목록, 주간 업무만) ─────────────────────────
-function OverviewSection({ templates, onRemoveTask, onOpenAdd, t, dark }) {
+function OverviewSection({ templates, onRemoveTask, onOpenAdd, onManageCategories, t, dark }) {
   var list = templates.filter(function (tp) { return tp.frequency === "weekly"; });
   var groups = groupByCategory(list);
   return (
     <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 16, marginBottom: 20 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
-        <div style={{ fontSize: 18, fontWeight: 900, color: t.text }}>전체 주간 업무 ({list.length}개)</div>
-        <button onClick={function () { onOpenAdd(null); }} style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>+ 업무 추가</button>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, flexWrap: "wrap", gap: 8 }}>
+        <div style={{ fontSize: 18, fontWeight: 900, color: t.text }}>전체 주간 업무 <span style={{ color: t.sub, fontWeight: 700, fontSize: 13 }}>({list.length}개)</span></div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onManageCategories} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid " + t.border, background: "transparent", color: t.text, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>⚙ 카테고리 관리</button>
+          <button onClick={function () { onOpenAdd(null); }} style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>+ 업무 추가</button>
+        </div>
       </div>
-      {list.length === 0 && <div style={{ color: t.sub, fontSize: 12, padding: "12px 0", textAlign: "center" }}>등록된 업무가 없습니다.</div>}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 14 }}>
-        {groups.map(function (g) {
-          return (
-            <div key={g.category}>
-              <div style={{ fontSize: 10, fontWeight: 800, color: "#7c7fdb", marginBottom: 4 }}>{g.category}</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                {g.tasks.map(function (tp) {
-                  return (
-                    <span key={tp.id} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: t.text, background: t.card2, border: "1px solid " + t.border, borderRadius: 20, padding: "3px 5px 3px 10px" }}>
-                      {tp.title || "(제목 없음)"}
-                      <button onClick={function () { onRemoveTask(tp.id); }} style={{ width: 16, height: 16, borderRadius: "50%", border: "none", background: "transparent", color: "#ef4444", cursor: "pointer", fontSize: 10, lineHeight: 1, padding: 0 }}>✕</button>
-                    </span>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+
+      {list.length === 0 ? (
+        <div style={{ color: t.sub, fontSize: 12, padding: "20px 0", textAlign: "center" }}>등록된 업무가 없습니다.</div>
+      ) : (
+        <>
+          {/* 카테고리별 개수 배지 — 한눈에 보는 요약 */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "12px 0 16px" }}>
+            {groups.map(function (g) {
+              return (
+                <span key={g.category} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: t.text, background: t.card2, border: "1px solid " + t.border, borderRadius: 20, padding: "4px 10px 4px 8px" }}>
+                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: categoryColor(g.category), flexShrink: 0 }} />
+                  {g.category} {g.tasks.length}
+                </span>
+              );
+            })}
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 12 }}>
+            {groups.map(function (g) {
+              var color = categoryColor(g.category);
+              return (
+                <div key={g.category} style={{ border: "1px solid " + t.border, borderRadius: 10, overflow: "hidden" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 10px", background: t.card2, borderLeft: "3px solid " + color }}>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: t.text }}>{g.category}</span>
+                  </div>
+                  <div>
+                    {g.tasks.map(function (tp, idx) {
+                      return (
+                        <div key={tp.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "8px 10px", borderTop: idx === 0 ? "none" : "1px solid " + t.border }}>
+                          <span style={{ fontSize: 12.5, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tp.title || "(제목 없음)"}</span>
+                          <button onClick={function () { onRemoveTask(tp.id); }} style={{ width: 20, height: 20, flexShrink: 0, borderRadius: 6, border: "none", background: "transparent", color: "#ef4444", cursor: "pointer", fontSize: 12, lineHeight: 1 }}>✕</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -199,57 +235,48 @@ function OverviewSection({ templates, onRemoveTask, onOpenAdd, t, dark }) {
 // ── 기간 카드 (주간) ───────────────────────────────────────────────────────
 function PeriodCard({ topLabel, mainLabel, isCurrent, groups, periodKey, completions, onToggle, onUpdateTitle, onRemoveTask, onQuickAdd, adhocItems, onToggleAdhocDone, onRemoveAdhoc, categories, t, dark, style }) {
   var [quickText, setQuickText] = useState("");
-  var [quickCat, setQuickCat] = useState((categories && categories[0]) || "기타");
   var submitQuick = function () {
     if (!quickText.trim()) return;
-    onQuickAdd(quickCat, quickText.trim());
+    onQuickAdd(UNSORTED_CATEGORY, quickText.trim());
     setQuickText("");
   };
+  var allTasks = [];
+  groups.forEach(function (g) { allTasks = allTasks.concat(g.tasks); });
+
   return (
     <div style={Object.assign({ background: isCurrent ? (dark ? "#1e2a4a" : "#eef2ff") : t.card2, border: isCurrent ? "2.5px solid #4f46e5" : "1px solid " + t.border, borderRadius: 12, padding: "12px 12px", boxShadow: isCurrent ? "0 0 0 3px rgba(79,70,229,0.15)" : "none" }, style)}>
       {topLabel ? <div style={{ fontSize: 11, fontWeight: 700, color: isCurrent ? "#4f46e5" : t.sub, marginBottom: 2 }}>{topLabel}</div> : null}
       <div style={{ fontSize: 18, fontWeight: 900, color: isCurrent ? "#4f46e5" : t.text, marginBottom: 8 }}>{mainLabel}</div>
-      {groups.length === 0 && (!adhocItems || adhocItems.length === 0) && <div style={{ fontSize: 11, color: t.sub, marginBottom: 6 }}>업무 없음</div>}
-      {groups.map(function (g) {
+      {allTasks.length === 0 && (!adhocItems || adhocItems.length === 0) && <div style={{ fontSize: 11, color: t.sub, marginBottom: 6 }}>업무 없음</div>}
+
+      {allTasks.map(function (tp) {
+        var key = tp.id + "|" + periodKey;
+        var checked = !!completions[key];
+        var color = categoryColor(tp.category);
         return (
-          <div key={g.category} style={{ marginBottom: 6 }}>
-            <div style={{ fontSize: 10, fontWeight: 800, color: "#7c7fdb", marginBottom: 3 }}>{g.category}</div>
-            {g.tasks.map(function (tp) {
-              var key = tp.id + "|" + periodKey;
-              var checked = !!completions[key];
-              return (
-                <div key={tp.id} style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4 }}>
-                  <input type="checkbox" checked={checked} onChange={function () { onToggle(tp.id, periodKey); }} style={{ width: 14, height: 14, flexShrink: 0, accentColor: "#4f46e5" }} />
-                  <input value={tp.title} onChange={function (e) { onUpdateTitle(tp.id, e.target.value); }} title={tp.desc} style={{ flex: 1, minWidth: 0, fontSize: 11.5, background: "transparent", border: "none", color: checked ? t.sub : t.text, textDecoration: checked ? "line-through" : "none", padding: "2px 3px", borderRadius: 4 }} />
-                  <button onClick={function () { onRemoveTask(tp.id); }} style={{ width: 18, height: 18, flexShrink: 0, borderRadius: 5, border: "none", background: "transparent", color: "#ef4444", cursor: "pointer", fontSize: 11, lineHeight: 1 }}>✕</button>
-                </div>
-              );
-            })}
+          <div key={tp.id} title={tp.category} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3, paddingLeft: 6, borderLeft: "3px solid " + color, borderRadius: 3 }}>
+            <input type="checkbox" checked={checked} onChange={function () { onToggle(tp.id, periodKey); }} style={{ width: 14, height: 14, flexShrink: 0, accentColor: "#4f46e5" }} />
+            <input value={tp.title} onChange={function (e) { onUpdateTitle(tp.id, e.target.value); }} title={tp.desc} style={{ flex: 1, minWidth: 0, fontSize: 12, background: "transparent", border: "none", color: checked ? t.sub : t.text, textDecoration: checked ? "line-through" : "none", padding: "3px 3px", borderRadius: 4 }} />
+            <button onClick={function () { onRemoveTask(tp.id); }} style={{ width: 18, height: 18, flexShrink: 0, borderRadius: 5, border: "none", background: "transparent", color: "#ef4444", cursor: "pointer", fontSize: 11, lineHeight: 1 }}>✕</button>
           </div>
         );
       })}
+
       {adhocItems && adhocItems.length > 0 && (
-        <div style={{ marginBottom: 6 }}>
-          <div style={{ fontSize: 10, fontWeight: 800, color: "#f59e0b", marginBottom: 3 }}>비정기</div>
+        <div style={{ marginTop: allTasks.length > 0 ? 6 : 0, marginBottom: 4 }}>
           {adhocItems.map(function (e) {
             return (
-              <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4 }}>
+              <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3, paddingLeft: 6, borderLeft: "3px solid #f59e0b", borderRadius: 3 }}>
                 <input type="checkbox" checked={!!e.done} onChange={function () { if (!e.done) onToggleAdhocDone(e.id); }} style={{ width: 14, height: 14, flexShrink: 0, accentColor: "#f59e0b" }} />
-                <span style={{ flex: 1, minWidth: 0, fontSize: 11.5, color: e.done ? t.sub : t.text, textDecoration: e.done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.title}</span>
+                <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: e.done ? t.sub : t.text, textDecoration: e.done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", padding: "3px 0" }}>{e.title}</span>
                 <button onClick={function () { onRemoveAdhoc(e.id); }} style={{ width: 18, height: 18, flexShrink: 0, borderRadius: 5, border: "none", background: "transparent", color: "#ef4444", cursor: "pointer", fontSize: 11, lineHeight: 1 }}>✕</button>
               </div>
             );
           })}
         </div>
       )}
-      <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
-        {categories && categories.length > 1 && (
-          <select value={quickCat} onChange={function (e) { setQuickCat(e.target.value); }} style={{ width: 60, flexShrink: 0, padding: "4px 2px", borderRadius: 6, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 9.5 }}>
-            {categories.map(function (c) { return <option key={c} value={c}>{c}</option>; })}
-          </select>
-        )}
-        <input value={quickText} onChange={function (e) { setQuickText(e.target.value); }} onKeyDown={function (e) { if (e.key === "Enter") submitQuick(); }} placeholder="+ 업무 입력 후 Enter" style={{ flex: 1, minWidth: 0, padding: "4px 6px", borderRadius: 6, border: "1px dashed " + t.ib, background: "transparent", color: t.text, fontSize: 11 }} />
-      </div>
+
+      <input value={quickText} onChange={function (e) { setQuickText(e.target.value); }} onKeyDown={function (e) { if (e.key === "Enter") submitQuick(); }} placeholder="+ 업무 입력 후 Enter" style={{ width: "100%", marginTop: 8, padding: "6px 8px", borderRadius: 6, border: "1px dashed " + t.ib, background: "transparent", color: t.text, fontSize: 12, boxSizing: "border-box" }} />
     </div>
   );
 }
@@ -434,6 +461,7 @@ export default function TaskChecklistTab({ dark }) {
   var [adhocEntries, setAdhocEntries] = useState([]);
   var [categories, setCategories] = useState(CATEGORIES_DEFAULT_ORDER.slice());
   var [addModalFreq, setAddModalFreq] = useState(null);
+  var [showCategoryModal, setShowCategoryModal] = useState(false);
   var [year, setYear] = useState(TODAY.getFullYear());
   var [month, setMonth] = useState(TODAY.getMonth() + 1);
   var [saveStatus, setSaveStatus] = useState("idle");
@@ -643,7 +671,7 @@ export default function TaskChecklistTab({ dark }) {
             if (g.tasks.length === 0) return null;
             return (
               <div key={g.category}>
-                <div style={{ fontSize: 11, fontWeight: 800, color: "#7c7fdb", marginBottom: 6 }}>{g.category}</div>
+                <div style={{ fontSize: 11, fontWeight: 800, color: categoryColor(g.category), marginBottom: 6 }}>{g.category}</div>
                 {g.tasks.map(function (tp) {
                   var full = tp.total > 0 && tp.done === tp.total;
                   return (
@@ -684,9 +712,9 @@ export default function TaskChecklistTab({ dark }) {
         </div>
       </div>
 
-      <CategoryManager categories={categories} onChange={changeCategories} dark={dark} t={t} />
+      <CategoryManagerModal open={showCategoryModal} categories={categories} onChange={changeCategories} onClose={function () { setShowCategoryModal(false); }} dark={dark} t={t} />
 
-      <OverviewSection templates={templates} onUpdateTask={updateTask} onRemoveTask={removeTask} onOpenAdd={openAddModal} t={t} dark={dark} />
+      <OverviewSection templates={templates} onUpdateTask={updateTask} onRemoveTask={removeTask} onOpenAdd={openAddModal} onManageCategories={function () { setShowCategoryModal(true); }} t={t} dark={dark} />
 
       <PeriodSection title={year + "년 " + month + "월 주간 업무"} subtitle="화면 너비에 맞춰 모든 주차가 한 번에 표시됩니다. 카드 아래 입력창에 바로 업무를 적고 Enter로 추가하세요." cards={weeklyCards} categories={categories} onToggleAdhocDone={toggleAdhocDone} onRemoveAdhoc={removeAdhoc} t={t} dark={dark}
         gridStyle={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }} />
