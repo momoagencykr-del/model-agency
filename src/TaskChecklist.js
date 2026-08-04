@@ -252,19 +252,19 @@ function PeriodCard({ topLabel, mainLabel, isCurrent, groups, periodKey, complet
         <div style={{ fontSize: 15, fontWeight: 900, color: isCurrent ? "#4f46e5" : t.text }}>{mainLabel}</div>
       </div>
 
-      {/* 우측: 업무 목록 (wrap) + 빠른 입력 */}
+      {/* 우측: 업무 목록 (한 줄씩 아래로 쌓임) + 빠른 입력 */}
       <div style={{ flex: 1, minWidth: 0 }}>
         {isEmpty && <div style={{ fontSize: 11.5, color: t.sub, padding: "3px 0 6px" }}>업무 없음</div>}
 
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
           {allTasks.map(function (tp) {
             var key = tp.id + "|" + periodKey;
             var checked = !!completions[key];
             var color = categoryColor(tp.category);
             return (
-              <div key={tp.id} title={tp.category} style={{ display: "flex", alignItems: "center", gap: 4, background: t.card2, border: "1px solid " + t.border, borderLeft: "3px solid " + color, borderRadius: 7, padding: "3px 4px 3px 7px" }}>
+              <div key={tp.id} title={tp.category} style={{ display: "flex", alignItems: "center", gap: 6, background: t.card2, border: "1px solid " + t.border, borderLeft: "3px solid " + color, borderRadius: 7, padding: "5px 8px" }}>
                 <input type="checkbox" checked={checked} onChange={function () { onToggle(tp.id, periodKey); }} style={{ width: 13, height: 13, flexShrink: 0, accentColor: "#4f46e5" }} />
-                <input value={tp.title} onChange={function (e) { onUpdateTitle(tp.id, e.target.value); }} title={tp.desc} style={{ width: Math.max(60, Math.min(220, tp.title.length * 7.5 + 20)), minWidth: 60, maxWidth: 220, fontSize: 12, background: "transparent", border: "none", color: checked ? t.sub : t.text, textDecoration: checked ? "line-through" : "none", padding: "2px 0" }} />
+                <input value={tp.title} onChange={function (e) { onUpdateTitle(tp.id, e.target.value); }} title={tp.desc} style={{ flex: 1, minWidth: 0, fontSize: 12.5, background: "transparent", border: "none", color: checked ? t.sub : t.text, textDecoration: checked ? "line-through" : "none", padding: "2px 0" }} />
                 <button onClick={function () { onRemoveTask(tp.id); }} style={{ width: 16, height: 16, flexShrink: 0, borderRadius: 5, border: "none", background: "transparent", color: "#ef4444", cursor: "pointer", fontSize: 10, lineHeight: 1 }}>✕</button>
               </div>
             );
@@ -272,15 +272,15 @@ function PeriodCard({ topLabel, mainLabel, isCurrent, groups, periodKey, complet
 
           {adhocItems && adhocItems.map(function (e) {
             return (
-              <div key={e.id} title="비정기 업무" style={{ display: "flex", alignItems: "center", gap: 4, background: t.card2, border: "1px solid " + t.border, borderLeft: "3px solid #f59e0b", borderRadius: 7, padding: "3px 4px 3px 7px" }}>
+              <div key={e.id} title="비정기 업무" style={{ display: "flex", alignItems: "center", gap: 6, background: t.card2, border: "1px solid " + t.border, borderLeft: "3px solid #f59e0b", borderRadius: 7, padding: "5px 8px" }}>
                 <input type="checkbox" checked={!!e.done} onChange={function () { if (!e.done) onToggleAdhocDone(e.id); }} style={{ width: 13, height: 13, flexShrink: 0, accentColor: "#f59e0b" }} />
-                <span style={{ fontSize: 12, color: e.done ? t.sub : t.text, textDecoration: e.done ? "line-through" : "none", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", padding: "2px 0" }}>{e.title}</span>
+                <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: e.done ? t.sub : t.text, textDecoration: e.done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", padding: "2px 0" }}>{e.title}</span>
                 <button onClick={function () { onRemoveAdhoc(e.id); }} style={{ width: 16, height: 16, flexShrink: 0, borderRadius: 5, border: "none", background: "transparent", color: "#ef4444", cursor: "pointer", fontSize: 10, lineHeight: 1 }}>✕</button>
               </div>
             );
           })}
 
-          <input value={quickText} onChange={function (e) { setQuickText(e.target.value); }} onKeyDown={function (e) { if (e.key === "Enter") submitQuick(); }} placeholder="+ 업무 입력 후 Enter" style={{ flex: "1 1 160px", minWidth: 140, padding: "5px 8px", borderRadius: 7, border: "1px dashed " + t.ib, background: "transparent", color: t.text, fontSize: 12, boxSizing: "border-box" }} />
+          <input value={quickText} onChange={function (e) { setQuickText(e.target.value); }} onKeyDown={function (e) { if (e.key === "Enter") submitQuick(); }} placeholder="+ 업무 입력 후 Enter" style={{ width: "100%", padding: "6px 8px", borderRadius: 7, border: "1px dashed " + t.ib, background: "transparent", color: t.text, fontSize: 12.5, boxSizing: "border-box" }} />
         </div>
       </div>
     </div>
