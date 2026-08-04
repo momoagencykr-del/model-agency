@@ -242,46 +242,52 @@ function PeriodCard({ topLabel, mainLabel, isCurrent, groups, periodKey, complet
   };
   var allTasks = [];
   groups.forEach(function (g) { allTasks = allTasks.concat(g.tasks); });
+  var isEmpty = allTasks.length === 0 && (!adhocItems || adhocItems.length === 0);
 
   return (
-    <div style={Object.assign({ background: isCurrent ? (dark ? "#1e2a4a" : "#eef2ff") : t.card2, border: isCurrent ? "2.5px solid #4f46e5" : "1px solid " + t.border, borderRadius: 12, padding: "12px 12px", boxShadow: isCurrent ? "0 0 0 3px rgba(79,70,229,0.15)" : "none" }, style)}>
-      {topLabel ? <div style={{ fontSize: 11, fontWeight: 700, color: isCurrent ? "#4f46e5" : t.sub, marginBottom: 2 }}>{topLabel}</div> : null}
-      <div style={{ fontSize: 18, fontWeight: 900, color: isCurrent ? "#4f46e5" : t.text, marginBottom: 8 }}>{mainLabel}</div>
-      {allTasks.length === 0 && (!adhocItems || adhocItems.length === 0) && <div style={{ fontSize: 11, color: t.sub, marginBottom: 6 }}>업무 없음</div>}
+    <div style={Object.assign({ display: "flex", gap: 14, alignItems: "flex-start", padding: "14px 14px", borderRadius: 10, background: isCurrent ? (dark ? "#1e2a4a" : "#eef2ff") : "transparent", border: isCurrent ? "1.5px solid #4f46e5" : "1px solid " + t.border }, style)}>
+      {/* 좌측: 주차/기간 라벨 */}
+      <div style={{ width: 108, flexShrink: 0 }}>
+        {topLabel ? <div style={{ fontSize: 10.5, fontWeight: 700, color: isCurrent ? "#4f46e5" : t.sub, marginBottom: 2 }}>{topLabel}</div> : null}
+        <div style={{ fontSize: 15, fontWeight: 900, color: isCurrent ? "#4f46e5" : t.text }}>{mainLabel}</div>
+      </div>
 
-      {allTasks.map(function (tp) {
-        var key = tp.id + "|" + periodKey;
-        var checked = !!completions[key];
-        var color = categoryColor(tp.category);
-        return (
-          <div key={tp.id} title={tp.category} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3, paddingLeft: 6, borderLeft: "3px solid " + color, borderRadius: 3 }}>
-            <input type="checkbox" checked={checked} onChange={function () { onToggle(tp.id, periodKey); }} style={{ width: 14, height: 14, flexShrink: 0, accentColor: "#4f46e5" }} />
-            <input value={tp.title} onChange={function (e) { onUpdateTitle(tp.id, e.target.value); }} title={tp.desc} style={{ flex: 1, minWidth: 0, fontSize: 12, background: "transparent", border: "none", color: checked ? t.sub : t.text, textDecoration: checked ? "line-through" : "none", padding: "3px 3px", borderRadius: 4 }} />
-            <button onClick={function () { onRemoveTask(tp.id); }} style={{ width: 18, height: 18, flexShrink: 0, borderRadius: 5, border: "none", background: "transparent", color: "#ef4444", cursor: "pointer", fontSize: 11, lineHeight: 1 }}>✕</button>
-          </div>
-        );
-      })}
+      {/* 우측: 업무 목록 (wrap) + 빠른 입력 */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {isEmpty && <div style={{ fontSize: 11.5, color: t.sub, padding: "3px 0 6px" }}>업무 없음</div>}
 
-      {adhocItems && adhocItems.length > 0 && (
-        <div style={{ marginTop: allTasks.length > 0 ? 6 : 0, marginBottom: 4 }}>
-          {adhocItems.map(function (e) {
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {allTasks.map(function (tp) {
+            var key = tp.id + "|" + periodKey;
+            var checked = !!completions[key];
+            var color = categoryColor(tp.category);
             return (
-              <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3, paddingLeft: 6, borderLeft: "3px solid #f59e0b", borderRadius: 3 }}>
-                <input type="checkbox" checked={!!e.done} onChange={function () { if (!e.done) onToggleAdhocDone(e.id); }} style={{ width: 14, height: 14, flexShrink: 0, accentColor: "#f59e0b" }} />
-                <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: e.done ? t.sub : t.text, textDecoration: e.done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", padding: "3px 0" }}>{e.title}</span>
-                <button onClick={function () { onRemoveAdhoc(e.id); }} style={{ width: 18, height: 18, flexShrink: 0, borderRadius: 5, border: "none", background: "transparent", color: "#ef4444", cursor: "pointer", fontSize: 11, lineHeight: 1 }}>✕</button>
+              <div key={tp.id} title={tp.category} style={{ display: "flex", alignItems: "center", gap: 4, background: t.card2, border: "1px solid " + t.border, borderLeft: "3px solid " + color, borderRadius: 7, padding: "3px 4px 3px 7px" }}>
+                <input type="checkbox" checked={checked} onChange={function () { onToggle(tp.id, periodKey); }} style={{ width: 13, height: 13, flexShrink: 0, accentColor: "#4f46e5" }} />
+                <input value={tp.title} onChange={function (e) { onUpdateTitle(tp.id, e.target.value); }} title={tp.desc} style={{ width: Math.max(60, Math.min(220, tp.title.length * 7.5 + 20)), minWidth: 60, maxWidth: 220, fontSize: 12, background: "transparent", border: "none", color: checked ? t.sub : t.text, textDecoration: checked ? "line-through" : "none", padding: "2px 0" }} />
+                <button onClick={function () { onRemoveTask(tp.id); }} style={{ width: 16, height: 16, flexShrink: 0, borderRadius: 5, border: "none", background: "transparent", color: "#ef4444", cursor: "pointer", fontSize: 10, lineHeight: 1 }}>✕</button>
               </div>
             );
           })}
-        </div>
-      )}
 
-      <input value={quickText} onChange={function (e) { setQuickText(e.target.value); }} onKeyDown={function (e) { if (e.key === "Enter") submitQuick(); }} placeholder="+ 업무 입력 후 Enter" style={{ width: "100%", marginTop: 8, padding: "6px 8px", borderRadius: 6, border: "1px dashed " + t.ib, background: "transparent", color: t.text, fontSize: 12, boxSizing: "border-box" }} />
+          {adhocItems && adhocItems.map(function (e) {
+            return (
+              <div key={e.id} title="비정기 업무" style={{ display: "flex", alignItems: "center", gap: 4, background: t.card2, border: "1px solid " + t.border, borderLeft: "3px solid #f59e0b", borderRadius: 7, padding: "3px 4px 3px 7px" }}>
+                <input type="checkbox" checked={!!e.done} onChange={function () { if (!e.done) onToggleAdhocDone(e.id); }} style={{ width: 13, height: 13, flexShrink: 0, accentColor: "#f59e0b" }} />
+                <span style={{ fontSize: 12, color: e.done ? t.sub : t.text, textDecoration: e.done ? "line-through" : "none", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", padding: "2px 0" }}>{e.title}</span>
+                <button onClick={function () { onRemoveAdhoc(e.id); }} style={{ width: 16, height: 16, flexShrink: 0, borderRadius: 5, border: "none", background: "transparent", color: "#ef4444", cursor: "pointer", fontSize: 10, lineHeight: 1 }}>✕</button>
+              </div>
+            );
+          })}
+
+          <input value={quickText} onChange={function (e) { setQuickText(e.target.value); }} onKeyDown={function (e) { if (e.key === "Enter") submitQuick(); }} placeholder="+ 업무 입력 후 Enter" style={{ flex: "1 1 160px", minWidth: 140, padding: "5px 8px", borderRadius: 7, border: "1px dashed " + t.ib, background: "transparent", color: t.text, fontSize: 12, boxSizing: "border-box" }} />
+        </div>
+      </div>
     </div>
   );
 }
 
-function PeriodSection({ title, subtitle, cards, gridStyle, categories, onToggleAdhocDone, onRemoveAdhoc, t, dark }) {
+function PeriodSection({ title, subtitle, cards, categories, onToggleAdhocDone, onRemoveAdhoc, t, dark }) {
   var totalCount = 0, doneCount = 0;
   cards.forEach(function (c) {
     c.groups.forEach(function (g) { g.tasks.forEach(function (tp) { totalCount++; if (c.completions[tp.id + "|" + c.periodKey]) doneCount++; }); });
@@ -294,7 +300,7 @@ function PeriodSection({ title, subtitle, cards, gridStyle, categories, onToggle
         <div style={{ fontSize: 13, fontWeight: 800, color: doneCount === totalCount && totalCount > 0 ? "#10b981" : "#4f46e5" }}>{doneCount}/{totalCount} 완료</div>
       </div>
       {subtitle ? <div style={{ fontSize: 11, color: t.sub, marginBottom: 12 }}>{subtitle}</div> : null}
-      <div style={gridStyle}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {cards.map(function (c) {
           return (
             <PeriodCard key={c.periodKey} topLabel={c.topLabel} mainLabel={c.mainLabel} isCurrent={c.isCurrent} groups={c.groups} periodKey={c.periodKey}
@@ -716,8 +722,7 @@ export default function TaskChecklistTab({ dark }) {
 
       <OverviewSection templates={templates} onUpdateTask={updateTask} onRemoveTask={removeTask} onOpenAdd={openAddModal} onManageCategories={function () { setShowCategoryModal(true); }} t={t} dark={dark} />
 
-      <PeriodSection title={year + "년 " + month + "월 주간 업무"} subtitle="화면 너비에 맞춰 모든 주차가 한 번에 표시됩니다. 카드 아래 입력창에 바로 업무를 적고 Enter로 추가하세요." cards={weeklyCards} categories={categories} onToggleAdhocDone={toggleAdhocDone} onRemoveAdhoc={removeAdhoc} t={t} dark={dark}
-        gridStyle={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10 }} />
+      <PeriodSection title={year + "년 " + month + "월 주간 업무"} subtitle="주차별로 한 줄씩 표시됩니다. 오른쪽 입력창에 업무를 적고 Enter로 추가하세요. 기간이 걸치는 비정기 업무는 노란 표시로 함께 나타납니다." cards={weeklyCards} categories={categories} onToggleAdhocDone={toggleAdhocDone} onRemoveAdhoc={removeAdhoc} t={t} dark={dark} />
 
       <AdhocSection entries={adhocEntries} onAdd={addAdhoc} onToggleDone={toggleAdhocDone} onRemove={removeAdhoc} onDeleteMonth={deleteAdhocMonth} t={t} dark={dark} />
     </div>
