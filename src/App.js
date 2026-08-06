@@ -1611,7 +1611,7 @@ export default function App({ currentUser, onLogout }) {
         {isMobile && (
           <button onClick={function(){ setMobileNavOpen(true); }} style={{ width:30, height:30, borderRadius:7, border:"1px solid "+t.border, background:"transparent", color:t.text, cursor:"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>☰</button>
         )}
-        <div style={{ width:34, height:34, borderRadius:9, background:"linear-gradient(135deg,#4f46e5,#7c3aed)", display:"flex", alignItems:"center", justifyContent:"center", color:"#fff", fontWeight:900, fontSize:14, flexShrink:0 }}>MA</div>
+        <img src={process.env.PUBLIC_URL + "/badge-icon.png"} alt="MoMo Agency" style={{ width:34, height:34, borderRadius:9, flexShrink:0, objectFit:"contain" }} />
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ fontWeight:900, color:t.text, fontSize:17, lineHeight:1.15, letterSpacing:-0.3 }}>모델 정산관리 시스템</div>
           <div style={{ fontSize:10, color:t.sub }}>Model Agency · 2026 소속모델 정산관리</div>

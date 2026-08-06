@@ -38,7 +38,7 @@ function LoginScreen({ onLogin }) {
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0f172a", fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" }}>
       <div style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 18, padding: 32, width: "100%", maxWidth: 340, boxSizing: "border-box" }}>
         <div style={{ textAlign: "center", marginBottom: 24 }}>
-          <div style={{ width: 48, height: 48, borderRadius: 12, background: "linear-gradient(135deg,#4f46e5,#7c3aed)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 18, margin: "0 auto 12px" }}>MA</div>
+          <img src={process.env.PUBLIC_URL + "/badge-icon.png"} alt="MoMo Agency" style={{ width: 48, height: 48, borderRadius: 12, margin: "0 auto 12px", display: "block", objectFit: "contain" }} />
           <div style={{ color: "#f1f5f9", fontWeight: 900, fontSize: 18 }}>MoMo Agency</div>
           <div style={{ color: "#94a3b8", fontSize: 12, marginTop: 2 }}>내부 직원 전용 시스템</div>
         </div>

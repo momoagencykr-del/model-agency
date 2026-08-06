@@ -1193,19 +1193,19 @@ function CalendarTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
       </div>
 
       <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 14, overflowX: "auto" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gridAutoRows: 132, gap: 6, minWidth: 700 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gridAutoRows: 118, gap: 6, minWidth: 700 }}>
           {WEEKDAYS_KR.map(function (w, i) {
-            return <div key={w} style={{ textAlign: "center", fontSize: 19, fontWeight: 900, color: i === 0 ? "#ef4444" : (i === 6 ? "#4f46e5" : t.sub), padding: "7px 0" }}>{w}</div>;
+            return <div key={w} style={{ textAlign: "center", fontSize: 15, fontWeight: 900, color: i === 0 ? "#ef4444" : (i === 6 ? "#4f46e5" : t.sub), padding: "5px 0", boxSizing: "border-box" }}>{w}</div>;
           })}
           {cells.map(function (d, idx) {
-            if (d === null) return <div key={idx} style={{ height: 132 }} />;
+            if (d === null) return <div key={idx} style={{ height: 118, boxSizing: "border-box" }} />;
             var dateStr = year + "-" + pad2(month) + "-" + pad2(d);
             var dayProjects = projectsByDate[dateStr] || [];
             var isToday = dateStr === todayStr;
             var weekday = idx % 7;
             return (
-              <div key={idx} style={{ height: 132, borderRadius: 8, border: isToday ? "2px solid #4f46e5" : "1px solid " + t.border, background: t.card2, padding: "6px 6px", display: "flex", flexDirection: "column", gap: 3, overflow: "hidden" }}>
-                <div style={{ fontSize: 23, fontWeight: 900, color: weekday === 0 ? "#ef4444" : (weekday === 6 ? "#4f46e5" : t.text), flexShrink: 0 }}>{d}</div>
+              <div key={idx} style={{ height: 118, boxSizing: "border-box", borderRadius: 8, border: isToday ? "2px solid #4f46e5" : "1px solid " + t.border, background: t.card2, padding: "6px 6px", display: "flex", flexDirection: "column", gap: 3, overflow: "hidden" }}>
+                <div style={{ fontSize: 17, fontWeight: 900, color: weekday === 0 ? "#ef4444" : (weekday === 6 ? "#4f46e5" : t.text), flexShrink: 0 }}>{d}</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 3, overflowY: "auto", flex: 1, minHeight: 0 }}>
                   {dayProjects.map(function (p) {
                     var names = (p.models || []).map(function (m) { return m.name; }).filter(Boolean).join(", ");
@@ -1421,7 +1421,7 @@ export default function ProjectApp({ currentUser, onLogout }) {
         {isMobile && (
           <button onClick={function () { setMobileNavOpen(true); }} style={{ width: 30, height: 30, borderRadius: 7, border: "1px solid " + t.border, background: "transparent", color: t.text, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>☰</button>
         )}
-        <div style={{ width: 34, height: 34, borderRadius: 9, background: "linear-gradient(135deg,#10b981,#0891b2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 14, flexShrink: 0 }}>PJ</div>
+        <img src={process.env.PUBLIC_URL + "/badge-icon.png"} alt="MoMo Agency" style={{ width: 34, height: 34, borderRadius: 9, flexShrink: 0, objectFit: "contain" }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 900, color: t.text, fontSize: 17, lineHeight: 1.15, letterSpacing: -0.3 }}>촬영 프로젝트 관리 시스템</div>
           <div style={{ fontSize: 10, color: t.sub }}>MoMo Agency · 촬영 정산 · 회사 손익 관리</div>
