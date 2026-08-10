@@ -916,19 +916,19 @@ function BookingCalendarTab({ modelMeta, dark }) {
       </div>
 
       <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 14, overflowX: "auto" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gridAutoRows: 118, gap: 6, minWidth: 700 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 6, minWidth: 700, maxWidth: 900, margin: "0 auto" }}>
           {WEEKDAYS_KR.map(function (w, i) {
             return <div key={w} style={{ textAlign: "center", fontSize: 15, fontWeight: 900, color: i === 0 ? "#ef4444" : (i === 6 ? "#4f46e5" : t.sub), padding: "5px 0", boxSizing: "border-box" }}>{w}</div>;
           })}
           {cells.map(function (d, idx) {
-            if (d === null) return <div key={idx} style={{ height: 118, boxSizing: "border-box" }} />;
+            if (d === null) return <div key={idx} style={{ aspectRatio: "1.35", boxSizing: "border-box" }} />;
             var dateStr = year + "-" + pad2(month) + "-" + pad2(d);
             var dayProjects = byDate[dateStr] || [];
             var dayEvents = byDateEvents[dateStr] || [];
             var isToday = dateStr === todayStr;
             var weekday = idx % 7;
             return (
-              <div key={idx} style={{ height: 118, boxSizing: "border-box", borderRadius: 8, border: isToday ? "2px solid #4f46e5" : "1px solid " + t.border, background: t.card2, padding: "6px 6px", display: "flex", flexDirection: "column", gap: 3, position: "relative", overflow: "hidden" }}>
+              <div key={idx} style={{ aspectRatio: "1.35", boxSizing: "border-box", borderRadius: 8, border: isToday ? "2px solid #4f46e5" : "1px solid " + t.border, background: t.card2, padding: "6px 6px", display: "flex", flexDirection: "column", gap: 3, position: "relative", overflow: "hidden" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
                   <div style={{ fontSize: 17, fontWeight: 900, color: weekday === 0 ? "#ef4444" : (weekday === 6 ? "#4f46e5" : t.text) }}>{d}</div>
                   <button
@@ -1205,6 +1205,50 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo, dark }) {
     setTimeout(function(){ win.print(); }, 300);
   };
 
+  var exportTaxFilingExcel = function() {
+    var head = ["이름","국적","외국인등록번호","모델 입금 비용","원천징수(3.3%)"];
+    var body = taxRows.map(function(r) {
+      return [r.meta.fullName, r.meta.nationality, r.meta.regNo || "", r.final + r.tax, r.tax];
+    });
+    var tTaxFinal = taxRows.reduce(function(s,r){ return s + r.final + r.tax; }, 0);
+    var tTaxTax = taxRows.reduce(function(s,r){ return s + r.tax; }, 0);
+    var footer = ["합계", "", "", tTaxFinal, tTaxTax];
+    var html = "<table border='1'><thead><tr>" + head.map(function(h){ return "<th>"+h+"</th>"; }).join("") + "</tr></thead><tbody>"
+      + body.map(function(row){ return "<tr>" + row.map(function(c){ return "<td>"+c+"</td>"; }).join("") + "</tr>"; }).join("")
+      + "<tr>" + footer.map(function(c){ return "<td><b>"+c+"</b></td>"; }).join("") + "</tr>"
+      + "</tbody></table><p>※ 모델 입금 비용 = 최종입금 + 세금액</p>";
+    var blob = new Blob(["\ufeff", "<html><head><meta charset='utf-8'></head><body>" + html + "</body></html>"], { type: "application/vnd.ms-excel" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = month + "_세무서신고용.xls";
+    a.click();
+  };
+
+  var exportTaxFilingPDF = function() {
+    var head = ["이름","국적","외국인등록번호","모델 입금 비용","원천징수(3.3%)"];
+    var body = taxRows.map(function(r) {
+      return [r.meta.fullName, r.meta.nationality, r.meta.regNo || "미입력", fmt(r.final + r.tax), fmt(r.tax)];
+    });
+    var tTaxFinal = taxRows.reduce(function(s,r){ return s + r.final + r.tax; }, 0);
+    var tTaxTax = taxRows.reduce(function(s,r){ return s + r.tax; }, 0);
+    var win = window.open("", "_blank");
+    if (!win) { alert("팝업이 차단되었습니다. 팝업 허용 후 다시 시도해주세요."); return; }
+    var rowsHtml = body.map(function(row){ return "<tr>" + row.map(function(c){ return "<td>"+c+"</td>"; }).join("") + "</tr>"; }).join("");
+    win.document.write(
+      "<html><head><meta charset='utf-8'><title>" + month + "_세무서신고용</title>" +
+      "<style>body{font-family:sans-serif;padding:24px;} h1{font-size:18px;margin-bottom:2px;} .sub{color:#92400e;font-size:12px;margin-bottom:14px;} table{width:100%;border-collapse:collapse;} th,td{border:1px solid #ccc;padding:8px;font-size:12px;text-align:right;} th:nth-child(1),td:nth-child(1),th:nth-child(2),td:nth-child(2),th:nth-child(3),td:nth-child(3){text-align:left;} tfoot td{font-weight:800;background:#f1f5f9;} .note{font-size:11px;color:#b45309;margin-top:10px;}</style>" +
+      "</head><body>" +
+      "<h1>MoMo Agency</h1><div class='sub'>세무서 신고용 — " + month + "</div>" +
+      "<table><thead><tr>" + head.map(function(h){ return "<th>"+h+"</th>"; }).join("") + "</tr></thead><tbody>" + rowsHtml +
+      "</tbody><tfoot><tr><td>합계</td><td></td><td></td><td>" + fmt(tTaxFinal) + "</td><td>" + fmt(tTaxTax) + "</td></tr></tfoot></table>" +
+      "<div class='note'>※ 모델 입금 비용 = 최종입금 + 세금액</div>" +
+      "</body></html>"
+    );
+    win.document.close();
+    win.focus();
+    setTimeout(function(){ win.print(); }, 300);
+  };
+
   return (
     <div>
       <div style={{ background:t.card, border:"1px solid "+t.border, borderRadius:14, padding:"14px 16px", marginBottom:12 }}>
@@ -1271,9 +1315,15 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo, dark }) {
 
       {taxRows.length > 0 && (
         <div style={{ background:dark?"#1a1200":"#fffbeb", border:"1px solid "+(dark?"#854d0e":"#fde68a"), borderRadius:12, padding:14 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
-            <span>📋</span>
-            <span style={{ fontWeight:900, color:dark?"#fbbf24":"#92400e", fontSize:13 }}>세무서 신고용 — {month}</span>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10, flexWrap:"wrap" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <span>📋</span>
+              <span style={{ fontWeight:900, color:dark?"#fbbf24":"#92400e", fontSize:13 }}>세무서 신고용 — {month}</span>
+            </div>
+            <div style={{ display:"flex", gap:6 }}>
+              <button onClick={exportTaxFilingExcel} style={{ padding:"5px 11px", borderRadius:8, border:"1px solid "+(dark?"#854d0e":"#fde68a"), background:dark?"#0a1f1a":"#f0fdf4", color:"#10b981", fontWeight:700, fontSize:11, cursor:"pointer" }}>⬇ 엑셀</button>
+              <button onClick={exportTaxFilingPDF} style={{ padding:"5px 11px", borderRadius:8, border:"1px solid "+(dark?"#854d0e":"#fde68a"), background:dark?"#1a0808":"#fff1f2", color:"#ef4444", fontWeight:700, fontSize:11, cursor:"pointer" }}>⬇ PDF</button>
+            </div>
           </div>
           <div style={{ overflowX:"auto" }}>
             <table style={{ width:"100%", fontSize:12, borderCollapse:"collapse", minWidth:360 }}>

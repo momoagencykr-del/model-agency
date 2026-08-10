@@ -1193,18 +1193,18 @@ function CalendarTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
       </div>
 
       <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 14, overflowX: "auto" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gridAutoRows: 118, gap: 6, minWidth: 700 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 6, minWidth: 700, maxWidth: 900, margin: "0 auto" }}>
           {WEEKDAYS_KR.map(function (w, i) {
             return <div key={w} style={{ textAlign: "center", fontSize: 15, fontWeight: 900, color: i === 0 ? "#ef4444" : (i === 6 ? "#4f46e5" : t.sub), padding: "5px 0", boxSizing: "border-box" }}>{w}</div>;
           })}
           {cells.map(function (d, idx) {
-            if (d === null) return <div key={idx} style={{ height: 118, boxSizing: "border-box" }} />;
+            if (d === null) return <div key={idx} style={{ aspectRatio: "1.35", boxSizing: "border-box" }} />;
             var dateStr = year + "-" + pad2(month) + "-" + pad2(d);
             var dayProjects = projectsByDate[dateStr] || [];
             var isToday = dateStr === todayStr;
             var weekday = idx % 7;
             return (
-              <div key={idx} style={{ height: 118, boxSizing: "border-box", borderRadius: 8, border: isToday ? "2px solid #4f46e5" : "1px solid " + t.border, background: t.card2, padding: "6px 6px", display: "flex", flexDirection: "column", gap: 3, overflow: "hidden" }}>
+              <div key={idx} style={{ aspectRatio: "1.35", boxSizing: "border-box", borderRadius: 8, border: isToday ? "2px solid #4f46e5" : "1px solid " + t.border, background: t.card2, padding: "6px 6px", display: "flex", flexDirection: "column", gap: 3, overflow: "hidden" }}>
                 <div style={{ fontSize: 17, fontWeight: 900, color: weekday === 0 ? "#ef4444" : (weekday === 6 ? "#4f46e5" : t.text), flexShrink: 0 }}>{d}</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 3, overflowY: "auto", flex: 1, minHeight: 0 }}>
                   {dayProjects.map(function (p) {
