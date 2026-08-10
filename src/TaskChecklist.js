@@ -237,7 +237,7 @@ function PeriodCard({ topLabel, mainLabel, isCurrent, groups, periodKey, complet
   var [quickText, setQuickText] = useState("");
   var submitQuick = function () {
     if (!quickText.trim()) return;
-    onQuickAdd(UNSORTED_CATEGORY, quickText.trim());
+    onQuickAdd(UNSORTED_CATEGORY, quickText.trim(), periodKey);
     setQuickText("");
   };
   var allTasks = [];
@@ -525,7 +525,7 @@ export default function TaskChecklistTab({ dark }) {
   var openAddModal = function (frequency) { setAddModalFreq(frequency || "daily"); };
   var confirmAddTask = function (newTask) {
     setTemplates(function (prev) {
-      var next = prev.concat([{ id: uid(), category: newTask.category, title: newTask.title, desc: newTask.desc || "", frequency: newTask.frequency }]);
+      var next = prev.concat([{ id: uid(), category: newTask.category, title: newTask.title, desc: newTask.desc || "", frequency: newTask.frequency, periodKey: newTask.periodKey || null }]);
       persist(next, completions, adhocEntries, categories);
       return next;
     });
@@ -551,8 +551,8 @@ export default function TaskChecklistTab({ dark }) {
     }
   };
 
-  var quickAddWeeklyTask = function (category, title) {
-    confirmAddTask({ category: category, title: title, frequency: "weekly", desc: "" });
+  var quickAddWeeklyTask = function (category, title, periodKey) {
+    confirmAddTask({ category: category, title: title, frequency: "weekly", desc: "", periodKey: periodKey });
   };
 
   var addAdhoc = function (title, startDate, doneFlag, endDate) {
@@ -593,7 +593,7 @@ export default function TaskChecklistTab({ dark }) {
     return <div style={{ padding: 30, textAlign: "center", color: t.sub }}>업무 체크리스트 불러오는 중...</div>;
   }
 
-  var weeklyGroups = groupByCategory(templates.filter(function (tp) { return tp.frequency === "weekly"; }));
+  var weeklyTemplates = templates.filter(function (tp) { return tp.frequency === "weekly"; });
 
   var weeks = weeksInMonth(year, month);
   var todayWeekKey = dateStr(weekStartOf(TODAY));
@@ -614,16 +614,19 @@ export default function TaskChecklistTab({ dark }) {
       if (!r.start) return false;
       return r.start <= weekEndStr && r.end >= weekStartStr;
     });
+    // 이 주차에 해당하는 업무만: periodKey가 없는(반복) 업무 + periodKey가 이 주차인(1회성) 업무
+    var thisWeekTasks = weeklyTemplates.filter(function (tp) { return !tp.periodKey || tp.periodKey === periodKey; });
+    var groups = groupByCategory(thisWeekTasks);
     return {
       periodKey: periodKey, topLabel: (i + 1) + "주차" + (periodKey === todayWeekKey ? " · 이번 주" : ""),
       mainLabel: (mon.getMonth() + 1) + "." + mon.getDate() + " ~ " + (end.getMonth() + 1) + "." + end.getDate(),
-      isCurrent: periodKey === todayWeekKey, groups: weeklyGroups, completions: completions, onToggle: toggleCompletion,
+      isCurrent: periodKey === todayWeekKey, groups: groups, completions: completions, onToggle: toggleCompletion,
       onUpdateTitle: updateTaskTitle, onRemoveTask: removeTask, onQuickAdd: quickAddWeeklyTask, adhocItems: adhocItems,
     };
   });
 
   // 월간 정리: 이번 달에 속한 주차별로 어떤 업무가 완료됐는지 정리
-  var monthlyRollup = weeklyGroups.map(function (g) {
+  var monthlyRollup = groupByCategory(weeklyTemplates).map(function (g) {
     return {
       category: g.category,
       tasks: g.tasks.map(function (tp) {

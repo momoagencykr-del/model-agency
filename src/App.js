@@ -1441,7 +1441,7 @@ export default function App({ currentUser, onLogout }) {
     setTimeout(function() { setSaveStatus("idle"); }, 2500);
   }, [data, modelMeta]);
 
-  // 10분마다 자동 저장 — 저장 안 된 변경사항이 있을 때만 저장
+  // 10분마다 자동 저장 — 저장 안 된 변경사항이 있을 때만 저장 (예비 안전장치)
   var unsavedRef = useRef(unsaved);
   useEffect(function() { unsavedRef.current = unsaved; }, [unsaved]);
   var handleSaveRef = useRef(handleSave);
@@ -1453,6 +1453,19 @@ export default function App({ currentUser, onLogout }) {
     }, AUTOSAVE_MS);
     return function() { clearInterval(id); };
   }, []);
+
+  // 변경 후 잠시 멈추면 자동 저장 (디바운스 3초) — 수동 저장 없이도 실시간으로 안전하게 저장됨
+  var autosaveTimerRef = useRef(null);
+  useEffect(function() {
+    if (!unsaved) return;
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    autosaveTimerRef.current = setTimeout(function() {
+      handleSaveRef.current();
+    }, 3000);
+    return function() {
+      if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    };
+  }, [data, modelMeta, unsaved]);
   // 탭을 닫거나 새로고침할 때 저장 안 된 변경사항이 있으면 경고
   useEffect(function() {
     var onBeforeUnload = function(e) {
