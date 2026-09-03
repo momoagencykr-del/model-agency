@@ -1299,7 +1299,7 @@ export default function ProjectApp({ currentUser, onLogout }) {
   var [dark, setDark] = useState(function () {
     try { return localStorage.getItem("darkMode") === "true"; } catch (e) { return false; }
   });
-  var [tab, setTab] = useState("dashboard");
+  var [tab, setTab] = useState("calendar");
   var [year, setYear] = useState(NOW_YEAR);
   var [month, setMonth] = useState(NOW_MONTH_NUM);
   var [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -1449,7 +1449,7 @@ export default function ProjectApp({ currentUser, onLogout }) {
     );
   }
 
-  var navItems = [["dashboard", "실적 대시보드", "📈"], ["projects", "촬영 정산내역", "🎬"], ["calendar", "촬영 캘린더", "📅"], ["expenses", "운영비용", "🧾"], ["payments", "모델 지급관리", "💸"]];
+  var navItems = [["calendar", "촬영 캘린더", "📅"], ["dashboard", "실적 대시보드", "📈"], ["projects", "촬영 정산내역", "🎬"], ["expenses", "운영비용", "🧾"], ["payments", "모델 지급관리", "💸"]];
 
   var NavContent = (
     <div style={{ padding: 8 }}>
