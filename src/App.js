@@ -606,7 +606,7 @@ function SettlementSidePanel({ dark, modelMeta, data, addEntry, updateEntry, rem
   var modelKeys = Object.keys(modelMeta || {});
   var selModelState = useState(defaultModel || modelKeys[0] || "");
   var selModel = selModelState[0], setSelModel = selModelState[1];
-  var entryTypeState = useState("agency");
+  var entryTypeState = useState("self");
   var entryType = entryTypeState[0], setEntryType = entryTypeState[1];
   var todayStr = CAL_NOW.getFullYear() + "-" + pad2(CAL_NOW.getMonth() + 1) + "-" + pad2(CAL_NOW.getDate());
   var settleDateState = useState(defaultDate || todayStr);
