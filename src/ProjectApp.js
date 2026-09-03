@@ -224,7 +224,8 @@ async function syncLinkedModelsToSettlement(project, prevProject) {
       if (!data[m.linkedModel][monthLabel]) data[m.linkedModel][monthLabel] = { agency: [], self: [] };
       var arr = data[m.linkedModel][monthLabel].agency;
       var entryId = m.linkedEntryId || (Date.now() + Math.floor(Math.random() * 1000));
-      var entry = { id: entryId, brand: project.brand, income: Number(m.agencyPrice) || 0, otherDeduct: 0, note: "촬영정산내역 자동연동" };
+      var syncedIncome = (m.reportedPrice !== "" && m.reportedPrice !== undefined && m.reportedPrice !== null) ? (Number(m.reportedPrice) || 0) : (Number(m.agencyPrice) || 0);
+      var entry = { id: entryId, brand: project.brand, income: syncedIncome, otherDeduct: 0, note: "촬영정산내역 자동연동" };
       var idx = arr.findIndex(function (e) { return e.id === entryId; });
       if (idx >= 0) { arr[idx] = entry; } else { arr.push(entry); }
       m.linkedEntryId = entryId;
@@ -347,13 +348,13 @@ function ProjectFormModal({ existing, defaultDate, affiliatedModels, onSave, onC
   var [time, setTime] = useState(existing ? existing.time : "");
   var [depositStatus, setDepositStatus] = useState(existing ? existing.depositStatus : "미입금");
   var [note, setNote] = useState(existing ? existing.note : "");
-  var [models, setModels] = useState(existing && existing.models ? existing.models.map(function (m) { return Object.assign({}, m); }) : [{ id: uid(), name: "", time: "", agencyPrice: "", handPay: "", opCost: "", partnerRate: 0, useAffiliated: false, linkedModel: "" }]);
+  var [models, setModels] = useState(existing && existing.models ? existing.models.map(function (m) { return Object.assign({}, m); }) : [{ id: uid(), name: "", time: "", agencyPrice: "", reportedPrice: "", handPay: "", opCost: "", partnerRate: 0, useAffiliated: false, linkedModel: "" }]);
   var [totalCost, setTotalCost] = useState(existing ? existing.totalCost : modelSumAgencyPrice(models));
 
   var modelSum = modelSumAgencyPrice(models);
 
   var addModelRow = function () {
-    setModels(models.concat([{ id: uid(), name: "", time: "", agencyPrice: "", handPay: "", opCost: "", partnerRate: 0, useAffiliated: false, linkedModel: "" }]));
+    setModels(models.concat([{ id: uid(), name: "", time: "", agencyPrice: "", reportedPrice: "", handPay: "", opCost: "", partnerRate: 0, useAffiliated: false, linkedModel: "" }]));
   };
   var removeModelRow = function (id) {
     setModels(models.filter(function (m) { return m.id !== id; }));
@@ -371,6 +372,7 @@ function ProjectFormModal({ existing, defaultDate, affiliatedModels, onSave, onC
     var cleanModels = models.filter(function (m) { return m.name.trim(); }).map(function (m) {
       return Object.assign({}, m, {
         agencyPrice: Number(m.agencyPrice) || 0,
+        reportedPrice: m.reportedPrice === "" || m.reportedPrice === undefined || m.reportedPrice === null ? "" : (Number(m.reportedPrice) || 0),
         handPay: Number(m.handPay) || 0,
         opCost: Number(m.opCost) || 0,
         partnerRate: Number(m.partnerRate) || 0,
@@ -466,6 +468,11 @@ function ProjectFormModal({ existing, defaultDate, affiliatedModels, onSave, onC
                   <div style={{ fontSize: 10, color: t.sub, marginBottom: 3 }}>협력사 지급비율 (%)</div>
                   <input type="number" step="1" min="0" max="100" value={m.partnerRate} onChange={function (e) { updateModelRow(m.id, "partnerRate", e.target.value); }} style={inputStyle(t)} />
                 </div>
+              </div>
+              <div style={{ marginBottom: 6, background: dark ? "#1a1200" : "#fffbeb", border: "1px solid " + (dark ? "#854d0e" : "#fde68a"), borderRadius: 8, padding: "8px 10px" }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: dark ? "#fbbf24" : "#92400e", marginBottom: 3 }}>모델 정산서 표시 금액 (선택 — 모델에게 축소해서 전달할 총 섭외비용)</div>
+                <input type="number" value={m.reportedPrice} onChange={function (e) { updateModelRow(m.id, "reportedPrice", e.target.value); }} placeholder={"비워두면 위 청구가(" + fmt(Number(m.agencyPrice) || 0) + ")와 동일하게 정산서에 표시됩니다"} style={inputStyle(t)} />
+                {m.useAffiliated && m.linkedModel ? <div style={{ fontSize: 9, color: dark ? "#fbbf24" : "#92400e", marginTop: 4 }}>모델 정산관리 정산서에는 이 금액이 "업체입금"으로 전달됩니다.</div> : null}
               </div>
               <div style={{ fontSize: 11, color: t.sub, display: "flex", gap: 12, flexWrap: "wrap" }}>
                 <span>협력사 지급액: <b style={{ color: t.text }}>{fmt(c.partnerFee)}</b></span>
