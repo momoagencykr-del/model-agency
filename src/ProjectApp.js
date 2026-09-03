@@ -516,12 +516,12 @@ function ProjectsTab({ year, month, setYear, setMonth, allProjects, expenses, re
         </div>
       )}
 
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
         <MonthHeading year={year} month={month} t={t} />
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <MonthPicker year={year} month={month} setYear={setYear} setMonth={setMonth} t={t} />
-          <button onClick={function () { setShowForm(true); }} style={{ padding: "8px 14px", borderRadius: 9, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>+ 촬영 정산 추가</button>
-        </div>
+        <button onClick={function () { setShowForm(true); }} style={{ padding: "8px 14px", borderRadius: 9, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer", flexShrink: 0 }}>+ 촬영 정산 추가</button>
+      </div>
+      <div style={{ marginBottom: 14 }}>
+        <MonthStrip year={year} month={month} setYear={setYear} setMonth={setMonth} t={t} dark={dark} />
       </div>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
