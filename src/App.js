@@ -600,7 +600,7 @@ async function saveCalendarEvents(events) {
   } catch (e) { return false; }
 }
 
-function ScheduleEventModal({ dark, initial, onSave, onDelete, onClose }) {
+function ScheduleEventModal({ dark, initial, onSave, onDelete, onClose, modelMeta, data, addEntry, updateEntry, removeEntry }) {
   var t = T(dark);
   var dateState = useState(initial.date || "");
   var date = dateState[0], setDate = dateState[1];
@@ -611,39 +611,88 @@ function ScheduleEventModal({ dark, initial, onSave, onDelete, onClose }) {
   var memoState = useState(initial.memo || "");
   var memo = memoState[0], setMemo = memoState[1];
 
+  var modelKeys = Object.keys(modelMeta || {});
+  var guessModel = modelKeys.filter(function (k) { return title.indexOf(modelMeta[k].nameKr) === 0; })[0] || modelKeys[0] || "";
+  var selModelState = useState(guessModel);
+  var selModel = selModelState[0], setSelModel = selModelState[1];
+  var entryTypeState = useState("agency");
+  var entryType = entryTypeState[0], setEntryType = entryTypeState[1];
+
   var inputStyle = { width: "100%", padding: "9px 10px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 13, boxSizing: "border-box" };
   var labelStyle = { fontSize: 11, fontWeight: 700, color: t.sub, marginBottom: 4, display: "block" };
 
+  var monthKey = date ? MONTHS[Number(date.slice(5, 7)) - 1] : NOW_MONTH;
+  var hasSettlement = !!(modelMeta && addEntry && updateEntry && removeEntry);
+  var meta = hasSettlement && selModel ? modelMeta[selModel] : null;
+  var md = hasSettlement && selModel && data && data[selModel] && data[selModel][monthKey] ? data[selModel][monthKey] : { agency: [], self: [] };
+
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }} onClick={onClose}>
-      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 16, padding: 22, width: "100%", maxWidth: 420, maxHeight: "85vh", overflowY: "auto" }} onClick={function (e) { e.stopPropagation(); }}>
+      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 16, padding: 22, width: "100%", maxWidth: hasSettlement ? 920 : 420, maxHeight: "88vh", overflowY: "auto" }} onClick={function (e) { e.stopPropagation(); }}>
         <div style={{ fontSize: 17, fontWeight: 900, color: t.text, marginBottom: 14 }}>{initial.id ? "일정 수정" : "일정 추가"}</div>
-        <div style={{ marginBottom: 10 }}>
-          <label style={labelStyle}>날짜</label>
-          <input type="date" value={date} onChange={function (e) { setDate(e.target.value); }} style={inputStyle} />
-        </div>
-        <div style={{ marginBottom: 10 }}>
-          <label style={labelStyle}>시간 (선택)</label>
-          <input type="text" placeholder="예: 14:00~17:00" value={time} onChange={function (e) { setTime(e.target.value); }} style={inputStyle} />
-        </div>
-        <div style={{ marginBottom: 10 }}>
-          <label style={labelStyle}>제목</label>
-          <input type="text" placeholder="예: 하이퍼로그 촬영" value={title} onChange={function (e) { setTitle(e.target.value); }} style={inputStyle} />
-        </div>
-        <div style={{ marginBottom: 14 }}>
-          <label style={labelStyle}>메모 (선택)</label>
-          <textarea value={memo} onChange={function (e) { setMemo(e.target.value); }} rows={3} style={Object.assign({}, inputStyle, { resize: "vertical" })} />
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          {initial.id && <button onClick={function () { onDelete(initial.id); }} style={{ padding: "10px 14px", borderRadius: 9, border: "1px solid #ef4444", background: "transparent", color: "#ef4444", fontWeight: 700, cursor: "pointer" }}>삭제</button>}
-          <button onClick={onClose} style={{ flex: 1, padding: "10px 0", borderRadius: 9, border: "1px solid " + t.border, background: "transparent", color: t.text, fontWeight: 700, cursor: "pointer" }}>취소</button>
-          <button
-            onClick={function () {
-              if (!date || !title) return;
-              onSave({ id: initial.id || ("ev_" + Date.now()), date: date, time: time, title: title, memo: memo });
-            }}
-            style={{ flex: 1, padding: "10px 0", borderRadius: 9, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, cursor: "pointer" }}
-          >저장</button>
+        <div style={{ display: hasSettlement ? "grid" : "block", gridTemplateColumns: hasSettlement ? "340px 1fr" : "none", gap: 20 }}>
+          <div>
+            <div style={{ marginBottom: 10 }}>
+              <label style={labelStyle}>날짜</label>
+              <input type="date" value={date} onChange={function (e) { setDate(e.target.value); }} style={inputStyle} />
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <label style={labelStyle}>시간 (선택)</label>
+              <input type="text" placeholder="예: 14:00~17:00" value={time} onChange={function (e) { setTime(e.target.value); }} style={inputStyle} />
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <label style={labelStyle}>제목</label>
+              <input type="text" placeholder="예: 하이퍼로그 촬영" value={title} onChange={function (e) { setTitle(e.target.value); }} style={inputStyle} />
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelStyle}>메모 (선택)</label>
+              <textarea value={memo} onChange={function (e) { setMemo(e.target.value); }} rows={6} style={Object.assign({}, inputStyle, { resize: "vertical" })} />
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {initial.id && <button onClick={function () { onDelete(initial.id); }} style={{ padding: "10px 14px", borderRadius: 9, border: "1px solid #ef4444", background: "transparent", color: "#ef4444", fontWeight: 700, cursor: "pointer" }}>삭제</button>}
+              <button onClick={onClose} style={{ flex: 1, padding: "10px 0", borderRadius: 9, border: "1px solid " + t.border, background: "transparent", color: t.text, fontWeight: 700, cursor: "pointer" }}>취소</button>
+              <button
+                onClick={function () {
+                  if (!date || !title) return;
+                  onSave({ id: initial.id || ("ev_" + Date.now()), date: date, time: time, title: title, memo: memo });
+                }}
+                style={{ flex: 1, padding: "10px 0", borderRadius: 9, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, cursor: "pointer" }}
+              >저장</button>
+            </div>
+          </div>
+
+          {hasSettlement && (
+            <div style={{ borderLeft: "1px solid " + t.border, paddingLeft: 20 }}>
+              <div style={{ fontSize: 13, fontWeight: 900, color: t.text, marginBottom: 10 }}>정산내역 입력 · {monthKey}</div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>모델</label>
+                  <select value={selModel} onChange={function (e) { setSelModel(e.target.value); }} style={inputStyle}>
+                    {modelKeys.map(function (k) { return <option key={k} value={k}>{modelMeta[k].nameKr}</option>; })}
+                  </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>구분</label>
+                  <select value={entryType} onChange={function (e) { setEntryType(e.target.value); }} style={inputStyle}>
+                    <option value="agency">에이전시 촬영</option>
+                    <option value="self">모델 직접 촬영</option>
+                  </select>
+                </div>
+              </div>
+              {meta && (
+                <>
+                  <EntryForm af={entryType === "agency" ? meta.agencyAF : meta.modelAF} label={entryType === "agency" ? "에이전시 촬영" : "모델 직접 촬영"}
+                    onAdd={function (e) { addEntry(selModel, monthKey, entryType, Object.assign({}, e, { brand: e.brand || title, paid: false })); }} dark={dark} />
+                  <div style={{ marginTop: 10 }}>
+                    <EntryTable entries={md[entryType]} af={entryType === "agency" ? meta.agencyAF : meta.modelAF}
+                      onRemove={function (id) { removeEntry(selModel, monthKey, entryType, id); }}
+                      onUpdate={function (id, patch) { updateEntry(selModel, monthKey, entryType, id, patch); }} dark={dark} />
+                  </div>
+                </>
+              )}
+              {!meta && <div style={{ fontSize: 12, color: t.sub, padding: "16px 0" }}>등록된 모델이 없습니다. 먼저 모델을 등록해주세요.</div>}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -808,7 +857,7 @@ function BookingDetailModal({ project, dark, onClose }) {
   );
 }
 
-function BookingCalendarTab({ modelMeta, dark }) {
+function BookingCalendarTab({ modelMeta, data, addEntry, updateEntry, removeEntry, dark }) {
   var t = T(dark);
   var yearState = useState(CAL_NOW.getFullYear());
   var year = yearState[0], setYear = yearState[1];
@@ -914,7 +963,7 @@ function BookingCalendarTab({ modelMeta, dark }) {
   return (
     <div>
       {selected && <BookingDetailModal project={selected} dark={dark} onClose={function () { setSelected(null); }} />}
-      {editingEvent && <ScheduleEventModal dark={dark} initial={editingEvent} onSave={handleSaveEvent} onDelete={handleDeleteEvent} onClose={function () { setEditingEvent(null); }} />}
+      {editingEvent && <ScheduleEventModal dark={dark} initial={editingEvent} onSave={handleSaveEvent} onDelete={handleDeleteEvent} onClose={function () { setEditingEvent(null); }} modelMeta={modelMeta} data={data} addEntry={addEntry} updateEntry={updateEntry} removeEntry={removeEntry} />}
       {showPasteImport && <PasteImportModal dark={dark} onImport={handleImportEvent} onClose={function () { setShowPasteImport(false); }} />}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
         <div style={{ fontSize: 26, fontWeight: 900, color: t.text, letterSpacing: -0.5 }}>{year}년 {month}월</div>
@@ -1782,7 +1831,7 @@ export default function App({ currentUser, onLogout }) {
         <main style={{ flex:1, minWidth:0 }}>
           {tab === "overview" && <Overview data={data} modelMeta={modelMeta} dark={dark} setTab={setTab} />}
           {tab === "tax" && <TaxSummary data={data} modelMeta={modelMeta} onUpdateRegNo={updateRegNo} dark={dark} />}
-          {tab === "calendar" && <BookingCalendarTab modelMeta={modelMeta} dark={dark} />}
+          {tab === "calendar" && <BookingCalendarTab modelMeta={modelMeta} data={data} addEntry={addEntry} updateEntry={updateEntry} removeEntry={removeEntry} dark={dark} />}
           {tab === "checklist" && <TaskChecklistTab dark={dark} />}
           {Object.keys(modelMeta).includes(tab) && <ModelDetail model={tab} meta={modelMeta[tab]} data={data} addEntry={addEntry} removeEntry={removeEntry} updateEntry={updateEntry} onUpdateAF={updateAF} dark={dark} />}
         </main>
