@@ -383,6 +383,7 @@ function EntryTable({ entries, af, onRemove, onUpdate, dark }) {
               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                 <div style={{ width:8, height:8, borderRadius:"50%", background: isPaid ? "#10b981" : "#4f46e5", flexShrink:0 }} />
                 <span style={{ fontWeight:800, color:t.text, fontSize:13 }}>{e.brand || "브랜드 미입력"}</span>
+                {e.settleDate && <span style={{ fontSize:11, color:"#4f46e5", background:dark?"#1a1a3e":"#eef2ff", padding:"1px 7px", borderRadius:10, fontWeight:700 }}>📅 {e.settleDate}</span>}
                 {e.note && <span style={{ fontSize:11, color:t.sub, background:dark?"#1e293b":"#e2e8f0", padding:"1px 7px", borderRadius:10 }}>📝 {e.note}</span>}
               </div>
               <div style={{ display:"flex", gap:4, alignItems:"center" }}>
@@ -600,6 +601,62 @@ async function saveCalendarEvents(events) {
   } catch (e) { return false; }
 }
 
+function SettlementSidePanel({ dark, modelMeta, data, addEntry, updateEntry, removeEntry, defaultModel, defaultDate, defaultBrand }) {
+  var t = T(dark);
+  var modelKeys = Object.keys(modelMeta || {});
+  var selModelState = useState(defaultModel || modelKeys[0] || "");
+  var selModel = selModelState[0], setSelModel = selModelState[1];
+  var entryTypeState = useState("agency");
+  var entryType = entryTypeState[0], setEntryType = entryTypeState[1];
+  var todayStr = CAL_NOW.getFullYear() + "-" + pad2(CAL_NOW.getMonth() + 1) + "-" + pad2(CAL_NOW.getDate());
+  var settleDateState = useState(defaultDate || todayStr);
+  var settleDate = settleDateState[0], setSettleDate = settleDateState[1];
+
+  var inputStyle = { width: "100%", padding: "9px 10px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 13, boxSizing: "border-box" };
+  var labelStyle = { fontSize: 11, fontWeight: 700, color: t.sub, marginBottom: 4, display: "block" };
+
+  var monthKey = settleDate ? MONTHS[Number(settleDate.slice(5, 7)) - 1] : NOW_MONTH;
+  var meta = selModel ? modelMeta[selModel] : null;
+  var md = selModel && data && data[selModel] && data[selModel][monthKey] ? data[selModel][monthKey] : { agency: [], self: [] };
+
+  return (
+    <div>
+      <div style={{ fontSize: 13, fontWeight: 900, color: t.text, marginBottom: 10 }}>정산내역 입력 · {monthKey}</div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+        <div style={{ flex: 1 }}>
+          <label style={labelStyle}>모델</label>
+          <select value={selModel} onChange={function (e) { setSelModel(e.target.value); }} style={inputStyle}>
+            {modelKeys.map(function (k) { return <option key={k} value={k}>{modelMeta[k].nameKr}</option>; })}
+          </select>
+        </div>
+        <div style={{ flex: 1 }}>
+          <label style={labelStyle}>구분</label>
+          <select value={entryType} onChange={function (e) { setEntryType(e.target.value); }} style={inputStyle}>
+            <option value="agency">에이전시 촬영</option>
+            <option value="self">모델 직접 촬영</option>
+          </select>
+        </div>
+      </div>
+      <div style={{ marginBottom: 14 }}>
+        <label style={labelStyle}>정산받는 날짜 (이 날짜가 속한 월의 정산내역으로 등록됩니다)</label>
+        <input type="date" value={settleDate} onChange={function (e) { setSettleDate(e.target.value); }} style={inputStyle} />
+      </div>
+      {meta && (
+        <>
+          <EntryForm af={entryType === "agency" ? meta.agencyAF : meta.modelAF} label={entryType === "agency" ? "에이전시 촬영" : "모델 직접 촬영"}
+            onAdd={function (e) { addEntry(selModel, monthKey, entryType, Object.assign({}, e, { brand: e.brand || defaultBrand, paid: false, settleDate: settleDate })); }} dark={dark} />
+          <div style={{ marginTop: 10 }}>
+            <EntryTable entries={md[entryType]} af={entryType === "agency" ? meta.agencyAF : meta.modelAF}
+              onRemove={function (id) { removeEntry(selModel, monthKey, entryType, id); }}
+              onUpdate={function (id, patch) { updateEntry(selModel, monthKey, entryType, id, patch); }} dark={dark} />
+          </div>
+        </>
+      )}
+      {!meta && <div style={{ fontSize: 12, color: t.sub, padding: "16px 0" }}>등록된 모델이 없습니다. 먼저 모델을 등록해주세요.</div>}
+    </div>
+  );
+}
+
 function ScheduleEventModal({ dark, initial, onSave, onDelete, onClose, modelMeta, data, addEntry, updateEntry, removeEntry }) {
   var t = T(dark);
   var dateState = useState(initial.date || "");
@@ -613,18 +670,11 @@ function ScheduleEventModal({ dark, initial, onSave, onDelete, onClose, modelMet
 
   var modelKeys = Object.keys(modelMeta || {});
   var guessModel = modelKeys.filter(function (k) { return title.indexOf(modelMeta[k].nameKr) === 0; })[0] || modelKeys[0] || "";
-  var selModelState = useState(guessModel);
-  var selModel = selModelState[0], setSelModel = selModelState[1];
-  var entryTypeState = useState("agency");
-  var entryType = entryTypeState[0], setEntryType = entryTypeState[1];
 
   var inputStyle = { width: "100%", padding: "9px 10px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 13, boxSizing: "border-box" };
   var labelStyle = { fontSize: 11, fontWeight: 700, color: t.sub, marginBottom: 4, display: "block" };
 
-  var monthKey = date ? MONTHS[Number(date.slice(5, 7)) - 1] : NOW_MONTH;
   var hasSettlement = !!(modelMeta && addEntry && updateEntry && removeEntry);
-  var meta = hasSettlement && selModel ? modelMeta[selModel] : null;
-  var md = hasSettlement && selModel && data && data[selModel] && data[selModel][monthKey] ? data[selModel][monthKey] : { agency: [], self: [] };
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }} onClick={onClose}>
@@ -663,34 +713,7 @@ function ScheduleEventModal({ dark, initial, onSave, onDelete, onClose, modelMet
 
           {hasSettlement && (
             <div style={{ borderLeft: "1px solid " + t.border, paddingLeft: 20 }}>
-              <div style={{ fontSize: 13, fontWeight: 900, color: t.text, marginBottom: 10 }}>정산내역 입력 · {monthKey}</div>
-              <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-                <div style={{ flex: 1 }}>
-                  <label style={labelStyle}>모델</label>
-                  <select value={selModel} onChange={function (e) { setSelModel(e.target.value); }} style={inputStyle}>
-                    {modelKeys.map(function (k) { return <option key={k} value={k}>{modelMeta[k].nameKr}</option>; })}
-                  </select>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={labelStyle}>구분</label>
-                  <select value={entryType} onChange={function (e) { setEntryType(e.target.value); }} style={inputStyle}>
-                    <option value="agency">에이전시 촬영</option>
-                    <option value="self">모델 직접 촬영</option>
-                  </select>
-                </div>
-              </div>
-              {meta && (
-                <>
-                  <EntryForm af={entryType === "agency" ? meta.agencyAF : meta.modelAF} label={entryType === "agency" ? "에이전시 촬영" : "모델 직접 촬영"}
-                    onAdd={function (e) { addEntry(selModel, monthKey, entryType, Object.assign({}, e, { brand: e.brand || title, paid: false })); }} dark={dark} />
-                  <div style={{ marginTop: 10 }}>
-                    <EntryTable entries={md[entryType]} af={entryType === "agency" ? meta.agencyAF : meta.modelAF}
-                      onRemove={function (id) { removeEntry(selModel, monthKey, entryType, id); }}
-                      onUpdate={function (id, patch) { updateEntry(selModel, monthKey, entryType, id, patch); }} dark={dark} />
-                  </div>
-                </>
-              )}
-              {!meta && <div style={{ fontSize: 12, color: t.sub, padding: "16px 0" }}>등록된 모델이 없습니다. 먼저 모델을 등록해주세요.</div>}
+              <SettlementSidePanel dark={dark} modelMeta={modelMeta} data={data} addEntry={addEntry} updateEntry={updateEntry} removeEntry={removeEntry} defaultModel={guessModel} defaultDate={date} defaultBrand={title} />
             </div>
           )}
         </div>
@@ -813,45 +836,60 @@ function calcModelLite(m) {
   return { agencyPrice: agencyPrice, handPay: handPay, opCost: opCost, partnerFee: partnerFee, net: net };
 }
 
-function BookingDetailModal({ project, dark, onClose }) {
+function BookingDetailModal({ project, dark, onClose, modelMeta, data, addEntry, updateEntry, removeEntry }) {
   var t = T(dark);
+  var modelKeys = Object.keys(modelMeta || {});
+  var projModelNames = (project.models || []).map(function (m) { return m.name; });
+  var guessModel = modelKeys.filter(function (k) { return projModelNames.indexOf(modelMeta[k].nameKr) !== -1; })[0] || modelKeys[0] || "";
+  var hasSettlement = !!(modelMeta && addEntry && updateEntry && removeEntry);
+
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }} onClick={onClose}>
-      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 16, padding: 22, width: "100%", maxWidth: 480, maxHeight: "85vh", overflowY: "auto" }} onClick={function (e) { e.stopPropagation(); }}>
-        <div style={{ fontSize: 11, color: t.sub, fontWeight: 700 }}>{project.date}{project.time ? " · ⏱ " + project.time : ""}</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-          <div style={{ fontSize: 19, fontWeight: 900, color: t.text }}>{project.brand}</div>
-          <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 9px", borderRadius: 6, background: project.depositStatus === "입금" ? "#d1fae5" : "#fee2e2", color: project.depositStatus === "입금" ? "#065f46" : "#991b1b" }}>{project.depositStatus === "입금" ? "✓ 입금완료" : "미입금"}</span>
+      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 16, padding: 22, width: "100%", maxWidth: hasSettlement ? 920 : 480, maxHeight: "88vh", overflowY: "auto" }} onClick={function (e) { e.stopPropagation(); }}>
+        <div style={{ display: hasSettlement ? "grid" : "block", gridTemplateColumns: hasSettlement ? "340px 1fr" : "none", gap: 20 }}>
+          <div>
+            <div style={{ fontSize: 11, color: t.sub, fontWeight: 700 }}>{project.date}{project.time ? " · ⏱ " + project.time : ""}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+              <div style={{ fontSize: 19, fontWeight: 900, color: t.text }}>{project.brand}</div>
+              <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 9px", borderRadius: 6, background: project.depositStatus === "입금" ? "#d1fae5" : "#fee2e2", color: project.depositStatus === "입금" ? "#065f46" : "#991b1b" }}>{project.depositStatus === "입금" ? "✓ 입금완료" : "미입금"}</span>
+            </div>
+            {project.note && <div style={{ fontSize: 12, color: t.sub, background: t.card2, border: "1px solid " + t.border, borderRadius: 8, padding: "8px 10px", marginBottom: 12 }}>📝 {project.note}</div>}
+            <div style={{ background: t.card2, border: "1px solid " + t.border, borderRadius: 10, padding: "10px 12px", marginBottom: 12 }}>
+              <div style={{ fontSize: 10, color: t.sub }}>총 섭외비용</div>
+              <div style={{ fontSize: 16, fontWeight: 900, color: t.text }}>{fmt(project.totalCost)}</div>
+            </div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: t.text, marginBottom: 6 }}>모델별 내역 (읽기 전용 · 원본은 촬영 프로젝트 관리 시스템)</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {(project.models || []).map(function (m, i2) {
+                var c = calcModelLite(m);
+                var timeLabel = m.time || project.time;
+                return (
+                  <div key={i2} style={{ background: t.card2, border: "1px solid " + t.border, borderRadius: 10, padding: "10px 12px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                      <span style={{ fontSize: 14, fontWeight: 900, color: t.text }}>{m.name}</span>
+                      {timeLabel ? <span style={{ fontSize: 12, fontWeight: 800, color: "#4f46e5" }}>⏱ {timeLabel}</span> : null}
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, fontSize: 12, color: t.sub }}>
+                      <div>섭외료 <b style={{ color: t.text }}>{fmt(m.agencyPrice)}</b></div>
+                      <div>손Pay <b style={{ color: t.text }}>{fmt(m.handPay)}</b></div>
+                    </div>
+                    <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px solid " + t.border, display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: 11, color: t.sub }}>모델 라인 순수익</span>
+                      <span style={{ fontSize: 13, fontWeight: 900, color: "#10b981" }}>{fmt(c.net)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <button onClick={onClose} style={{ width: "100%", marginTop: 14, padding: "10px 0", borderRadius: 9, border: "1px solid " + t.border, background: "transparent", color: t.text, fontWeight: 700, cursor: "pointer" }}>닫기</button>
+          </div>
+
+          {hasSettlement && (
+            <div style={{ borderLeft: "1px solid " + t.border, paddingLeft: 20 }}>
+              <SettlementSidePanel dark={dark} modelMeta={modelMeta} data={data} addEntry={addEntry} updateEntry={updateEntry} removeEntry={removeEntry} defaultModel={guessModel} defaultDate={project.date} defaultBrand={project.brand} />
+            </div>
+          )}
         </div>
-        {project.note && <div style={{ fontSize: 12, color: t.sub, background: t.card2, border: "1px solid " + t.border, borderRadius: 8, padding: "8px 10px", marginBottom: 12 }}>📝 {project.note}</div>}
-        <div style={{ background: t.card2, border: "1px solid " + t.border, borderRadius: 10, padding: "10px 12px", marginBottom: 12 }}>
-          <div style={{ fontSize: 10, color: t.sub }}>총 섭외비용</div>
-          <div style={{ fontSize: 16, fontWeight: 900, color: t.text }}>{fmt(project.totalCost)}</div>
-        </div>
-        <div style={{ fontSize: 12, fontWeight: 800, color: t.text, marginBottom: 6 }}>모델별 내역</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {(project.models || []).map(function (m, i2) {
-            var c = calcModelLite(m);
-            var timeLabel = m.time || project.time;
-            return (
-              <div key={i2} style={{ background: t.card2, border: "1px solid " + t.border, borderRadius: 10, padding: "10px 12px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                  <span style={{ fontSize: 14, fontWeight: 900, color: t.text }}>{m.name}</span>
-                  {timeLabel ? <span style={{ fontSize: 12, fontWeight: 800, color: "#4f46e5" }}>⏱ {timeLabel}</span> : null}
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, fontSize: 12, color: t.sub }}>
-                  <div>섭외료 <b style={{ color: t.text }}>{fmt(m.agencyPrice)}</b></div>
-                  <div>손Pay <b style={{ color: t.text }}>{fmt(m.handPay)}</b></div>
-                </div>
-                <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px solid " + t.border, display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 11, color: t.sub }}>모델 라인 순수익</span>
-                  <span style={{ fontSize: 13, fontWeight: 900, color: "#10b981" }}>{fmt(c.net)}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        <button onClick={onClose} style={{ width: "100%", marginTop: 14, padding: "10px 0", borderRadius: 9, border: "1px solid " + t.border, background: "transparent", color: t.text, fontWeight: 700, cursor: "pointer" }}>닫기</button>
       </div>
     </div>
   );
@@ -962,7 +1000,7 @@ function BookingCalendarTab({ modelMeta, data, addEntry, updateEntry, removeEntr
 
   return (
     <div>
-      {selected && <BookingDetailModal project={selected} dark={dark} onClose={function () { setSelected(null); }} />}
+      {selected && <BookingDetailModal project={selected} dark={dark} onClose={function () { setSelected(null); }} modelMeta={modelMeta} data={data} addEntry={addEntry} updateEntry={updateEntry} removeEntry={removeEntry} />}
       {editingEvent && <ScheduleEventModal dark={dark} initial={editingEvent} onSave={handleSaveEvent} onDelete={handleDeleteEvent} onClose={function () { setEditingEvent(null); }} modelMeta={modelMeta} data={data} addEntry={addEntry} updateEntry={updateEntry} removeEntry={removeEntry} />}
       {showPasteImport && <PasteImportModal dark={dark} onImport={handleImportEvent} onClose={function () { setShowPasteImport(false); }} />}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
