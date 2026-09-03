@@ -1176,6 +1176,18 @@ function CalendarTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
     onUpdateProject(Object.assign({}, p, { depositStatus: p.depositStatus === "입금" ? "미입금" : "입금" }));
   };
 
+  var q = search.trim().toLowerCase();
+  var yearMatches = [];
+  if (q) {
+    allProjects.forEach(function (p) {
+      if (!p.date || p.date.slice(0, 4) !== String(year)) return;
+      var names = (p.models || []).map(function (m) { return m.name; }).join(" ");
+      var hay = (p.brand || "") + " " + names + " " + (p.note || "");
+      if (hay.toLowerCase().indexOf(q) !== -1) yearMatches.push(p);
+    });
+    yearMatches.sort(function (a, b) { return (a.date || "").localeCompare(b.date || ""); });
+  }
+
   return (
     <div>
       {selected && <CalendarDetailModal project={selected} paymentInfo={paymentInfo} onChangeInfo={onChangeInfo} affiliatedModels={affiliatedModels} onUpdateProject={onUpdateProject} onClose={function () { setSelected(null); }} dark={dark} />}
@@ -1208,6 +1220,31 @@ function CalendarTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
         {search && <button onClick={function () { setSearch(""); }} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", color: t.sub, cursor: "pointer", fontSize: 13 }}>✕</button>}
       </div>
 
+      {q ? (
+        <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: t.text, marginBottom: 12 }}>{year}년 전체 검색 결과 · {yearMatches.length}건</div>
+          {yearMatches.length === 0 && <div style={{ fontSize: 12, color: t.sub, textAlign: "center", padding: "20px 0" }}>일치하는 촬영 건이 없습니다.</div>}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {yearMatches.map(function (p) {
+              var names = (p.models || []).map(function (m) { return m.name; }).filter(Boolean).join(", ");
+              var isPaid = p.depositStatus === "입금";
+              return (
+                <button key={p.id} onClick={function () { setSelected(p); }} style={{ textAlign: "left", position: "relative", display: "flex", alignItems: "center", gap: 12, background: isPaid ? (dark ? "#0a2015" : "#f0fdf4") : t.card2, border: "1px solid " + (isPaid ? "#10b981" : t.border), borderRadius: 9, padding: "10px 36px 10px 12px", cursor: "pointer", width: "100%", boxSizing: "border-box" }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: t.sub, flexShrink: 0, width: 74 }}>{p.date}</span>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: t.text, flexShrink: 0 }}>{p.brand}{p.note ? " 📝" : ""}</span>
+                  <span style={{ fontSize: 12, color: "#4f46e5", fontWeight: 700, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{names}</span>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: t.text, flexShrink: 0 }}>{fmt(p.totalCost)}</span>
+                  <span
+                    onClick={function (ev) { ev.stopPropagation(); toggleDeposit(p); }}
+                    title={isPaid ? "입금완료 (클릭 시 미입금으로 전환)" : "미입금 (클릭 시 입금완료로 전환)"}
+                    style={{ position: "absolute", top: "50%", right: 10, transform: "translateY(-50%)", width: 14, height: 14, borderRadius: "50%", background: isPaid ? "#10b981" : "transparent", border: "1.5px solid " + (isPaid ? "#10b981" : t.sub), cursor: "pointer" }}
+                  />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
       <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 14, overflowX: "auto" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 6, minWidth: 700, width: "100%" }}>
           {WEEKDAYS_KR.map(function (w, i) {
@@ -1216,13 +1253,7 @@ function CalendarTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
           {cells.map(function (d, idx) {
             if (d === null) return <div key={idx} style={{ aspectRatio: "1.35", boxSizing: "border-box" }} />;
             var dateStr = year + "-" + pad2(month) + "-" + pad2(d);
-            var q = search.trim().toLowerCase();
-            var dayProjects = (projectsByDate[dateStr] || []).filter(function (p) {
-              if (!q) return true;
-              var names = (p.models || []).map(function (m) { return m.name; }).join(" ");
-              var hay = (p.brand || "") + " " + names + " " + (p.note || "");
-              return hay.toLowerCase().indexOf(q) !== -1;
-            });
+            var dayProjects = projectsByDate[dateStr] || [];
             var isToday = dateStr === todayStr;
             var weekday = idx % 7;
             return (
@@ -1251,6 +1282,7 @@ function CalendarTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
           })}
         </div>
       </div>
+      )}
     </div>
   );
 }

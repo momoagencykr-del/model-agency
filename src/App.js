@@ -890,6 +890,27 @@ function BookingCalendarTab({ modelMeta, dark }) {
   var goPrev = function () { if (month === 1) { setYear(year - 1); setMonth(12); } else { setMonth(month - 1); } };
   var goNext = function () { if (month === 12) { setYear(year + 1); setMonth(1); } else { setMonth(month + 1); } };
 
+  var q = search.trim().toLowerCase();
+  var yearMatches = [];
+  if (q) {
+    projects.forEach(function (p) {
+      if (!p.date || p.date.slice(0, 4) !== String(year)) return;
+      var affModels = (p.models || []).filter(function (m) { return affiliatedNames[m.name]; });
+      if (affModels.length === 0) return;
+      var hay = (p.brand || "") + " " + affModels.map(function (m) { return m.name; }).join(" ") + " " + (p.note || "");
+      if (hay.toLowerCase().indexOf(q) === -1) return;
+      var affAmount = affModels.reduce(function (s, m) { return s + (Number(m.agencyPrice) || 0); }, 0);
+      yearMatches.push(Object.assign({}, p, { models: affModels, totalCost: affAmount, _kind: "project" }));
+    });
+    calEvents.forEach(function (ev) {
+      if (!ev.date || ev.date.slice(0, 4) !== String(year)) return;
+      var hay = (ev.title || "") + " " + (ev.memo || "");
+      if (hay.toLowerCase().indexOf(q) === -1) return;
+      yearMatches.push(Object.assign({}, ev, { _kind: "event" }));
+    });
+    yearMatches.sort(function (a, b) { return (a.date || "").localeCompare(b.date || ""); });
+  }
+
   return (
     <div>
       {selected && <BookingDetailModal project={selected} dark={dark} onClose={function () { setSelected(null); }} />}
@@ -933,6 +954,37 @@ function BookingCalendarTab({ modelMeta, dark }) {
         </div>
       </div>
 
+      {q ? (
+        <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: t.text, marginBottom: 12 }}>{year}년 전체 검색 결과 · {yearMatches.length}건</div>
+          {yearMatches.length === 0 && <div style={{ fontSize: 12, color: t.sub, textAlign: "center", padding: "20px 0" }}>일치하는 내역이 없습니다.</div>}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {yearMatches.map(function (item, idx) {
+              if (item._kind === "event") {
+                return (
+                  <button key={"ev" + idx} onClick={function () { setEditingEvent(item); }} style={{ textAlign: "left", display: "flex", alignItems: "center", gap: 12, background: dark ? "#1a3a2e" : "#ecfdf5", border: "1px solid " + (dark ? "#166534" : "#a7f3d0"), borderRadius: 9, padding: "10px 12px", cursor: "pointer", width: "100%", boxSizing: "border-box" }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: t.sub, flexShrink: 0, width: 74 }}>{item.date}</span>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: t.text, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}{item.memo ? " 📝" : ""}</span>
+                    {item.time && <span style={{ fontSize: 11, color: "#10b981", fontWeight: 800, flexShrink: 0 }}>⏱ {item.time}</span>}
+                  </button>
+                );
+              }
+              var p = item;
+              var names = (p.models || []).map(function (m) { return m.name; }).filter(Boolean).join(", ");
+              var isPaid = p.depositStatus === "입금";
+              return (
+                <button key={"p" + idx} onClick={function () { setSelected(p); }} style={{ textAlign: "left", display: "flex", alignItems: "center", gap: 12, background: dark ? "#1e2a4a" : "#eef2ff", border: "1px solid " + (dark ? "#3730a3" : "#c7d2fe"), borderRadius: 9, padding: "10px 12px", cursor: "pointer", width: "100%", boxSizing: "border-box" }}>
+                  <span title={isPaid ? "입금완료" : "미입금"} style={{ width: 7, height: 7, borderRadius: "50%", background: isPaid ? "#10b981" : "#ef4444", flexShrink: 0 }} />
+                  <span style={{ fontSize: 11, fontWeight: 700, color: t.sub, flexShrink: 0, width: 74 }}>{p.date}</span>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: t.text, flexShrink: 0 }}>{p.brand}{p.note ? " 📝" : ""}</span>
+                  <span style={{ fontSize: 12, color: "#4f46e5", fontWeight: 700, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{names}</span>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: "#4f46e5", flexShrink: 0 }}>{fmt(p.totalCost)}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
       <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 14, overflowX: "auto" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 6, minWidth: 700, width: "100%" }}>
           {WEEKDAYS_KR.map(function (w, i) {
@@ -941,12 +993,7 @@ function BookingCalendarTab({ modelMeta, dark }) {
           {cells.map(function (d, idx) {
             if (d === null) return <div key={idx} style={{ aspectRatio: "1.35", boxSizing: "border-box" }} />;
             var dateStr = year + "-" + pad2(month) + "-" + pad2(d);
-            var q = search.trim().toLowerCase();
-            var dayProjects = (byDate[dateStr] || []).filter(function (p) {
-              if (!q) return true;
-              var hay = (p.brand || "") + " " + (p.models || []).map(function (m) { return m.name; }).join(" ") + " " + (p.note || "");
-              return hay.toLowerCase().indexOf(q) !== -1;
-            });
+            var dayProjects = byDate[dateStr] || [];
             var dayEvents = (byDateEvents[dateStr] || []).filter(function (ev) {
               if (!q) return true;
               var hay = (ev.title || "") + " " + (ev.memo || "");
@@ -996,6 +1043,7 @@ function BookingCalendarTab({ modelMeta, dark }) {
           })}
         </div>
       </div>
+      )}
     </div>
   );
 }
