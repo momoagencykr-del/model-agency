@@ -536,7 +536,7 @@ function ProjectsTab({ year, month, setYear, setMonth, allProjects, expenses, re
       {list.map(function (p, idx) {
         var agg = projectAgg(p);
         return (
-          <div key={p.id} style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 12, padding: 14, marginBottom: 10 }}>
+          <div key={p.id} style={{ background: t.card, border: "1.5px solid " + (p.depositStatus === "입금" ? "#10b981" : t.border), borderRadius: 12, padding: 14, marginBottom: 10 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
               <div style={{ flex: 1, minWidth: 200 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
@@ -545,7 +545,7 @@ function ProjectsTab({ year, month, setYear, setMonth, allProjects, expenses, re
                 </div>
                 <div style={{ fontSize: 17, fontWeight: 900, color: t.text }}>{p.brand}</div>
               </div>
-              <span style={{ display: "inline-block", padding: "3px 8px", borderRadius: 6, fontSize: 10, fontWeight: 700, background: p.depositStatus === "입금" ? "#d1fae5" : "#fee2e2", color: p.depositStatus === "입금" ? "#065f46" : "#991b1b", flexShrink: 0 }}>{p.depositStatus || "미입금"}</span>
+              <button onClick={function () { onUpdate(Object.assign({}, p, { depositStatus: p.depositStatus === "입금" ? "미입금" : "입금" })); }} title="클릭해서 입금 상태 전환" style={{ display: "inline-block", padding: "3px 8px", borderRadius: 6, fontSize: 10, fontWeight: 700, border: "none", cursor: "pointer", background: p.depositStatus === "입금" ? "#d1fae5" : "#fee2e2", color: p.depositStatus === "입금" ? "#065f46" : "#991b1b", flexShrink: 0 }}>{p.depositStatus === "입금" ? "✓ 입금완료" : "미입금"}</button>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(230px,1fr))", gap: 8, marginTop: 10 }}>
@@ -1147,6 +1147,7 @@ function CalendarTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
   var t = T(dark);
   var mKey = monthKey(year, month);
   var [selected, setSelected] = useState(null);
+  var [search, setSearch] = useState("");
   var cells = buildCalendarGrid(year, month);
   var todayStr = NOW.getFullYear() + "-" + pad2(NOW.getMonth() + 1) + "-" + pad2(NOW.getDate());
 
@@ -1170,6 +1171,11 @@ function CalendarTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
     if (month === 12) { setYear(year + 1); setMonth(1); } else { setMonth(month + 1); }
   };
 
+  var toggleDeposit = function (p) {
+    if (!onUpdateProject) return;
+    onUpdateProject(Object.assign({}, p, { depositStatus: p.depositStatus === "입금" ? "미입금" : "입금" }));
+  };
+
   return (
     <div>
       {selected && <CalendarDetailModal project={selected} paymentInfo={paymentInfo} onChangeInfo={onChangeInfo} affiliatedModels={affiliatedModels} onUpdateProject={onUpdateProject} onClose={function () { setSelected(null); }} dark={dark} />}
@@ -1184,12 +1190,22 @@ function CalendarTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
       <div style={{ marginBottom: 14 }}>
         <MonthStrip year={year} month={month} setYear={setYear} setMonth={setMonth} t={t} dark={dark} />
       </div>
-      <div style={{ fontSize: 12, color: t.sub, marginBottom: 12 }}>촬영 카드를 클릭하면 모델별 지급 정보(주민등록번호, 공제방식, 계좌, 입금여부)를 바로 등록·수정할 수 있고, 모델 지급관리 탭에도 동일하게 반영됩니다.</div>
+      <div style={{ fontSize: 12, color: t.sub, marginBottom: 12 }}>촬영 카드를 클릭하면 모델별 지급 정보(주민등록번호, 공제방식, 계좌, 입금여부)를 바로 등록·수정할 수 있고, 모델 지급관리 탭에도 동일하게 반영됩니다. 카드의 동그라미를 누르면 입금완료 상태를 바로 전환할 수 있습니다.</div>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
         <Card title="총 섭외비용" value={fmt(monthTotalCost)} color="#4f46e5" t={t} />
         <Card title="촬영 건수" value={monthProjectCount + "건"} t={t} />
         <Card title="섭외 모델 수" value={monthModelCount + "명"} t={t} />
+      </div>
+
+      <div style={{ marginBottom: 14, position: "relative", maxWidth: 320 }}>
+        <input
+          value={search}
+          onChange={function (e) { setSearch(e.target.value); }}
+          placeholder="🔍 업체명·모델명·메모로 검색"
+          style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid " + t.border, background: t.card, color: t.text, fontSize: 13, boxSizing: "border-box" }}
+        />
+        {search && <button onClick={function () { setSearch(""); }} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", color: t.sub, cursor: "pointer", fontSize: 13 }}>✕</button>}
       </div>
 
       <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 14, overflowX: "auto" }}>
@@ -1200,7 +1216,13 @@ function CalendarTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
           {cells.map(function (d, idx) {
             if (d === null) return <div key={idx} style={{ aspectRatio: "1.35", boxSizing: "border-box" }} />;
             var dateStr = year + "-" + pad2(month) + "-" + pad2(d);
-            var dayProjects = projectsByDate[dateStr] || [];
+            var q = search.trim().toLowerCase();
+            var dayProjects = (projectsByDate[dateStr] || []).filter(function (p) {
+              if (!q) return true;
+              var names = (p.models || []).map(function (m) { return m.name; }).join(" ");
+              var hay = (p.brand || "") + " " + names + " " + (p.note || "");
+              return hay.toLowerCase().indexOf(q) !== -1;
+            });
             var isToday = dateStr === todayStr;
             var weekday = idx % 7;
             return (
@@ -1209,9 +1231,15 @@ function CalendarTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
                 <div style={{ display: "flex", flexDirection: "column", gap: 3, overflowY: "auto", flex: 1, minHeight: 0 }}>
                   {dayProjects.map(function (p) {
                     var names = (p.models || []).map(function (m) { return m.name; }).filter(Boolean).join(", ");
+                    var isPaid = p.depositStatus === "입금";
                     return (
-                      <button key={p.id} onClick={function () { setSelected(p); }} style={{ textAlign: "left", background: dark ? "#1e2a4a" : "#eef2ff", border: "1px solid " + (dark ? "#3730a3" : "#c7d2fe"), borderRadius: 6, padding: "5px 7px", cursor: "pointer", width: "100%", flexShrink: 0, boxSizing: "border-box" }}>
-                        <div style={{ fontSize: 12, fontWeight: 800, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.brand}</div>
+                      <button key={p.id} onClick={function () { setSelected(p); }} style={{ textAlign: "left", position: "relative", background: isPaid ? (dark ? "#0a2015" : "#f0fdf4") : (dark ? "#1e2a4a" : "#eef2ff"), border: "1px solid " + (isPaid ? "#10b981" : (dark ? "#3730a3" : "#c7d2fe")), borderRadius: 6, padding: "5px 22px 5px 7px", cursor: "pointer", width: "100%", flexShrink: 0, boxSizing: "border-box" }}>
+                        <span
+                          onClick={function (ev) { ev.stopPropagation(); toggleDeposit(p); }}
+                          title={isPaid ? "입금완료 (클릭 시 미입금으로 전환)" : "미입금 (클릭 시 입금완료로 전환)"}
+                          style={{ position: "absolute", top: 5, right: 5, width: 13, height: 13, borderRadius: "50%", background: isPaid ? "#10b981" : "transparent", border: "1.5px solid " + (isPaid ? "#10b981" : t.sub), cursor: "pointer" }}
+                        />
+                        <div style={{ fontSize: 12, fontWeight: 800, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.brand}{p.note ? " 📝" : ""}</div>
                         <div style={{ fontSize: 10, color: t.sub, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{names}{p.time ? " · " + p.time : ""}</div>
                         <div style={{ fontSize: 11, fontWeight: 800, color: "#4f46e5" }}>{fmt(p.totalCost)}</div>
                       </button>

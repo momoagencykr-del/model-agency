@@ -298,7 +298,7 @@ function EntryForm({ af, label, onAdd, dark }) {
       )}
       <button onClick={function(){
         if (!f.income) return;
-        onAdd({ brand:f.brand, income:f.income, otherDeduct:f.otherDeduct, note:f.note, id:Date.now() });
+        onAdd({ brand:f.brand, income:f.income, otherDeduct:f.otherDeduct, note:f.note, paid:false, id:Date.now() });
         setF({ brand:"", income:"", otherDeduct:"", note:"" });
         setOpen(false);
       }} style={{ width:"100%", background:"#4f46e5", color:"#fff", border:"none", borderRadius:8, padding:"10px 0", fontWeight:700, fontSize:13, cursor:"pointer" }}>
@@ -376,15 +376,17 @@ function EntryTable({ entries, af, onRemove, onUpdate, dark }) {
 
         var displayFinal = finalAmt(e, af);
         var hasOverride = e.actualPaid !== undefined && e.actualPaid !== null && e.actualPaid !== "";
+        var isPaid = !!e.paid;
         return (
-          <div key={e.id} style={{ background:dark?"#0f172a":"#f8fafc", border:"1px solid "+t.border, borderRadius:10, padding:"10px 12px" }}>
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+          <div key={e.id} style={{ background: isPaid ? (dark?"#0a2015":"#f0fdf4") : (dark?"#0f172a":"#f8fafc"), border: "1.5px solid " + (isPaid ? "#10b981" : t.border), borderRadius:10, padding:"10px 12px" }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, flexWrap:"wrap", gap:6 }}>
               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                <div style={{ width:8, height:8, borderRadius:"50%", background:"#4f46e5", flexShrink:0 }} />
+                <div style={{ width:8, height:8, borderRadius:"50%", background: isPaid ? "#10b981" : "#4f46e5", flexShrink:0 }} />
                 <span style={{ fontWeight:800, color:t.text, fontSize:13 }}>{e.brand || "브랜드 미입력"}</span>
-                {e.note && <span style={{ fontSize:11, color:t.sub, background:dark?"#1e293b":"#e2e8f0", padding:"1px 7px", borderRadius:10 }}>{e.note}</span>}
+                {e.note && <span style={{ fontSize:11, color:t.sub, background:dark?"#1e293b":"#e2e8f0", padding:"1px 7px", borderRadius:10 }}>📝 {e.note}</span>}
               </div>
-              <div style={{ display:"flex", gap:4 }}>
+              <div style={{ display:"flex", gap:4, alignItems:"center" }}>
+                <button onClick={function(){ onUpdate(e.id, { paid: !isPaid }); }} style={{ background: isPaid ? "#10b981" : "transparent", border:"1px solid " + (isPaid ? "#10b981" : t.border), color: isPaid ? "#fff" : t.sub, cursor:"pointer", fontSize:11, padding:"4px 10px", fontWeight:800, borderRadius:7 }}>{isPaid ? "✓ 입금완료" : "입금대기"}</button>
                 <button onClick={function(){ startEdit(e); }} style={{ background:"none", border:"none", color:dark?"#818cf8":"#4f46e5", cursor:"pointer", fontSize:12, padding:"2px 6px", fontWeight:700 }}>수정</button>
                 <button onClick={function(){ onRemove(e.id); }} style={{ background:"none", border:"none", color:dark?"#475569":"#cbd5e1", cursor:"pointer", fontSize:14, padding:"2px 6px" }}>x</button>
               </div>
@@ -768,7 +770,11 @@ function BookingDetailModal({ project, dark, onClose }) {
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }} onClick={onClose}>
       <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 16, padding: 22, width: "100%", maxWidth: 480, maxHeight: "85vh", overflowY: "auto" }} onClick={function (e) { e.stopPropagation(); }}>
         <div style={{ fontSize: 11, color: t.sub, fontWeight: 700 }}>{project.date}{project.time ? " · ⏱ " + project.time : ""}</div>
-        <div style={{ fontSize: 19, fontWeight: 900, color: t.text, marginBottom: 10 }}>{project.brand}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 19, fontWeight: 900, color: t.text }}>{project.brand}</div>
+          <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 9px", borderRadius: 6, background: project.depositStatus === "입금" ? "#d1fae5" : "#fee2e2", color: project.depositStatus === "입금" ? "#065f46" : "#991b1b" }}>{project.depositStatus === "입금" ? "✓ 입금완료" : "미입금"}</span>
+        </div>
+        {project.note && <div style={{ fontSize: 12, color: t.sub, background: t.card2, border: "1px solid " + t.border, borderRadius: 8, padding: "8px 10px", marginBottom: 12 }}>📝 {project.note}</div>}
         <div style={{ background: t.card2, border: "1px solid " + t.border, borderRadius: 10, padding: "10px 12px", marginBottom: 12 }}>
           <div style={{ fontSize: 10, color: t.sub }}>총 섭외비용</div>
           <div style={{ fontSize: 16, fontWeight: 900, color: t.text }}>{fmt(project.totalCost)}</div>
@@ -818,6 +824,8 @@ function BookingCalendarTab({ modelMeta, dark }) {
   var editingEvent = editState[0], setEditingEvent = editState[1];
   var pasteState = useState(false);
   var showPasteImport = pasteState[0], setShowPasteImport = pasteState[1];
+  var searchState = useState("");
+  var search = searchState[0], setSearch = searchState[1];
 
   useEffect(function () {
     fetchBookedProjects().then(setProjects);
@@ -900,6 +908,16 @@ function BookingCalendarTab({ modelMeta, dark }) {
       </div>
       <div style={{ fontSize: 12, color: t.sub, marginBottom: 12 }}>파란 카드는 소속모델이 포함된 촬영 건(읽기 전용), 초록 카드는 직접 등록한 일정입니다. 날짜 칸의 + 버튼으로 일정을 추가하세요.</div>
 
+      <div style={{ marginBottom: 14, position: "relative", maxWidth: 320 }}>
+        <input
+          value={search}
+          onChange={function (e) { setSearch(e.target.value); }}
+          placeholder="🔍 업체명·모델명으로 검색"
+          style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid " + t.border, background: t.card, color: t.text, fontSize: 13, boxSizing: "border-box" }}
+        />
+        {search && <button onClick={function () { setSearch(""); }} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", color: t.sub, cursor: "pointer", fontSize: 13 }}>✕</button>}
+      </div>
+
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
         <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: "14px 18px", flex: 1, minWidth: 150 }}>
           <div style={{ fontSize: 11, color: t.sub, fontWeight: 700, marginBottom: 6 }}>총 섭외비용</div>
@@ -923,8 +941,17 @@ function BookingCalendarTab({ modelMeta, dark }) {
           {cells.map(function (d, idx) {
             if (d === null) return <div key={idx} style={{ aspectRatio: "1.35", boxSizing: "border-box" }} />;
             var dateStr = year + "-" + pad2(month) + "-" + pad2(d);
-            var dayProjects = byDate[dateStr] || [];
-            var dayEvents = byDateEvents[dateStr] || [];
+            var q = search.trim().toLowerCase();
+            var dayProjects = (byDate[dateStr] || []).filter(function (p) {
+              if (!q) return true;
+              var hay = (p.brand || "") + " " + (p.models || []).map(function (m) { return m.name; }).join(" ") + " " + (p.note || "");
+              return hay.toLowerCase().indexOf(q) !== -1;
+            });
+            var dayEvents = (byDateEvents[dateStr] || []).filter(function (ev) {
+              if (!q) return true;
+              var hay = (ev.title || "") + " " + (ev.memo || "");
+              return hay.toLowerCase().indexOf(q) !== -1;
+            });
             var isToday = dateStr === todayStr;
             var weekday = idx % 7;
             return (
@@ -940,9 +967,13 @@ function BookingCalendarTab({ modelMeta, dark }) {
                 <div style={{ display: "flex", flexDirection: "column", gap: 3, overflowY: "auto", flex: 1, minHeight: 0 }}>
 
                   {dayProjects.map(function (p) {
+                    var isPaid = p.depositStatus === "입금";
                     return (
-                      <button key={p.id} onClick={function () { setSelected(p); }} style={{ textAlign: "left", background: dark ? "#1e2a4a" : "#eef2ff", border: "1px solid " + (dark ? "#3730a3" : "#c7d2fe"), borderRadius: 6, padding: "5px 7px", cursor: "pointer", width: "100%", flexShrink: 0, boxSizing: "border-box" }}>
-                        <div style={{ fontSize: 12, fontWeight: 800, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.brand}</div>
+                      <button key={p.id} onClick={function () { setSelected(p); }} style={{ textAlign: "left", position: "relative", background: dark ? "#1e2a4a" : "#eef2ff", border: "1px solid " + (dark ? "#3730a3" : "#c7d2fe"), borderRadius: 6, padding: "5px 7px", cursor: "pointer", width: "100%", flexShrink: 0, boxSizing: "border-box" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <span title={isPaid ? "입금완료" : "미입금"} style={{ width: 6, height: 6, borderRadius: "50%", background: isPaid ? "#10b981" : "#ef4444", flexShrink: 0 }} />
+                          <div style={{ fontSize: 12, fontWeight: 800, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.brand}{p.note ? " 📝" : ""}</div>
+                        </div>
                         <div style={{ fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "#4f46e5", fontWeight: 800 }}>
                           {(p.models || []).map(function (m, i2) { return (i2 > 0 ? ", " : "") + m.name; }).join("")}
                           {p.time ? " · " + p.time : ""}
@@ -954,7 +985,7 @@ function BookingCalendarTab({ modelMeta, dark }) {
                   {dayEvents.map(function (ev) {
                     return (
                       <button key={ev.id} onClick={function () { setEditingEvent(ev); }} style={{ textAlign: "left", background: dark ? "#1a3a2e" : "#ecfdf5", border: "1px solid " + (dark ? "#166534" : "#a7f3d0"), borderRadius: 6, padding: "5px 7px", cursor: "pointer", width: "100%", flexShrink: 0, boxSizing: "border-box" }}>
-                        <div style={{ fontSize: 12, fontWeight: 800, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ev.title}</div>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ev.title}{ev.memo ? " 📝" : ""}</div>
                         {ev.time && <div style={{ fontSize: 10, color: "#10b981", fontWeight: 800 }}>⏱ {ev.time}</div>}
                       </button>
                     );
