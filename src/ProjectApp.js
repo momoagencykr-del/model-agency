@@ -527,7 +527,7 @@ function ProjectFormModal({ existing, defaultDate, affiliatedModels, paymentInfo
 function ProjectsTab({ year, month, setYear, setMonth, allProjects, expenses, recurringExpenses, affiliatedModels, paymentInfo, onChangeInfo, onAdd, onUpdate, onRemove, dark }) {
   var t = T(dark);
   var mKey = monthKey(year, month);
-  var list = projectsForMonth(allProjects, mKey);
+  var list = projectsForMonth(allProjects, mKey).slice().sort(function (a, b) { return (a.date || "").localeCompare(b.date || ""); });
   var [showForm, setShowForm] = useState(false);
   var [editing, setEditing] = useState(null);
   var [deleteId, setDeleteId] = useState(null);
@@ -572,59 +572,65 @@ function ProjectsTab({ year, month, setYear, setMonth, allProjects, expenses, re
 
       {list.map(function (p, idx) {
         var agg = projectAgg(p);
+        var dObj = p.date ? new Date(p.date + "T00:00:00") : null;
+        var dayNum = dObj ? dObj.getDate() : "-";
+        var weekdayLabel = dObj ? WEEKDAYS_KR[dObj.getDay()] : "";
+        var weekdayColor = dObj ? (dObj.getDay() === 0 ? "#ef4444" : (dObj.getDay() === 6 ? "#4f46e5" : t.sub)) : t.sub;
         return (
-          <div key={p.id} style={{ background: t.card, border: "1.5px solid " + (p.depositStatus === "입금" ? "#10b981" : t.border), borderRadius: 12, padding: 14, marginBottom: 10 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
-              <div style={{ flex: 1, minWidth: 200 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 10, color: t.sub, fontWeight: 700 }}>No.{idx + 1} · {p.date || "날짜 미정"}</span>
-                  {p.time ? <span style={{ fontSize: 10, fontWeight: 800, color: "#4f46e5", background: dark ? "#1e293b" : "#eef2ff", padding: "2px 7px", borderRadius: 6 }}>⏱ {p.time}</span> : null}
-                </div>
+          <div key={p.id} style={{ display: "flex", gap: 14, background: t.card, border: "1.5px solid " + (p.depositStatus === "입금" ? "#10b981" : t.border), borderRadius: 12, padding: 14, marginBottom: 10 }}>
+            <div style={{ flexShrink: 0, width: 62, textAlign: "center", paddingRight: 14, borderRight: "1px solid " + t.border, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: weekdayColor }}>{p.date ? p.date.slice(0, 7).replace("-", ".") : ""}</div>
+              <div style={{ fontSize: 30, fontWeight: 900, color: t.text, lineHeight: 1.1 }}>{dayNum}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: weekdayColor }}>{weekdayLabel ? weekdayLabel + "요일" : "날짜 미정"}</div>
+              {p.time ? <div style={{ fontSize: 10, fontWeight: 800, color: "#4f46e5", marginTop: 4 }}>⏱ {p.time}</div> : null}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
                 <div style={{ fontSize: 17, fontWeight: 900, color: t.text }}>{p.brand}</div>
+                <button onClick={function () { onUpdate(Object.assign({}, p, { depositStatus: p.depositStatus === "입금" ? "미입금" : "입금" })); }} title="클릭해서 입금 상태 전환" style={{ display: "inline-block", padding: "3px 8px", borderRadius: 6, fontSize: 10, fontWeight: 700, border: "none", cursor: "pointer", background: p.depositStatus === "입금" ? "#d1fae5" : "#fee2e2", color: p.depositStatus === "입금" ? "#065f46" : "#991b1b", flexShrink: 0 }}>{p.depositStatus === "입금" ? "✓ 입금완료" : "미입금"}</button>
               </div>
-              <button onClick={function () { onUpdate(Object.assign({}, p, { depositStatus: p.depositStatus === "입금" ? "미입금" : "입금" })); }} title="클릭해서 입금 상태 전환" style={{ display: "inline-block", padding: "3px 8px", borderRadius: 6, fontSize: 10, fontWeight: 700, border: "none", cursor: "pointer", background: p.depositStatus === "입금" ? "#d1fae5" : "#fee2e2", color: p.depositStatus === "입금" ? "#065f46" : "#991b1b", flexShrink: 0 }}>{p.depositStatus === "입금" ? "✓ 입금완료" : "미입금"}</button>
-            </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(230px,1fr))", gap: 8, marginTop: 10 }}>
-              <div style={{ background: dark ? "#1e2a4a" : "#eef2ff", border: "1px solid " + (dark ? "#3730a3" : "#c7d2fe"), borderRadius: 10, padding: "12px 14px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <span style={{ fontSize: 12, color: "#4f46e5", fontWeight: 700 }}>총 섭외비용</span>
-                  <span style={{ fontSize: 17, fontWeight: 900, color: t.text }}>{fmt(p.totalCost)}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 12, color: "#4f46e5", fontWeight: 700 }}>순수익</span>
-                  <span style={{ fontSize: 17, fontWeight: 900, color: "#10b981" }}>{fmt(agg.net)}</span>
-                </div>
-              </div>
-              {(p.models || []).length > 0 ? (p.models || []).map(function (m, i2) {
-                var c = calcModel(m);
-                var timeLabel = m.time || p.time;
-                return (
-                  <div key={i2} style={{ background: t.card2, border: "1px solid " + t.border, borderRadius: 10, padding: "12px 14px" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                      <span style={{ fontSize: 17, fontWeight: 900, color: t.text }}>{m.name}</span>
-                      {timeLabel ? <span style={{ fontSize: 13, fontWeight: 800, color: "#4f46e5" }}>⏱ {timeLabel}</span> : null}
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 13, color: t.sub }}>
-                      <div>섭외료 <b style={{ color: t.text }}>{fmt(m.agencyPrice)}</b></div>
-                      <div>손Pay <b style={{ color: t.text }}>{fmt(m.handPay)}</b></div>
-                      <div>운영비 <b style={{ color: t.text }}>{fmt(m.opCost)}</b></div>
-                      <div>협력비율 <b style={{ color: t.text }}>{Number(m.partnerRate) || 0}%</b></div>
-                    </div>
-                    <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid " + t.border, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontSize: 12, color: t.sub }}>모델 라인 순수익</span>
-                      <span style={{ fontSize: 16, fontWeight: 900, color: "#10b981" }}>{fmt(c.net)}</span>
-                    </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(230px,1fr))", gap: 8, marginTop: 10 }}>
+                <div style={{ background: dark ? "#1e2a4a" : "#eef2ff", border: "1px solid " + (dark ? "#3730a3" : "#c7d2fe"), borderRadius: 10, padding: "12px 14px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <span style={{ fontSize: 12, color: "#4f46e5", fontWeight: 700 }}>총 섭외비용</span>
+                    <span style={{ fontSize: 17, fontWeight: 900, color: t.text }}>{fmt(p.totalCost)}</span>
                   </div>
-                );
-              }) : <div style={{ display: "flex", alignItems: "center" }}><span style={{ fontSize: 11, color: t.sub }}>모델 미지정</span></div>}
-            </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 12, color: "#4f46e5", fontWeight: 700 }}>순수익</span>
+                    <span style={{ fontSize: 17, fontWeight: 900, color: "#10b981" }}>{fmt(agg.net)}</span>
+                  </div>
+                </div>
+                {(p.models || []).length > 0 ? (p.models || []).map(function (m, i2) {
+                  var c = calcModel(m);
+                  var timeLabel = m.time || p.time;
+                  return (
+                    <div key={i2} style={{ background: t.card2, border: "1px solid " + t.border, borderRadius: 10, padding: "12px 14px" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                        <span style={{ fontSize: 17, fontWeight: 900, color: t.text }}>{m.name}</span>
+                        {timeLabel ? <span style={{ fontSize: 13, fontWeight: 800, color: "#4f46e5" }}>⏱ {timeLabel}</span> : null}
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 13, color: t.sub }}>
+                        <div>섭외료 <b style={{ color: t.text }}>{fmt(m.agencyPrice)}</b></div>
+                        <div>손Pay <b style={{ color: t.text }}>{fmt(m.handPay)}</b></div>
+                        <div>운영비 <b style={{ color: t.text }}>{fmt(m.opCost)}</b></div>
+                        <div>협력비율 <b style={{ color: t.text }}>{Number(m.partnerRate) || 0}%</b></div>
+                      </div>
+                      <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid " + t.border, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: 12, color: t.sub }}>모델 라인 순수익</span>
+                        <span style={{ fontSize: 16, fontWeight: 900, color: "#10b981" }}>{fmt(c.net)}</span>
+                      </div>
+                    </div>
+                  );
+                }) : <div style={{ display: "flex", alignItems: "center" }}><span style={{ fontSize: 11, color: t.sub }}>모델 미지정</span></div>}
+              </div>
 
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10, flexWrap: "wrap", gap: 10 }}>
-              <div style={{ fontSize: 11, color: t.sub }}>{p.note ? "비고: " + p.note : ""}</div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={function () { setEditing(p); }} style={{ padding: "8px 16px", borderRadius: 9, border: "1px solid " + t.border, background: "transparent", color: t.text, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>수정</button>
-                <button onClick={function () { setDeleteId(p.id); }} style={{ padding: "8px 16px", borderRadius: 9, border: "none", background: "#ef444440", color: "#ef4444", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>삭제</button>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10, flexWrap: "wrap", gap: 10 }}>
+                <div style={{ fontSize: 11, color: t.sub }}>{p.note ? "비고: " + p.note : ""}</div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={function () { setEditing(p); }} style={{ padding: "8px 16px", borderRadius: 9, border: "1px solid " + t.border, background: "transparent", color: t.text, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>수정</button>
+                  <button onClick={function () { setDeleteId(p.id); }} style={{ padding: "8px 16px", borderRadius: 9, border: "none", background: "#ef444440", color: "#ef4444", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>삭제</button>
+                </div>
               </div>
             </div>
           </div>
