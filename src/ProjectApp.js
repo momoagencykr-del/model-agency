@@ -1182,10 +1182,11 @@ function CalendarDetailModal({ project, paymentInfo, onChangeInfo, affiliatedMod
   );
 }
 
-function CalendarTab({ year, month, setYear, setMonth, allProjects, paymentInfo, onChangeInfo, affiliatedModels, onUpdateProject, dark }) {
+function CalendarTab({ year, month, setYear, setMonth, allProjects, paymentInfo, onChangeInfo, affiliatedModels, onUpdateProject, onAddProject, dark }) {
   var t = T(dark);
   var mKey = monthKey(year, month);
   var [selected, setSelected] = useState(null);
+  var [addingDate, setAddingDate] = useState(null);
   var [search, setSearch] = useState("");
   var cells = buildCalendarGrid(year, month);
   var todayStr = NOW.getFullYear() + "-" + pad2(NOW.getMonth() + 1) + "-" + pad2(NOW.getDate());
@@ -1230,10 +1231,22 @@ function CalendarTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
   return (
     <div>
       {selected && <CalendarDetailModal project={selected} paymentInfo={paymentInfo} onChangeInfo={onChangeInfo} affiliatedModels={affiliatedModels} onUpdateProject={onUpdateProject} onClose={function () { setSelected(null); }} dark={dark} />}
+      {addingDate && (
+        <ProjectFormModal
+          defaultDate={addingDate}
+          affiliatedModels={affiliatedModels}
+          paymentInfo={paymentInfo}
+          onChangeInfo={onChangeInfo}
+          onSave={function (p) { onAddProject(p); setAddingDate(null); }}
+          onClose={function () { setAddingDate(null); }}
+          dark={dark}
+        />
+      )}
 
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
         <MonthHeading year={year} month={month} t={t} />
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button onClick={function () { setAddingDate(defaultDateForMonth(year, month)); }} style={{ padding: "0 14px", height: 32, borderRadius: 8, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer", flexShrink: 0 }}>+ 촬영 등록</button>
           <button onClick={goPrev} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid " + t.border, background: t.card, color: t.text, cursor: "pointer", fontSize: 14, flexShrink: 0 }}>‹</button>
           <button onClick={goNext} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid " + t.border, background: t.card, color: t.text, cursor: "pointer", fontSize: 14, flexShrink: 0 }}>›</button>
         </div>
@@ -1297,7 +1310,14 @@ function CalendarTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
             var weekday = idx % 7;
             return (
               <div key={idx} style={{ aspectRatio: "1.35", boxSizing: "border-box", borderRadius: 8, border: isToday ? "2px solid #4f46e5" : "1px solid " + t.border, background: t.card2, padding: "6px 6px", display: "flex", flexDirection: "column", gap: 3, overflow: "hidden" }}>
-                <div style={{ fontSize: 17, fontWeight: 900, color: weekday === 0 ? "#ef4444" : (weekday === 6 ? "#4f46e5" : t.text), flexShrink: 0 }}>{d}</div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+                  <div style={{ fontSize: 17, fontWeight: 900, color: weekday === 0 ? "#ef4444" : (weekday === 6 ? "#4f46e5" : t.text) }}>{d}</div>
+                  <button
+                    onClick={function () { setAddingDate(dateStr); }}
+                    title="촬영 등록"
+                    style={{ width: 18, height: 18, borderRadius: 5, border: "1px solid " + t.border, background: "transparent", color: t.sub, cursor: "pointer", fontSize: 12, fontWeight: 900, lineHeight: "16px", padding: 0, flexShrink: 0, boxSizing: "border-box" }}
+                  >+</button>
+                </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 3, overflowY: "auto", flex: 1, minHeight: 0 }}>
                   {dayProjects.map(function (p) {
                     var names = (p.models || []).map(function (m) { return m.name; }).filter(Boolean).join(", ");
@@ -1338,7 +1358,7 @@ export default function ProjectApp({ currentUser, onLogout }) {
   var [dark, setDark] = useState(function () {
     try { return localStorage.getItem("darkMode") === "true"; } catch (e) { return false; }
   });
-  var [tab, setTab] = useState("calendar");
+  var [tab, setTab] = useState("projects");
   var [year, setYear] = useState(NOW_YEAR);
   var [month, setMonth] = useState(NOW_MONTH_NUM);
   var [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -1488,7 +1508,7 @@ export default function ProjectApp({ currentUser, onLogout }) {
     );
   }
 
-  var navItems = [["calendar", "촬영 캘린더", "📅"], ["dashboard", "실적 대시보드", "📈"], ["projects", "촬영 정산내역", "🎬"], ["expenses", "운영비용", "🧾"], ["payments", "모델 지급관리", "💸"]];
+  var navItems = [["projects", "월별 촬영 정산내역", "🎬"], ["calendar", "촬영 캘린더", "📅"], ["dashboard", "실적 대시보드", "📈"], ["expenses", "운영비용", "🧾"], ["payments", "모델 지급관리", "💸"]];
 
   var NavContent = (
     <div style={{ padding: 8 }}>
@@ -1549,7 +1569,7 @@ export default function ProjectApp({ currentUser, onLogout }) {
         <main style={{ flex: 1, minWidth: 0 }}>
           {tab === "dashboard" && <DashboardTab year={year} setYear={setYear} allProjects={allProjects} expenses={expenses} recurringExpenses={recurringExpenses} dark={dark} />}
           {tab === "projects" && <ProjectsTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} expenses={expenses} recurringExpenses={recurringExpenses} affiliatedModels={affiliatedModels} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} onAdd={addProject} onUpdate={updateProject} onRemove={removeProject} dark={dark} />}
-          {tab === "calendar" && <CalendarTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} affiliatedModels={affiliatedModels} onUpdateProject={updateProject} dark={dark} />}
+          {tab === "calendar" && <CalendarTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} affiliatedModels={affiliatedModels} onUpdateProject={updateProject} onAddProject={addProject} dark={dark} />}
           {tab === "expenses" && <ExpensesTab year={year} month={month} setYear={setYear} setMonth={setMonth} expenses={expenses} recurringExpenses={recurringExpenses} allProjects={allProjects} onChange={changeExpenses} onChangeRecurring={changeRecurringExpenses} dark={dark} />}
           {tab === "payments" && <PaymentsTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} dark={dark} />}
         </main>
