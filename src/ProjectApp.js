@@ -340,9 +340,11 @@ function MonthStrip({ year, month, setYear, setMonth, t, dark }) {
 }
 
 // ── 촬영 정산 추가/수정 모달 ──────────────────────────────────────────────
-function ProjectFormModal({ existing, defaultDate, affiliatedModels, onSave, onClose, dark }) {
+function ProjectFormModal({ existing, defaultDate, affiliatedModels, paymentInfo, onChangeInfo, onSave, onClose, dark }) {
   affiliatedModels = affiliatedModels || {};
   var t = T(dark);
+  var projectIdState = useState(function () { return existing ? existing.id : uid(); });
+  var projectId = projectIdState[0];
   var [date, setDate] = useState(existing ? existing.date : defaultDate);
   var [brand, setBrand] = useState(existing ? existing.brand : "");
   var [time, setTime] = useState(existing ? existing.time : "");
@@ -365,11 +367,20 @@ function ProjectFormModal({ existing, defaultDate, affiliatedModels, onSave, onC
   var updateModelRowMulti = function (id, patch) {
     setModels(function (prev) { return prev.map(function (m) { return m.id === id ? Object.assign({}, m, patch) : m; }); });
   };
+  var handleTotalCostChange = function (v) {
+    setTotalCost(v);
+    // 모델이 한 명뿐이면 총 섭외비용을 그 모델의 업체가에도 자동으로 반영
+    if (models.length === 1) {
+      updateModelRow(models[0].id, "agencyPrice", v);
+    }
+  };
 
   var handleSubmit = function () {
     if (!brand.trim()) { alert("촬영 브랜드를 입력해주세요."); return; }
     if (!date) { alert("촬영 날짜를 입력해주세요. 이 날짜를 기준으로 해당 월에 저장됩니다."); return; }
-    var cleanModels = models.filter(function (m) { return m.name.trim(); }).map(function (m) {
+    var missingName = models.some(function (m) { return !m.name || !m.name.trim(); });
+    if (missingName) { alert("섭외 모델 내역에 모델명을 입력해주세요. (비어있는 모델 행이 있으면 저장 시 제외되어 금액이 어긋나 보일 수 있습니다)"); return; }
+    var cleanModels = models.map(function (m) {
       return Object.assign({}, m, {
         agencyPrice: Number(m.agencyPrice) || 0,
         reportedPrice: m.reportedPrice === "" || m.reportedPrice === undefined || m.reportedPrice === null ? "" : (Number(m.reportedPrice) || 0),
@@ -384,7 +395,7 @@ function ProjectFormModal({ existing, defaultDate, affiliatedModels, onSave, onC
       alert("입력하신 총 섭외비용(" + fmt(finalTotalCost) + ")이 섭외 모델 업체가 합계(" + fmt(finalModelSum) + ")와 다릅니다. 확인 후 저장해주세요.");
     }
     onSave({
-      id: existing ? existing.id : uid(),
+      id: projectId,
       date: date, brand: brand.trim(), totalCost: finalTotalCost, time: time,
       depositStatus: depositStatus, note: note, models: cleanModels,
     });
@@ -402,7 +413,7 @@ function ProjectFormModal({ existing, defaultDate, affiliatedModels, onSave, onC
         <Field label="촬영 브랜드" t={t}><input value={brand} onChange={function (e) { setBrand(e.target.value); }} style={inputStyle(t)} /></Field>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <Field label="총 섭외비용 (클라이언트 청구액)" t={t}>
-            <input type="number" value={totalCost} onChange={function (e) { setTotalCost(e.target.value); }} style={inputStyle(t)} />
+            <input type="number" value={totalCost} onChange={function (e) { handleTotalCostChange(e.target.value); }} style={inputStyle(t)} />
             <div style={{ fontSize: 10, color: Number(totalCost) === modelSum ? t.sub : "#f59e0b", marginTop: 3, fontWeight: Number(totalCost) === modelSum ? 400 : 700 }}>
               모델 업체가 합계: {fmt(modelSum)}{Number(totalCost) !== modelSum ? " (입력값과 다름)" : ""}
             </div>
@@ -474,6 +485,25 @@ function ProjectFormModal({ existing, defaultDate, affiliatedModels, onSave, onC
                 <input type="number" value={m.reportedPrice} onChange={function (e) { updateModelRow(m.id, "reportedPrice", e.target.value); }} placeholder={"비워두면 위 청구가(" + fmt(Number(m.agencyPrice) || 0) + ")와 동일하게 정산서에 표시됩니다"} style={inputStyle(t)} />
                 {m.useAffiliated && m.linkedModel ? <div style={{ fontSize: 9, color: dark ? "#fbbf24" : "#92400e", marginTop: 4 }}>모델 정산관리 정산서에는 이 금액이 "업체입금"으로 전달됩니다.</div> : null}
               </div>
+              {onChangeInfo && (function () {
+                var pid = projectId + "_" + m.id;
+                var info = (paymentInfo && paymentInfo[pid]) || { regNo: "", taxType: "3.3%", bank: "", account: "", paid: false };
+                return (
+                  <div style={{ paddingTop: 8, marginTop: 2, borderTop: "1px dashed " + t.border }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#4f46e5", marginBottom: 6 }}>모델 지급 정보 (저장 즉시 모델 지급관리 탭에 반영됩니다)</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                      <input value={info.regNo} onChange={function (e) { onChangeInfo(pid, "regNo", e.target.value); }} placeholder="주민등록번호" style={Object.assign({}, inputStyle(t), { padding: "6px 8px", fontSize: 11 })} />
+                      <select value={info.taxType} onChange={function (e) { onChangeInfo(pid, "taxType", e.target.value); }} style={{ padding: "6px 8px", borderRadius: 6, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 11 }}>
+                        <option value="3.3%">3.3% 원천징수</option>
+                        <option value="vat10">부가세 10% (세금계산서)</option>
+                        <option value="none">공제없음</option>
+                      </select>
+                      <input value={info.bank} onChange={function (e) { onChangeInfo(pid, "bank", e.target.value); }} placeholder="입금은행" style={Object.assign({}, inputStyle(t), { padding: "6px 8px", fontSize: 11 })} />
+                      <input value={info.account} onChange={function (e) { onChangeInfo(pid, "account", e.target.value); }} placeholder="입금계좌" style={Object.assign({}, inputStyle(t), { padding: "6px 8px", fontSize: 11 })} />
+                    </div>
+                  </div>
+                );
+              })()}
               <div style={{ fontSize: 11, color: t.sub, display: "flex", gap: 12, flexWrap: "wrap" }}>
                 <span>협력사 지급액: <b style={{ color: t.text }}>{fmt(c.partnerFee)}</b></span>
                 <span>모델 라인 순수익: <b style={{ color: "#10b981" }}>{fmt(c.net)}</b></span>
@@ -494,7 +524,7 @@ function ProjectFormModal({ existing, defaultDate, affiliatedModels, onSave, onC
 }
 
 // ── 촬영 정산내역 탭 ──────────────────────────────────────────────────────
-function ProjectsTab({ year, month, setYear, setMonth, allProjects, expenses, recurringExpenses, affiliatedModels, onAdd, onUpdate, onRemove, dark }) {
+function ProjectsTab({ year, month, setYear, setMonth, allProjects, expenses, recurringExpenses, affiliatedModels, paymentInfo, onChangeInfo, onAdd, onUpdate, onRemove, dark }) {
   var t = T(dark);
   var mKey = monthKey(year, month);
   var list = projectsForMonth(allProjects, mKey);
@@ -507,8 +537,8 @@ function ProjectsTab({ year, month, setYear, setMonth, allProjects, expenses, re
 
   return (
     <div>
-      {showForm && <ProjectFormModal defaultDate={defaultDateForMonth(year, month)} affiliatedModels={affiliatedModels} onSave={function (p) { onAdd(p); setShowForm(false); }} onClose={function () { setShowForm(false); }} dark={dark} />}
-      {editing && <ProjectFormModal existing={editing} affiliatedModels={affiliatedModels} onSave={function (p) { onUpdate(p); setEditing(null); }} onClose={function () { setEditing(null); }} dark={dark} />}
+      {showForm && <ProjectFormModal defaultDate={defaultDateForMonth(year, month)} affiliatedModels={affiliatedModels} paymentInfo={paymentInfo} onChangeInfo={onChangeInfo} onSave={function (p) { onAdd(p); setShowForm(false); }} onClose={function () { setShowForm(false); }} dark={dark} />}
+      {editing && <ProjectFormModal existing={editing} affiliatedModels={affiliatedModels} paymentInfo={paymentInfo} onChangeInfo={onChangeInfo} onSave={function (p) { onUpdate(p); setEditing(null); }} onClose={function () { setEditing(null); }} dark={dark} />}
       {deleteId && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 16, padding: 24, width: "100%", maxWidth: 320, textAlign: "center" }}>
@@ -1064,6 +1094,8 @@ function CalendarDetailModal({ project, paymentInfo, onChangeInfo, affiliatedMod
       <ProjectFormModal
         existing={project}
         affiliatedModels={affiliatedModels}
+        paymentInfo={paymentInfo}
+        onChangeInfo={onChangeInfo}
         onSave={function (p) { onUpdateProject(p); setEditingProject(false); onClose(); }}
         onClose={function () { setEditingProject(false); }}
         dark={dark}
@@ -1516,7 +1548,7 @@ export default function ProjectApp({ currentUser, onLogout }) {
         )}
         <main style={{ flex: 1, minWidth: 0 }}>
           {tab === "dashboard" && <DashboardTab year={year} setYear={setYear} allProjects={allProjects} expenses={expenses} recurringExpenses={recurringExpenses} dark={dark} />}
-          {tab === "projects" && <ProjectsTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} expenses={expenses} recurringExpenses={recurringExpenses} affiliatedModels={affiliatedModels} onAdd={addProject} onUpdate={updateProject} onRemove={removeProject} dark={dark} />}
+          {tab === "projects" && <ProjectsTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} expenses={expenses} recurringExpenses={recurringExpenses} affiliatedModels={affiliatedModels} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} onAdd={addProject} onUpdate={updateProject} onRemove={removeProject} dark={dark} />}
           {tab === "calendar" && <CalendarTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} affiliatedModels={affiliatedModels} onUpdateProject={updateProject} dark={dark} />}
           {tab === "expenses" && <ExpensesTab year={year} month={month} setYear={setYear} setMonth={setMonth} expenses={expenses} recurringExpenses={recurringExpenses} allProjects={allProjects} onChange={changeExpenses} onChangeRecurring={changeRecurringExpenses} dark={dark} />}
           {tab === "payments" && <PaymentsTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} dark={dark} />}
