@@ -1187,12 +1187,12 @@ function ModelDetail({ model, meta, data, addEntry, removeEntry, updateEntry, on
           </div>
         </div>
         <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
-          <button onClick={function(){ setMonth(NOW_MONTH); }} style={{ padding:"4px 10px", borderRadius:7, border:"none", cursor:"pointer", fontSize: FONT.xs, fontWeight:900, background:month===NOW_MONTH?"#4f46e5":(dark?"#1e1b4b":"#eef2ff"), color:month===NOW_MONTH?"#fff":"#4f46e5" }}>{NOW_MONTH} ★</button>
-          <div style={{ width:1, background:t.border, margin:"0 2px" }} />
-          {MONTHS.filter(function(m){ return m !== NOW_MONTH; }).map(function(m) {
+          {MONTHS.map(function(m) {
             var hasData = ((data && data[model] && data[model][m] && data[model][m].agency && data[model][m].agency.length) || 0) + ((data && data[model] && data[model][m] && data[model][m].self && data[model][m].self.length) || 0) > 0;
+            var isNow = m === NOW_MONTH;
+            var isSel = month === m;
             return (
-              <button key={m} onClick={function(){ setMonth(m); }} style={{ padding:"4px 9px", borderRadius:7, border:"1px solid "+t.border, cursor:"pointer", fontSize: FONT.xs, fontWeight:700, background:month===m?"#4f46e5":hasData?(dark?"#1e3a5f":"#f0f9ff"):(dark?"#1e293b":"#f8fafc"), color:month===m?"#fff":hasData?"#0284c7":t.sub }}>{m}</button>
+              <button key={m} onClick={function(){ setMonth(m); }} style={{ padding:"4px 9px", borderRadius:7, border: isNow ? "2px solid #4f46e5" : "1px solid "+t.border, cursor:"pointer", fontSize: FONT.xs, fontWeight: isNow ? 900 : 700, background:isSel?"#4f46e5":hasData?(dark?"#1e3a5f":"#f0f9ff"):(dark?"#1e293b":"#f8fafc"), color:isSel?"#fff":hasData?"#0284c7":t.sub }}>{m}{isNow ? " ★" : ""}</button>
             );
           })}
         </div>
@@ -1421,11 +1421,11 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo, dark }) {
           </div>
         </div>
         <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
-          <button onClick={function(){ setMonth(NOW_MONTH); }} style={{ padding:"5px 12px", borderRadius:8, border:"none", cursor:"pointer", fontSize: FONT.sm, fontWeight:900, background:month===NOW_MONTH?"#4f46e5":(dark?"#1e1b4b":"#eef2ff"), color:month===NOW_MONTH?"#fff":"#4f46e5" }}>{NOW_MONTH} ★</button>
-          <div style={{ width:1, background:t.border, margin:"0 4px" }} />
-          {MONTHS.filter(function(m){ return m !== NOW_MONTH; }).map(function(m) {
+          {MONTHS.map(function(m) {
+            var isNow = m === NOW_MONTH;
+            var isSel = month === m;
             return (
-              <button key={m} onClick={function(){ setMonth(m); }} style={{ padding:"5px 10px", borderRadius:8, border:"1px solid "+t.border, cursor:"pointer", fontSize: FONT.xs, fontWeight:700, background:month===m?"#4f46e5":(dark?"#1e293b":"#f8fafc"), color:month===m?"#fff":t.sub }}>{m}</button>
+              <button key={m} onClick={function(){ setMonth(m); }} style={{ padding:"5px 10px", borderRadius:8, border: isNow ? "2px solid #4f46e5" : "1px solid "+t.border, cursor:"pointer", fontSize: FONT.xs, fontWeight: isNow ? 900 : 700, background:isSel?"#4f46e5":(dark?"#1e293b":"#f8fafc"), color:isSel?"#fff":t.sub }}>{m}{isNow ? " ★" : ""}</button>
             );
           })}
         </div>
