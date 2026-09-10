@@ -1128,10 +1128,11 @@ function buildCalendarGrid(year, month) {
   return cells;
 }
 
-function CalendarDetailModal({ project, paymentInfo, onChangeInfo, affiliatedModels, onUpdateProject, onClose, dark }) {
+function CalendarDetailModal({ project, paymentInfo, onChangeInfo, affiliatedModels, onUpdateProject, onRemoveProject, onClose, dark }) {
   var t = T(dark);
   var agg = projectAgg(project);
   var [editingProject, setEditingProject] = useState(false);
+  var [confirmDelete, setConfirmDelete] = useState(false);
   if (editingProject) {
     return (
       <ProjectFormModal
@@ -1145,6 +1146,21 @@ function CalendarDetailModal({ project, paymentInfo, onChangeInfo, affiliatedMod
       />
     );
   }
+  if (confirmDelete) {
+    return (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+        <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: RADIUS.lg, padding: 24, width: "100%", maxWidth: 320, textAlign: "center" }}>
+          <div style={{ fontSize: 34, marginBottom: 10 }}>⚠️</div>
+          <h3 style={{ color: t.text, fontWeight: 900, marginBottom: 8 }}>촬영 정산 삭제</h3>
+          <p style={{ color: t.sub, fontSize: FONT.base, marginBottom: 20 }}>이 건의 모든 모델 내역이 삭제됩니다.</p>
+          <div style={{ display: "flex", gap: 10 }}>
+            <SecondaryButton onClick={function () { setConfirmDelete(false); }} style={{ flex: 1 }} dark={dark}>취소</SecondaryButton>
+            <DangerButton onClick={function () { onRemoveProject(project.id); setConfirmDelete(false); onClose(); }} style={{ flex: 1, background: COLOR.danger, color: "#fff" }}>삭제</DangerButton>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }}>
       <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: RADIUS.lg, padding: 22, width: "100%", maxWidth: 480, maxHeight: "85vh", overflowY: "auto" }} onClick={function (e) { e.stopPropagation(); }}>
@@ -1156,6 +1172,7 @@ function CalendarDetailModal({ project, paymentInfo, onChangeInfo, affiliatedMod
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ display: "inline-block", padding: "3px 8px", borderRadius: 6, fontSize: 10, fontWeight: 700, background: project.depositStatus === "입금" ? "#d1fae5" : "#fee2e2", color: project.depositStatus === "입금" ? "#065f46" : "#991b1b" }}>{project.depositStatus || "미입금"}</span>
             <button onClick={function () { setEditingProject(true); }} style={{ padding: "3px 9px", borderRadius: 6, fontSize: 10, fontWeight: 700, border: "1px solid #4f46e5", background: "transparent", color: COLOR.primary, cursor: "pointer" }}>✎ 촬영 정보 수정</button>
+            {onRemoveProject && <button onClick={function () { setConfirmDelete(true); }} style={{ padding: "3px 9px", borderRadius: 6, fontSize: 10, fontWeight: 700, border: "1px solid " + COLOR.danger, background: "transparent", color: COLOR.danger, cursor: "pointer" }}>삭제</button>}
           </div>
         </div>
 
@@ -1225,7 +1242,7 @@ function CalendarDetailModal({ project, paymentInfo, onChangeInfo, affiliatedMod
   );
 }
 
-function CalendarTab({ year, month, setYear, setMonth, allProjects, paymentInfo, onChangeInfo, affiliatedModels, onUpdateProject, onAddProject, dark }) {
+function CalendarTab({ year, month, setYear, setMonth, allProjects, paymentInfo, onChangeInfo, affiliatedModels, onUpdateProject, onAddProject, onRemoveProject, dark }) {
   var t = T(dark);
   var mKey = monthKey(year, month);
   var [selected, setSelected] = useState(null);
@@ -1273,7 +1290,7 @@ function CalendarTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
 
   return (
     <div>
-      {selected && <CalendarDetailModal project={selected} paymentInfo={paymentInfo} onChangeInfo={onChangeInfo} affiliatedModels={affiliatedModels} onUpdateProject={onUpdateProject} onClose={function () { setSelected(null); }} dark={dark} />}
+      {selected && <CalendarDetailModal project={selected} paymentInfo={paymentInfo} onChangeInfo={onChangeInfo} affiliatedModels={affiliatedModels} onUpdateProject={onUpdateProject} onRemoveProject={onRemoveProject} onClose={function () { setSelected(null); }} dark={dark} />}
       {addingDate && (
         <ProjectFormModal
           defaultDate={addingDate}
@@ -1612,7 +1629,7 @@ export default function ProjectApp({ currentUser, onLogout }) {
         <main style={{ flex: 1, minWidth: 0 }}>
           {tab === "dashboard" && <DashboardTab year={year} setYear={setYear} allProjects={allProjects} expenses={expenses} recurringExpenses={recurringExpenses} dark={dark} />}
           {tab === "projects" && <ProjectsTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} expenses={expenses} recurringExpenses={recurringExpenses} affiliatedModels={affiliatedModels} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} onAdd={addProject} onUpdate={updateProject} onRemove={removeProject} dark={dark} />}
-          {tab === "calendar" && <CalendarTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} affiliatedModels={affiliatedModels} onUpdateProject={updateProject} onAddProject={addProject} dark={dark} />}
+          {tab === "calendar" && <CalendarTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} affiliatedModels={affiliatedModels} onUpdateProject={updateProject} onAddProject={addProject} onRemoveProject={removeProject} dark={dark} />}
           {tab === "expenses" && <ExpensesTab year={year} month={month} setYear={setYear} setMonth={setMonth} expenses={expenses} recurringExpenses={recurringExpenses} allProjects={allProjects} onChange={changeExpenses} onChangeRecurring={changeRecurringExpenses} dark={dark} />}
           {tab === "payments" && <PaymentsTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} dark={dark} />}
         </main>
