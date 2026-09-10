@@ -98,7 +98,7 @@ function AddTaskModal({ categories, defaultFrequency, onAdd, onClose, t, dark })
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }} onClick={onClose}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }}>
       <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 16, padding: 22, width: "100%", maxWidth: 400 }} onClick={function (e) { e.stopPropagation(); }}>
         <h3 style={{ color: t.text, fontWeight: 900, marginBottom: 16, fontSize: 16 }}>주간 업무 추가</h3>
 
@@ -149,7 +149,7 @@ function CategoryManagerModal({ open, categories, onChange, onClose, dark, t }) 
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }} onClick={onClose}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }}>
       <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 16, padding: 22, width: "100%", maxWidth: 420, maxHeight: "80vh", overflowY: "auto" }} onClick={function (e) { e.stopPropagation(); }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <h3 style={{ color: t.text, fontWeight: 900, fontSize: 16, margin: 0 }}>카테고리 관리</h3>

@@ -666,7 +666,7 @@ function ScheduleEventModal({ dark, initial, onSave, onDelete, onClose, modelMet
   var hasSettlement = !!(modelMeta && addEntry && updateEntry && removeEntry);
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }} onClick={onClose}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }}>
       <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: RADIUS.lg, padding: 22, width: "100%", maxWidth: hasSettlement ? 920 : 420, maxHeight: "88vh", overflowY: "auto" }} onClick={function (e) { e.stopPropagation(); }}>
         <div style={{ fontSize: 17, fontWeight: 900, color: t.text, marginBottom: 14 }}>{initial.id ? "일정 수정" : "일정 추가"}</div>
         <div style={{ display: hasSettlement ? "grid" : "block", gridTemplateColumns: hasSettlement ? "340px 1fr" : "none", gap: 20 }}>
@@ -760,7 +760,7 @@ function PasteImportModal({ dark, onImport, onClose }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }} onClick={onClose}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }}>
       <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: RADIUS.lg, padding: 22, width: "100%", maxWidth: 460, maxHeight: "88vh", overflowY: "auto" }} onClick={function (e) { e.stopPropagation(); }}>
         <div style={{ fontSize: 17, fontWeight: 900, color: t.text, marginBottom: 4 }}>붙여넣기로 일정 등록</div>
         <div style={{ fontSize: FONT.xs, color: t.sub, marginBottom: 12 }}>섭외 요청 텍스트를 그대로 붙여넣으면 자동으로 항목을 인식합니다.</div>
@@ -833,7 +833,7 @@ function BookingDetailModal({ project, dark, onClose, modelMeta, data, addEntry,
   var hasSettlement = !!(modelMeta && addEntry && updateEntry && removeEntry);
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }} onClick={onClose}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }}>
       <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: RADIUS.lg, padding: 22, width: "100%", maxWidth: hasSettlement ? 920 : 480, maxHeight: "88vh", overflowY: "auto" }} onClick={function (e) { e.stopPropagation(); }}>
         <div style={{ display: hasSettlement ? "grid" : "block", gridTemplateColumns: hasSettlement ? "340px 1fr" : "none", gap: 20 }}>
           <div>
