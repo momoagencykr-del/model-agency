@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import TaskChecklistTab from "./TaskChecklist";
+import { T, RADIUS, FONT, COLOR, PrimaryButton, SecondaryButton, DangerButton } from "./theme";
 
 const MODEL_META_KEY = "modelAgencyMeta_v3";
 const MODEL_DATA_KEY = "modelAgencyData_v3";
@@ -94,19 +95,7 @@ async function saveSheets(p) {
   } catch(e) { return false; }
 }
 
-function T(dark) {
-  return {
-    bg: dark ? "#0f172a" : "#f1f5f9",
-    card: dark ? "#1e293b" : "#fff",
-    border: dark ? "#334155" : "#e2e8f0",
-    text: dark ? "#f1f5f9" : "#1e293b",
-    sub: dark ? "#94a3b8" : "#64748b",
-    input: dark ? "#0f172a" : "#fff",
-    ib: dark ? "#475569" : "#d1d5db",
-    thead: dark ? "#0f172a" : "#f8fafc",
-    card2: dark ? "#162032" : "#f8fafc",
-  };
-}
+// (T() 테마 함수는 src/theme.js 로 이동 — 정산관리/프로젝트관리 공용)
 
 // ── 월별 에이전시 매출 차트 ───────────────────────────────────────────────────
 function AgencyMonthChart({ data, modelMeta, dark }) {
@@ -129,9 +118,9 @@ function AgencyMonthChart({ data, modelMeta, dark }) {
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16, flexWrap:"wrap", gap:8 }}>
         <div>
           <h3 style={{ color:t.text, fontWeight:900, fontSize:15, margin:0 }}>에이전시 월별 매출 실적</h3>
-          <p style={{ color:t.sub, fontSize:11, margin:"3px 0 0" }}>전체 모델 합산 · 3.3% 원천징수 통일 적용</p>
+          <p style={{ color:t.sub, fontSize: FONT.xs, margin:"3px 0 0" }}>전체 모델 합산 · 3.3% 원천징수 통일 적용</p>
         </div>
-        <div style={{ display:"flex", gap:12, fontSize:11, color:t.sub }}>
+        <div style={{ display:"flex", gap:12, fontSize: FONT.xs, color:t.sub }}>
           <span><span style={{ color:"#4f46e5" }}>■</span> 총매출</span>
           <span><span style={{ color:"#10b981" }}>■</span> 에이전시수익</span>
           <span><span style={{ color:"#f59e0b" }}>■</span> 모델지급</span>
@@ -192,7 +181,7 @@ function ModelMiniBar({ modelKey, data, meta, dark, onClick }) {
           <div style={{ fontSize:10, color:t.sub }}>{meta.nationality} · AF {pct(meta.agencyAF)}</div>
         </div>
         <div style={{ textAlign:"right" }}>
-          <div style={{ fontSize:13, fontWeight:900, color:"#10b981" }}>{fmt(totals.model)}</div>
+          <div style={{ fontSize: FONT.base, fontWeight:900, color:"#10b981" }}>{fmt(totals.model)}</div>
           <div style={{ fontSize:10, color:t.sub }}>모델 순수익</div>
         </div>
       </div>
@@ -210,7 +199,7 @@ function ModelMiniBar({ modelKey, data, meta, dark, onClick }) {
           return (
             <div key={item[0]}>
               <div style={{ fontSize:9, color:t.sub }}>{item[0]}</div>
-              <div style={{ fontSize:11, fontWeight:800, color:item[2] }}>{item[1]}</div>
+              <div style={{ fontSize: FONT.xs, fontWeight:800, color:item[2] }}>{item[1]}</div>
             </div>
           );
         })}
@@ -224,9 +213,9 @@ function Overview({ data, modelMeta, dark, setTab }) {
   var t = T(dark);
   return (
     <div>
-      <h2 style={{ fontSize:16, fontWeight:900, color:t.text, marginBottom:14 }}>2026 연간 요약</h2>
+      <h2 style={{ fontSize: FONT.lg, fontWeight:900, color:t.text, marginBottom:14 }}>2026 연간 요약</h2>
       <AgencyMonthChart data={data} modelMeta={modelMeta} dark={dark} />
-      <h3 style={{ fontSize:13, fontWeight:800, color:t.sub, marginBottom:10, textTransform:"uppercase", letterSpacing:1 }}>모델별 수익 현황</h3>
+      <h3 style={{ fontSize: FONT.base, fontWeight:800, color:t.sub, marginBottom:10, textTransform:"uppercase", letterSpacing:1 }}>모델별 수익 현황</h3>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))", gap:10 }}>
         {Object.keys(modelMeta).map(function(m) {
           return <ModelMiniBar key={m} modelKey={m} data={data} meta={modelMeta[m]} dark={dark} onClick={function(){ setTab(m); }} />;
@@ -246,7 +235,7 @@ function EntryForm({ af, label, onAdd, dark }) {
 
   if (!open) {
     return (
-      <button onClick={function(){ setOpen(true); }} style={{ width:"100%", marginTop:10, padding:"9px 0", borderRadius:8, border:"1px dashed "+(dark?"#4f46e5":"#c7d2fe"), background:"transparent", color:"#4f46e5", fontWeight:700, fontSize:13, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
+      <button onClick={function(){ setOpen(true); }} style={{ width:"100%", marginTop:10, padding:"9px 0", borderRadius:8, border:"1px dashed "+(dark?"#4f46e5":"#c7d2fe"), background:"transparent", color: COLOR.primary, fontWeight:700, fontSize: FONT.base, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
         <span style={{ fontSize:16 }}>+</span>{label} 추가
       </button>
     );
@@ -255,36 +244,36 @@ function EntryForm({ af, label, onAdd, dark }) {
   return (
     <div style={{ background:dark?"#0f172a":"#f8f9ff", border:"1px solid "+(dark?"#4f46e5":"#c7d2fe"), borderRadius:12, padding:14, marginTop:10 }}>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
-        <span style={{ fontSize:12, fontWeight:800, color:"#4f46e5" }}>{label} 입력</span>
+        <span style={{ fontSize: FONT.sm, fontWeight:800, color:"#4f46e5" }}>{label} 입력</span>
         <button onClick={function(){ setOpen(false); }} style={{ background:"none", border:"none", color:t.sub, cursor:"pointer", fontSize:18 }}>x</button>
       </div>
       <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:10 }}>
         <input value={f.brand} onChange={function(e){ set("brand", e.target.value); }} placeholder="브랜드명"
-          style={{ border:"1px solid "+t.ib, borderRadius:8, padding:"9px 12px", fontSize:13, outline:"none", background:t.input, color:t.text }} />
+          style={{ border:"1px solid "+t.ib, borderRadius:8, padding:"9px 12px", fontSize: FONT.base, outline:"none", background:t.input, color:t.text }} />
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
           <div>
             <label style={{ fontSize:10, fontWeight:700, color:t.sub, display:"block", marginBottom:3 }}>업체 입금액</label>
             <input type="number" value={f.income} onChange={function(e){ set("income", e.target.value); }} placeholder="0"
-              style={{ width:"100%", border:"1px solid "+t.ib, borderRadius:8, padding:"9px 12px", fontSize:14, outline:"none", background:t.input, color:t.text, fontWeight:700, boxSizing:"border-box" }} />
+              style={{ width:"100%", border:"1px solid "+t.ib, borderRadius:8, padding:"9px 12px", fontSize: FONT.md, outline:"none", background:t.input, color:t.text, fontWeight:700, boxSizing:"border-box" }} />
           </div>
           <div>
             <label style={{ fontSize:10, fontWeight:700, color:t.sub, display:"block", marginBottom:3 }}>기타 공제</label>
             <input type="number" value={f.otherDeduct} onChange={function(e){ set("otherDeduct", e.target.value); }} placeholder="0"
-              style={{ width:"100%", border:"1px solid "+t.ib, borderRadius:8, padding:"9px 12px", fontSize:14, outline:"none", background:t.input, color:t.text, fontWeight:700, boxSizing:"border-box" }} />
+              style={{ width:"100%", border:"1px solid "+t.ib, borderRadius:8, padding:"9px 12px", fontSize: FONT.md, outline:"none", background:t.input, color:t.text, fontWeight:700, boxSizing:"border-box" }} />
           </div>
         </div>
         <input value={f.note} onChange={function(e){ set("note", e.target.value); }} placeholder="비고 (선택)"
-          style={{ border:"1px solid "+t.ib, borderRadius:8, padding:"9px 12px", fontSize:13, outline:"none", background:t.input, color:t.text }} />
+          style={{ border:"1px solid "+t.ib, borderRadius:8, padding:"9px 12px", fontSize: FONT.base, outline:"none", background:t.input, color:t.text }} />
       </div>
       {Number(f.income) > 0 && (
         <div style={{ background:dark?"#1e293b":"#eef2ff", borderRadius:10, padding:"12px 14px", marginBottom:10 }}>
-          <div style={{ fontSize:10, fontWeight:700, color:"#4f46e5", marginBottom:8, textTransform:"uppercase", letterSpacing:1 }}>정산 미리보기</div>
+          <div style={{ fontSize:10, fontWeight:700, color: COLOR.primary, marginBottom:8, textTransform:"uppercase", letterSpacing:1 }}>정산 미리보기</div>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:6, marginBottom:8 }}>
             {[["총 매출", fmt(c.inc), t.sub], ["AF "+pct(af), "-"+fmt(c.fee), "#7c3aed"], ["세금 3.3%", "-"+fmt(c.tax), "#ef4444"], ["모델 순수익", fmt(c.final), "#10b981"]].map(function(item) {
               return (
                 <div key={item[0]} style={{ background:dark?"#0f172a":"#fff", borderRadius:8, padding:"6px 8px", textAlign:"center" }}>
                   <div style={{ fontSize:9, color:t.sub, marginBottom:2 }}>{item[0]}</div>
-                  <div style={{ fontSize:12, fontWeight:900, color:item[2] }}>{item[1]}</div>
+                  <div style={{ fontSize: FONT.sm, fontWeight:900, color:item[2] }}>{item[1]}</div>
                 </div>
               );
             })}
@@ -301,7 +290,7 @@ function EntryForm({ af, label, onAdd, dark }) {
         onAdd({ brand:f.brand, income:f.income, otherDeduct:f.otherDeduct, note:f.note, paid:false, id:Date.now() });
         setF({ brand:"", income:"", otherDeduct:"", note:"" });
         setOpen(false);
-      }} style={{ width:"100%", background:"#4f46e5", color:"#fff", border:"none", borderRadius:8, padding:"10px 0", fontWeight:700, fontSize:13, cursor:"pointer" }}>
+      }} style={{ width:"100%", background: COLOR.primary, color:"#fff", border:"none", borderRadius:8, padding:"10px 0", fontWeight:700, fontSize: FONT.base, cursor:"pointer" }}>
         저장
       </button>
     </div>
@@ -345,30 +334,30 @@ function EntryTable({ entries, af, onRemove, onUpdate, dark }) {
             <div key={e.id} style={{ background:dark?"#0f172a":"#f8f9ff", border:"2px solid #4f46e5", borderRadius:10, padding:"10px 12px" }}>
               <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:8 }}>
                 <input value={ef.brand} onChange={function(ev){ setV("brand", ev.target.value); }} placeholder="브랜드명"
-                  style={{ border:"1px solid "+t.ib, borderRadius:7, padding:"7px 10px", fontSize:12, outline:"none", background:t.input, color:t.text }} />
+                  style={{ border:"1px solid "+t.ib, borderRadius:7, padding:"7px 10px", fontSize: FONT.sm, outline:"none", background:t.input, color:t.text }} />
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
                   <div>
                     <label style={{ fontSize:9, fontWeight:700, color:t.sub }}>업체 입금액</label>
                     <input type="number" value={ef.income} onChange={function(ev){ setV("income", ev.target.value); }}
-                      style={{ width:"100%", border:"1px solid "+t.ib, borderRadius:7, padding:"7px 10px", fontSize:12, outline:"none", background:t.input, color:t.text, boxSizing:"border-box" }} />
+                      style={{ width:"100%", border:"1px solid "+t.ib, borderRadius:7, padding:"7px 10px", fontSize: FONT.sm, outline:"none", background:t.input, color:t.text, boxSizing:"border-box" }} />
                   </div>
                   <div>
                     <label style={{ fontSize:9, fontWeight:700, color:t.sub }}>기타 공제</label>
                     <input type="number" value={ef.otherDeduct} onChange={function(ev){ setV("otherDeduct", ev.target.value); }}
-                      style={{ width:"100%", border:"1px solid "+t.ib, borderRadius:7, padding:"7px 10px", fontSize:12, outline:"none", background:t.input, color:t.text, boxSizing:"border-box" }} />
+                      style={{ width:"100%", border:"1px solid "+t.ib, borderRadius:7, padding:"7px 10px", fontSize: FONT.sm, outline:"none", background:t.input, color:t.text, boxSizing:"border-box" }} />
                   </div>
                 </div>
                 <input value={ef.note} onChange={function(ev){ setV("note", ev.target.value); }} placeholder="비고 (선택)"
-                  style={{ border:"1px solid "+t.ib, borderRadius:7, padding:"7px 10px", fontSize:12, outline:"none", background:t.input, color:t.text }} />
+                  style={{ border:"1px solid "+t.ib, borderRadius:7, padding:"7px 10px", fontSize: FONT.sm, outline:"none", background:t.input, color:t.text }} />
                 <div>
                   <label style={{ fontSize:9, fontWeight:700, color:"#10b981" }}>모델 실입금액 (직접 입력, 비우면 자동계산값 사용)</label>
                   <input type="number" value={ef.actualPaid} onChange={function(ev){ setV("actualPaid", ev.target.value); }} placeholder={String(pc.final)}
-                    style={{ width:"100%", border:"1px solid #10b981", borderRadius:7, padding:"7px 10px", fontSize:12, outline:"none", background:t.input, color:t.text, fontWeight:800, boxSizing:"border-box" }} />
+                    style={{ width:"100%", border:"1px solid #10b981", borderRadius:7, padding:"7px 10px", fontSize: FONT.sm, outline:"none", background:t.input, color:t.text, fontWeight:800, boxSizing:"border-box" }} />
                 </div>
               </div>
               <div style={{ display:"flex", gap:6 }}>
-                <button onClick={function(){ commit(e.id); }} style={{ flex:1, background:"#4f46e5", color:"#fff", border:"none", borderRadius:7, padding:"7px 0", fontWeight:700, fontSize:12, cursor:"pointer" }}>저장</button>
-                <button onClick={function(){ setEditId(null); setEf(null); }} style={{ flex:1, background:"transparent", color:t.sub, border:"1px solid "+t.border, borderRadius:7, padding:"7px 0", fontWeight:700, fontSize:12, cursor:"pointer" }}>취소</button>
+                <PrimaryButton onClick={function(){ commit(e.id); }} style={{ flex:1 }} small>저장</PrimaryButton>
+                <SecondaryButton onClick={function(){ setEditId(null); setEf(null); }} style={{ flex:1 }} dark={dark} small>취소</SecondaryButton>
               </div>
             </div>
           );
@@ -381,30 +370,30 @@ function EntryTable({ entries, af, onRemove, onUpdate, dark }) {
           <div key={e.id} style={{ background: isPaid ? (dark?"#0a2015":"#f0fdf4") : (dark?"#0f172a":"#f8fafc"), border: "1.5px solid " + (isPaid ? "#10b981" : t.border), borderRadius:10, padding:"10px 12px" }}>
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, flexWrap:"wrap", gap:6 }}>
               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                <div style={{ width:8, height:8, borderRadius:"50%", background: isPaid ? "#10b981" : "#4f46e5", flexShrink:0 }} />
+                <div style={{ width:8, height:8, borderRadius:"50%", background: isPaid ? "#10b981" : COLOR.primary, flexShrink:0 }} />
                 <span style={{ fontWeight:800, color:t.text, fontSize:13 }}>{e.brand || "브랜드 미입력"}</span>
-                {e.settleDate && <span style={{ fontSize:11, color:"#4f46e5", background:dark?"#1a1a3e":"#eef2ff", padding:"1px 7px", borderRadius:10, fontWeight:700 }}>📅 {e.settleDate}</span>}
-                {e.note && <span style={{ fontSize:11, color:t.sub, background:dark?"#1e293b":"#e2e8f0", padding:"1px 7px", borderRadius:10 }}>📝 {e.note}</span>}
+                {e.settleDate && <span style={{ fontSize: FONT.xs, color: COLOR.primary, background:dark?"#1a1a3e":"#eef2ff", padding:"1px 7px", borderRadius:10, fontWeight:700 }}>📅 {e.settleDate}</span>}
+                {e.note && <span style={{ fontSize: FONT.xs, color:t.sub, background:dark?"#1e293b":"#e2e8f0", padding:"1px 7px", borderRadius:10 }}>📝 {e.note}</span>}
               </div>
               <div style={{ display:"flex", gap:4, alignItems:"center" }}>
-                <button onClick={function(){ onUpdate(e.id, { paid: !isPaid }); }} style={{ background: isPaid ? "#10b981" : "transparent", border:"1px solid " + (isPaid ? "#10b981" : t.border), color: isPaid ? "#fff" : t.sub, cursor:"pointer", fontSize:11, padding:"4px 10px", fontWeight:800, borderRadius:7 }}>{isPaid ? "✓ 입금완료" : "입금대기"}</button>
-                <button onClick={function(){ startEdit(e); }} style={{ background:"none", border:"none", color:dark?"#818cf8":"#4f46e5", cursor:"pointer", fontSize:12, padding:"2px 6px", fontWeight:700 }}>수정</button>
-                <button onClick={function(){ onRemove(e.id); }} style={{ background:"none", border:"none", color:dark?"#475569":"#cbd5e1", cursor:"pointer", fontSize:14, padding:"2px 6px" }}>x</button>
+                <button onClick={function(){ onUpdate(e.id, { paid: !isPaid }); }} style={{ background: isPaid ? "#10b981" : "transparent", border:"1px solid " + (isPaid ? "#10b981" : t.border), color: isPaid ? "#fff" : t.sub, cursor:"pointer", fontSize: FONT.xs, padding:"4px 10px", fontWeight:800, borderRadius:7 }}>{isPaid ? "✓ 입금완료" : "입금대기"}</button>
+                <button onClick={function(){ startEdit(e); }} style={{ background:"none", border:"none", color:dark?"#818cf8": COLOR.primary, cursor:"pointer", fontSize: FONT.sm, padding:"2px 6px", fontWeight:700 }}>수정</button>
+                <button onClick={function(){ onRemove(e.id); }} style={{ background:"none", border:"none", color:dark?"#475569":"#cbd5e1", cursor:"pointer", fontSize: FONT.md, padding:"2px 6px" }}>x</button>
               </div>
             </div>
             <div style={{ display:"flex", alignItems:"center", gap:4, flexWrap:"wrap" }}>
               {[
                 { label:"업체입금", value:fmt(c.inc), color:dark?"#94a3b8":"#475569", bg:dark?"#1e293b":"#fff" },
-                { label:"AF("+pct(af)+")", value:"-"+fmt(c.fee), color:"#7c3aed", bg:dark?"#1a0d2e":"#f5f3ff" },
-                { label:"세금(3.3%)", value:"-"+fmt(c.tax), color:"#ef4444", bg:dark?"#1a0808":"#fff1f2" },
-                { label:"모델입금액"+(hasOverride?"":""), value:fmt(displayFinal), color:"#10b981", bg:dark?"#0a1f1a":"#f0fdf4" },
+                { label:"AF("+pct(af)+")", value:"-"+fmt(c.fee), color: COLOR.purple, bg:dark?"#1a0d2e":"#f5f3ff" },
+                { label:"세금(3.3%)", value:"-"+fmt(c.tax), color: COLOR.danger, bg:dark?"#1a0808":"#fff1f2" },
+                { label:"모델입금액"+(hasOverride?"":""), value:fmt(displayFinal), color: COLOR.success, bg:dark?"#0a1f1a":"#f0fdf4" },
               ].map(function(item, i) {
                 return (
                   <div key={i} style={{ display:"flex", alignItems:"center", gap:4 }}>
                     {i > 0 && <span style={{ color:t.sub, fontSize:12 }}>→</span>}
                     <div style={{ background:item.bg, border:"1px solid "+t.border, borderRadius:8, padding:"4px 10px", textAlign:"center" }}>
                       <div style={{ fontSize:9, color:t.sub, marginBottom:1 }}>{item.label}{hasOverride && i===3 ? " ✎" : ""}</div>
-                      <div style={{ fontSize:12, fontWeight:900, color:item.color }}>{item.value}</div>
+                      <div style={{ fontSize: FONT.sm, fontWeight:900, color:item.color }}>{item.value}</div>
                     </div>
                   </div>
                 );
@@ -450,7 +439,7 @@ function SettlementReport({ model, meta, data, month, dark }) {
     <div>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14, flexWrap:"wrap", gap:8 }}>
         <h3 style={{ color:t.text, fontWeight:900, fontSize:15, margin:0 }}>{meta.nameKr} · {month} 정산서</h3>
-        <button onClick={handleDownload} style={{ background:"#4f46e5", color:"#fff", border:"none", borderRadius:8, padding:"8px 16px", fontWeight:700, fontSize:12, cursor:"pointer" }}>
+        <button onClick={handleDownload} style={{ background: COLOR.primary, color:"#fff", border:"none", borderRadius:8, padding:"8px 16px", fontWeight:700, fontSize: FONT.sm, cursor:"pointer" }}>
           📥 다운로드 (인쇄)
         </button>
       </div>
@@ -459,12 +448,12 @@ function SettlementReport({ model, meta, data, month, dark }) {
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:8 }}>
             <div>
               <div style={{ fontSize:18, fontWeight:900 }}>{meta.nameKr} ({meta.nameEn})</div>
-              <div style={{ fontSize:12, opacity:0.8, marginTop:2 }}>{meta.fullName} · {meta.nationality}</div>
-              <div style={{ fontSize:11, opacity:0.65, marginTop:1 }}>{meta.account || "계좌 미등록"}</div>
+              <div style={{ fontSize: FONT.sm, opacity:0.8, marginTop:2 }}>{meta.fullName} · {meta.nationality}</div>
+              <div style={{ fontSize: FONT.xs, opacity:0.65, marginTop:1 }}>{meta.account || "계좌 미등록"}</div>
             </div>
             <div style={{ textAlign:"right" }}>
               <div style={{ fontSize:22, fontWeight:900 }}>{month} 정산서</div>
-              <div style={{ fontSize:11, opacity:0.7, marginTop:2 }}>원천징수 3.3% 적용</div>
+              <div style={{ fontSize: FONT.xs, opacity:0.7, marginTop:2 }}>원천징수 3.3% 적용</div>
             </div>
           </div>
         </div>
@@ -473,16 +462,16 @@ function SettlementReport({ model, meta, data, month, dark }) {
             return (
               <div key={item[0]} style={{ background:dark?"#162032":"#f8fafc", borderRadius:10, padding:"10px 12px" }}>
                 <div style={{ fontSize:10, color:item[2], opacity:0.75, marginBottom:3 }}>{item[0]}</div>
-                <div style={{ fontSize:16, fontWeight:900, color:item[2] }}>{item[1]}</div>
+                <div style={{ fontSize: FONT.lg, fontWeight:900, color:item[2] }}>{item[1]}</div>
               </div>
             );
           })}
         </div>
         {allEntries.length > 0 && (
           <div>
-            <div style={{ fontSize:11, fontWeight:700, color:t.sub, textTransform:"uppercase", letterSpacing:1, marginBottom:8 }}>촬영 내역 ({allEntries.length}건)</div>
+            <div style={{ fontSize: FONT.xs, fontWeight:700, color:t.sub, textTransform:"uppercase", letterSpacing:1, marginBottom:8 }}>촬영 내역 ({allEntries.length}건)</div>
             <div style={{ border:"1px solid "+t.border, borderRadius:10, overflow:"hidden" }}>
-              <table style={{ width:"100%", fontSize:12, borderCollapse:"collapse" }}>
+              <table style={{ width:"100%", fontSize: FONT.sm, borderCollapse:"collapse" }}>
                 <thead>
                   <tr style={{ background:t.thead }}>
                     {["구분","브랜드","업체입금","AF공제","세금(3.3%)","모델순수익"].map(function(h, i) {
@@ -500,9 +489,9 @@ function SettlementReport({ model, meta, data, month, dark }) {
                         </td>
                         <td style={{ padding:"8px 10px", fontWeight:700, color:t.text }}>{e.brand || "-"}</td>
                         <td style={{ padding:"8px 10px", textAlign:"right", color:t.sub }}>{fmt(c.inc)}</td>
-                        <td style={{ padding:"8px 10px", textAlign:"right", color:"#7c3aed", fontWeight:700 }}>{fmt(c.fee)}</td>
-                        <td style={{ padding:"8px 10px", textAlign:"right", color:"#ef4444", fontWeight:700 }}>{fmt(c.tax)}</td>
-                        <td style={{ padding:"8px 10px", textAlign:"right", color:"#10b981", fontWeight:800 }}>{fmt(finalAmt(e, e.af))}</td>
+                        <td style={{ padding:"8px 10px", textAlign:"right", color: COLOR.purple, fontWeight:700 }}>{fmt(c.fee)}</td>
+                        <td style={{ padding:"8px 10px", textAlign:"right", color: COLOR.danger, fontWeight:700 }}>{fmt(c.tax)}</td>
+                        <td style={{ padding:"8px 10px", textAlign:"right", color: COLOR.success, fontWeight:800 }}>{fmt(finalAmt(e, e.af))}</td>
                       </tr>
                     );
                   })}
@@ -519,7 +508,7 @@ function SettlementReport({ model, meta, data, month, dark }) {
           </div>
         )}
         <div style={{ marginTop:14, paddingTop:12, borderTop:"1px solid "+t.border, display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:6 }}>
-          <div style={{ fontSize:11, color:t.sub }}>외국인등록번호: <span style={{ fontFamily:"monospace", fontWeight:700, color:meta.regNo?"#f59e0b":t.sub }}>{meta.regNo || "미입력"}</span></div>
+          <div style={{ fontSize: FONT.xs, color:t.sub }}>외국인등록번호: <span style={{ fontFamily:"monospace", fontWeight:700, color:meta.regNo?"#f59e0b":t.sub }}>{meta.regNo || "미입력"}</span></div>
           <div style={{ fontSize:10, color:t.sub }}>MoMo Agency · {new Date().getFullYear()}</div>
         </div>
       </div>
@@ -536,7 +525,7 @@ var CAL_YEARS = [CAL_NOW.getFullYear() - 1, CAL_NOW.getFullYear(), CAL_NOW.getFu
 function CalMonthStrip({ year, month, setYear, setMonth, t, dark }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-      <select value={year} onChange={function (e) { setYear(Number(e.target.value)); }} style={{ padding: "7px 8px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 13, fontWeight: 700, flexShrink: 0 }}>
+      <select value={year} onChange={function (e) { setYear(Number(e.target.value)); }} style={{ padding: "7px 8px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: FONT.base, fontWeight: 700, flexShrink: 0 }}>
         {CAL_YEARS.map(function (y) { return <option key={y} value={y}>{y}년</option>; })}
       </select>
       <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
@@ -544,7 +533,7 @@ function CalMonthStrip({ year, month, setYear, setMonth, t, dark }) {
           var m = i + 1;
           var active = m === month;
           return (
-            <button key={m} onClick={function () { setMonth(m); }} style={{ padding: "6px 11px", borderRadius: 8, border: active ? "none" : "1px solid " + t.border, background: active ? "#4f46e5" : (dark ? t.card2 : t.card), color: active ? "#fff" : t.text, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>{label}</button>
+            <button key={m} onClick={function () { setMonth(m); }} style={{ padding: "6px 11px", borderRadius: 8, border: active ? "none" : "1px solid " + t.border, background: active ? "#4f46e5" : (dark ? t.card2 : t.card), color: active ? "#fff" : t.text, fontWeight: 700, fontSize: FONT.sm, cursor: "pointer" }}>{label}</button>
           );
         })}
       </div>
@@ -612,8 +601,8 @@ function SettlementSidePanel({ dark, modelMeta, data, addEntry, updateEntry, rem
   var settleDateState = useState(defaultDate || todayStr);
   var settleDate = settleDateState[0], setSettleDate = settleDateState[1];
 
-  var inputStyle = { width: "100%", padding: "9px 10px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 13, boxSizing: "border-box" };
-  var labelStyle = { fontSize: 11, fontWeight: 700, color: t.sub, marginBottom: 4, display: "block" };
+  var inputStyle = { width: "100%", padding: "9px 10px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: FONT.base, boxSizing: "border-box" };
+  var labelStyle = { fontSize: FONT.xs, fontWeight: 700, color: t.sub, marginBottom: 4, display: "block" };
 
   var monthKey = settleDate ? MONTHS[Number(settleDate.slice(5, 7)) - 1] : NOW_MONTH;
   var meta = selModel ? modelMeta[selModel] : null;
@@ -621,7 +610,7 @@ function SettlementSidePanel({ dark, modelMeta, data, addEntry, updateEntry, rem
 
   return (
     <div>
-      <div style={{ fontSize: 13, fontWeight: 900, color: t.text, marginBottom: 10 }}>정산내역 입력 · {monthKey}</div>
+      <div style={{ fontSize: FONT.base, fontWeight: 900, color: t.text, marginBottom: 10 }}>정산내역 입력 · {monthKey}</div>
       <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
         <div style={{ flex: 1 }}>
           <label style={labelStyle}>모델</label>
@@ -652,7 +641,7 @@ function SettlementSidePanel({ dark, modelMeta, data, addEntry, updateEntry, rem
           </div>
         </>
       )}
-      {!meta && <div style={{ fontSize: 12, color: t.sub, padding: "16px 0" }}>등록된 모델이 없습니다. 먼저 모델을 등록해주세요.</div>}
+      {!meta && <div style={{ fontSize: FONT.sm, color: t.sub, padding: "16px 0" }}>등록된 모델이 없습니다. 먼저 모델을 등록해주세요.</div>}
     </div>
   );
 }
@@ -671,14 +660,14 @@ function ScheduleEventModal({ dark, initial, onSave, onDelete, onClose, modelMet
   var modelKeys = Object.keys(modelMeta || {});
   var guessModel = modelKeys.filter(function (k) { return title.indexOf(modelMeta[k].nameKr) === 0; })[0] || modelKeys[0] || "";
 
-  var inputStyle = { width: "100%", padding: "9px 10px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 13, boxSizing: "border-box" };
-  var labelStyle = { fontSize: 11, fontWeight: 700, color: t.sub, marginBottom: 4, display: "block" };
+  var inputStyle = { width: "100%", padding: "9px 10px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: FONT.base, boxSizing: "border-box" };
+  var labelStyle = { fontSize: FONT.xs, fontWeight: 700, color: t.sub, marginBottom: 4, display: "block" };
 
   var hasSettlement = !!(modelMeta && addEntry && updateEntry && removeEntry);
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }} onClick={onClose}>
-      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 16, padding: 22, width: "100%", maxWidth: hasSettlement ? 920 : 420, maxHeight: "88vh", overflowY: "auto" }} onClick={function (e) { e.stopPropagation(); }}>
+      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: RADIUS.lg, padding: 22, width: "100%", maxWidth: hasSettlement ? 920 : 420, maxHeight: "88vh", overflowY: "auto" }} onClick={function (e) { e.stopPropagation(); }}>
         <div style={{ fontSize: 17, fontWeight: 900, color: t.text, marginBottom: 14 }}>{initial.id ? "일정 수정" : "일정 추가"}</div>
         <div style={{ display: hasSettlement ? "grid" : "block", gridTemplateColumns: hasSettlement ? "340px 1fr" : "none", gap: 20 }}>
           <div>
@@ -699,15 +688,15 @@ function ScheduleEventModal({ dark, initial, onSave, onDelete, onClose, modelMet
               <textarea value={memo} onChange={function (e) { setMemo(e.target.value); }} rows={6} style={Object.assign({}, inputStyle, { resize: "vertical" })} />
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              {initial.id && <button onClick={function () { onDelete(initial.id); }} style={{ padding: "10px 14px", borderRadius: 9, border: "1px solid #ef4444", background: "transparent", color: "#ef4444", fontWeight: 700, cursor: "pointer" }}>삭제</button>}
-              <button onClick={onClose} style={{ flex: 1, padding: "10px 0", borderRadius: 9, border: "1px solid " + t.border, background: "transparent", color: t.text, fontWeight: 700, cursor: "pointer" }}>취소</button>
-              <button
+              {initial.id && <DangerButton onClick={function () { onDelete(initial.id); }} outline>삭제</DangerButton>}
+              <SecondaryButton onClick={onClose} style={{ flex: 1 }} dark={dark}>취소</SecondaryButton>
+              <PrimaryButton
                 onClick={function () {
                   if (!date || !title) return;
                   onSave({ id: initial.id || ("ev_" + Date.now()), date: date, time: time, title: title, memo: memo });
                 }}
-                style={{ flex: 1, padding: "10px 0", borderRadius: 9, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, cursor: "pointer" }}
-              >저장</button>
+                style={{ flex: 1 }}
+              >저장</PrimaryButton>
             </div>
           </div>
 
@@ -762,8 +751,8 @@ function PasteImportModal({ dark, onImport, onClose }) {
   var parsedState = useState(null);
   var parsed = parsedState[0], setParsed = parsedState[1];
 
-  var inputStyle = { width: "100%", padding: "9px 10px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 13, boxSizing: "border-box" };
-  var labelStyle = { fontSize: 11, fontWeight: 700, color: t.sub, marginBottom: 4, display: "block" };
+  var inputStyle = { width: "100%", padding: "9px 10px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: FONT.base, boxSizing: "border-box" };
+  var labelStyle = { fontSize: FONT.xs, fontWeight: 700, color: t.sub, marginBottom: 4, display: "block" };
 
   var handleAnalyze = function () {
     if (!raw.trim()) return;
@@ -772,23 +761,23 @@ function PasteImportModal({ dark, onImport, onClose }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }} onClick={onClose}>
-      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 16, padding: 22, width: "100%", maxWidth: 460, maxHeight: "88vh", overflowY: "auto" }} onClick={function (e) { e.stopPropagation(); }}>
+      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: RADIUS.lg, padding: 22, width: "100%", maxWidth: 460, maxHeight: "88vh", overflowY: "auto" }} onClick={function (e) { e.stopPropagation(); }}>
         <div style={{ fontSize: 17, fontWeight: 900, color: t.text, marginBottom: 4 }}>붙여넣기로 일정 등록</div>
-        <div style={{ fontSize: 11, color: t.sub, marginBottom: 12 }}>섭외 요청 텍스트를 그대로 붙여넣으면 자동으로 항목을 인식합니다.</div>
+        <div style={{ fontSize: FONT.xs, color: t.sub, marginBottom: 12 }}>섭외 요청 텍스트를 그대로 붙여넣으면 자동으로 항목을 인식합니다.</div>
 
         {!parsed && (
           <>
             <textarea value={raw} onChange={function (e) { setRaw(e.target.value); }} rows={10} placeholder={"업체명: ...\n촬영날짜/시간: ...\n사용매체/기간: ...\n섭외료(vat 별도): ...\n예상 지급일: ...\n입금자명: ...\n담당자 이름/연락처: ..."} style={Object.assign({}, inputStyle, { resize: "vertical", fontFamily: "inherit", marginBottom: 14 })} />
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={onClose} style={{ flex: 1, padding: "10px 0", borderRadius: 9, border: "1px solid " + t.border, background: "transparent", color: t.text, fontWeight: 700, cursor: "pointer" }}>취소</button>
-              <button onClick={handleAnalyze} style={{ flex: 1, padding: "10px 0", borderRadius: 9, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, cursor: "pointer" }}>분석하기</button>
+              <SecondaryButton onClick={onClose} style={{ flex: 1 }} dark={dark}>취소</SecondaryButton>
+              <PrimaryButton onClick={handleAnalyze} style={{ flex: 1 }}>분석하기</PrimaryButton>
             </div>
           </>
         )}
 
         {parsed && (
           <>
-            <div style={{ fontSize: 11, color: parsed.fieldsFound > 0 ? "#10b981" : "#ef4444", fontWeight: 700, marginBottom: 10 }}>
+            <div style={{ fontSize: FONT.xs, color: parsed.fieldsFound > 0 ? "#10b981" : COLOR.danger, fontWeight: 700, marginBottom: 10 }}>
               {parsed.fieldsFound > 0 ? parsed.fieldsFound + "개 항목을 인식했습니다. 날짜는 직접 확인해주세요." : "항목을 인식하지 못했습니다. 아래 내용을 직접 입력해주세요."}
             </div>
             <div style={{ marginBottom: 10 }}>
@@ -808,15 +797,15 @@ function PasteImportModal({ dark, onImport, onClose }) {
               <textarea value={parsed.memo} onChange={function (e) { setParsed(Object.assign({}, parsed, { memo: e.target.value })); }} rows={7} style={Object.assign({}, inputStyle, { resize: "vertical" })} />
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={function () { setParsed(null); }} style={{ padding: "10px 14px", borderRadius: 9, border: "1px solid " + t.border, background: "transparent", color: t.text, fontWeight: 700, cursor: "pointer" }}>다시 붙여넣기</button>
-              <button onClick={onClose} style={{ flex: 1, padding: "10px 0", borderRadius: 9, border: "1px solid " + t.border, background: "transparent", color: t.text, fontWeight: 700, cursor: "pointer" }}>취소</button>
-              <button
+              <SecondaryButton onClick={function () { setParsed(null); }} dark={dark}>다시 붙여넣기</SecondaryButton>
+              <SecondaryButton onClick={onClose} style={{ flex: 1 }} dark={dark}>취소</SecondaryButton>
+              <PrimaryButton
                 onClick={function () {
                   if (!parsed.date || !parsed.title) return;
                   onImport({ id: "ev_" + Date.now(), date: parsed.date, time: parsed.time, title: parsed.title, memo: parsed.memo });
                 }}
-                style={{ flex: 1, padding: "10px 0", borderRadius: 9, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, cursor: "pointer" }}
-              >캘린더에 등록</button>
+                style={{ flex: 1 }}
+              >캘린더에 등록</PrimaryButton>
             </div>
           </>
         )}
@@ -845,20 +834,20 @@ function BookingDetailModal({ project, dark, onClose, modelMeta, data, addEntry,
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }} onClick={onClose}>
-      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 16, padding: 22, width: "100%", maxWidth: hasSettlement ? 920 : 480, maxHeight: "88vh", overflowY: "auto" }} onClick={function (e) { e.stopPropagation(); }}>
+      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: RADIUS.lg, padding: 22, width: "100%", maxWidth: hasSettlement ? 920 : 480, maxHeight: "88vh", overflowY: "auto" }} onClick={function (e) { e.stopPropagation(); }}>
         <div style={{ display: hasSettlement ? "grid" : "block", gridTemplateColumns: hasSettlement ? "340px 1fr" : "none", gap: 20 }}>
           <div>
-            <div style={{ fontSize: 11, color: t.sub, fontWeight: 700 }}>{project.date}{project.time ? " · ⏱ " + project.time : ""}</div>
+            <div style={{ fontSize: FONT.xs, color: t.sub, fontWeight: 700 }}>{project.date}{project.time ? " · ⏱ " + project.time : ""}</div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-              <div style={{ fontSize: 19, fontWeight: 900, color: t.text }}>{project.brand}</div>
+              <div style={{ fontSize: FONT.xl, fontWeight: 900, color: t.text }}>{project.brand}</div>
               <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 9px", borderRadius: 6, background: project.depositStatus === "입금" ? "#d1fae5" : "#fee2e2", color: project.depositStatus === "입금" ? "#065f46" : "#991b1b" }}>{project.depositStatus === "입금" ? "✓ 입금완료" : "미입금"}</span>
             </div>
-            {project.note && <div style={{ fontSize: 12, color: t.sub, background: t.card2, border: "1px solid " + t.border, borderRadius: 8, padding: "8px 10px", marginBottom: 12 }}>📝 {project.note}</div>}
+            {project.note && <div style={{ fontSize: FONT.sm, color: t.sub, background: t.card2, border: "1px solid " + t.border, borderRadius: 8, padding: "8px 10px", marginBottom: 12 }}>📝 {project.note}</div>}
             <div style={{ background: t.card2, border: "1px solid " + t.border, borderRadius: 10, padding: "10px 12px", marginBottom: 12 }}>
               <div style={{ fontSize: 10, color: t.sub }}>총 섭외비용</div>
-              <div style={{ fontSize: 16, fontWeight: 900, color: t.text }}>{fmt(project.totalCost)}</div>
+              <div style={{ fontSize: FONT.lg, fontWeight: 900, color: t.text }}>{fmt(project.totalCost)}</div>
             </div>
-            <div style={{ fontSize: 12, fontWeight: 800, color: t.text, marginBottom: 6 }}>모델별 내역 (읽기 전용 · 원본은 촬영 프로젝트 관리 시스템)</div>
+            <div style={{ fontSize: FONT.sm, fontWeight: 800, color: t.text, marginBottom: 6 }}>모델별 내역 (읽기 전용 · 원본은 촬영 프로젝트 관리 시스템)</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {(project.models || []).map(function (m, i2) {
                 var c = calcModelLite(m);
@@ -866,16 +855,16 @@ function BookingDetailModal({ project, dark, onClose, modelMeta, data, addEntry,
                 return (
                   <div key={i2} style={{ background: t.card2, border: "1px solid " + t.border, borderRadius: 10, padding: "10px 12px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                      <span style={{ fontSize: 14, fontWeight: 900, color: t.text }}>{m.name}</span>
-                      {timeLabel ? <span style={{ fontSize: 12, fontWeight: 800, color: "#4f46e5" }}>⏱ {timeLabel}</span> : null}
+                      <span style={{ fontSize: FONT.md, fontWeight: 900, color: t.text }}>{m.name}</span>
+                      {timeLabel ? <span style={{ fontSize: FONT.sm, fontWeight: 800, color: "#4f46e5" }}>⏱ {timeLabel}</span> : null}
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, fontSize: 12, color: t.sub }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, fontSize: FONT.sm, color: t.sub }}>
                       <div>섭외료 <b style={{ color: t.text }}>{fmt(m.agencyPrice)}</b></div>
                       <div>손Pay <b style={{ color: t.text }}>{fmt(m.handPay)}</b></div>
                     </div>
                     <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px solid " + t.border, display: "flex", justifyContent: "space-between" }}>
-                      <span style={{ fontSize: 11, color: t.sub }}>모델 라인 순수익</span>
-                      <span style={{ fontSize: 13, fontWeight: 900, color: "#10b981" }}>{fmt(c.net)}</span>
+                      <span style={{ fontSize: FONT.xs, color: t.sub }}>모델 라인 순수익</span>
+                      <span style={{ fontSize: FONT.base, fontWeight: 900, color: "#10b981" }}>{fmt(c.net)}</span>
                     </div>
                   </div>
                 );
@@ -1006,7 +995,7 @@ function BookingCalendarTab({ modelMeta, data, addEntry, updateEntry, removeEntr
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
         <div style={{ fontSize: 26, fontWeight: 900, color: t.text, letterSpacing: -0.5 }}>{year}년 {month}월</div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button onClick={function () { setShowPasteImport(true); }} style={{ padding: "0 12px", height: 32, borderRadius: 8, border: "none", background: "#4f46e5", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>📋 붙여넣기 등록</button>
+          <button onClick={function () { setShowPasteImport(true); }} style={{ padding: "0 12px", height: 32, borderRadius: 8, border: "none", background: COLOR.primary, color: "#fff", cursor: "pointer", fontSize: FONT.sm, fontWeight: 700 }}>📋 붙여넣기 등록</button>
           <button onClick={goPrev} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid " + t.border, background: t.card, color: t.text, cursor: "pointer", fontSize: 14 }}>‹</button>
           <button onClick={goNext} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid " + t.border, background: t.card, color: t.text, cursor: "pointer", fontSize: 14 }}>›</button>
         </div>
@@ -1014,45 +1003,45 @@ function BookingCalendarTab({ modelMeta, data, addEntry, updateEntry, removeEntr
       <div style={{ marginBottom: 10 }}>
         <CalMonthStrip year={year} month={month} setYear={setYear} setMonth={setMonth} t={t} dark={dark} />
       </div>
-      <div style={{ fontSize: 12, color: t.sub, marginBottom: 12 }}>파란 카드는 소속모델이 포함된 촬영 건(읽기 전용), 초록 카드는 직접 등록한 일정입니다. 날짜 칸의 + 버튼으로 일정을 추가하세요.</div>
+      <div style={{ fontSize: FONT.sm, color: t.sub, marginBottom: 12 }}>파란 카드는 소속모델이 포함된 촬영 건(읽기 전용), 초록 카드는 직접 등록한 일정입니다. 날짜 칸의 + 버튼으로 일정을 추가하세요.</div>
 
       <div style={{ marginBottom: 14, position: "relative", maxWidth: 320 }}>
         <input
           value={search}
           onChange={function (e) { setSearch(e.target.value); }}
           placeholder="🔍 업체명·모델명으로 검색"
-          style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid " + t.border, background: t.card, color: t.text, fontSize: 13, boxSizing: "border-box" }}
+          style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid " + t.border, background: t.card, color: t.text, fontSize: FONT.base, boxSizing: "border-box" }}
         />
         {search && <button onClick={function () { setSearch(""); }} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", color: t.sub, cursor: "pointer", fontSize: 13 }}>✕</button>}
       </div>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
         <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: "14px 18px", flex: 1, minWidth: 150 }}>
-          <div style={{ fontSize: 11, color: t.sub, fontWeight: 700, marginBottom: 6 }}>총 섭외비용</div>
+          <div style={{ fontSize: FONT.xs, color: t.sub, fontWeight: 700, marginBottom: 6 }}>총 섭외비용</div>
           <div style={{ fontSize: 20, fontWeight: 900, color: "#4f46e5" }}>{fmt(monthTotalCost)}</div>
         </div>
         <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: "14px 18px", flex: 1, minWidth: 150 }}>
-          <div style={{ fontSize: 11, color: t.sub, fontWeight: 700, marginBottom: 6 }}>촬영 건수</div>
+          <div style={{ fontSize: FONT.xs, color: t.sub, fontWeight: 700, marginBottom: 6 }}>촬영 건수</div>
           <div style={{ fontSize: 20, fontWeight: 900, color: t.text }}>{monthProjectCount}건</div>
         </div>
         <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: "14px 18px", flex: 1, minWidth: 150 }}>
-          <div style={{ fontSize: 11, color: t.sub, fontWeight: 700, marginBottom: 6 }}>섭외 모델 수</div>
+          <div style={{ fontSize: FONT.xs, color: t.sub, fontWeight: 700, marginBottom: 6 }}>섭외 모델 수</div>
           <div style={{ fontSize: 20, fontWeight: 900, color: t.text }}>{monthModelCount}명</div>
         </div>
       </div>
 
       {q ? (
         <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: t.text, marginBottom: 12 }}>{year}년 전체 검색 결과 · {yearMatches.length}건</div>
-          {yearMatches.length === 0 && <div style={{ fontSize: 12, color: t.sub, textAlign: "center", padding: "20px 0" }}>일치하는 내역이 없습니다.</div>}
+          <div style={{ fontSize: FONT.base, fontWeight: 800, color: t.text, marginBottom: 12 }}>{year}년 전체 검색 결과 · {yearMatches.length}건</div>
+          {yearMatches.length === 0 && <div style={{ fontSize: FONT.sm, color: t.sub, textAlign: "center", padding: "20px 0" }}>일치하는 내역이 없습니다.</div>}
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {yearMatches.map(function (item, idx) {
               if (item._kind === "event") {
                 return (
                   <button key={"ev" + idx} onClick={function () { setEditingEvent(item); }} style={{ textAlign: "left", display: "flex", alignItems: "center", gap: 12, background: dark ? "#1a3a2e" : "#ecfdf5", border: "1px solid " + (dark ? "#166534" : "#a7f3d0"), borderRadius: 9, padding: "10px 12px", cursor: "pointer", width: "100%", boxSizing: "border-box" }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: t.sub, flexShrink: 0, width: 74 }}>{item.date}</span>
-                    <span style={{ fontSize: 13, fontWeight: 800, color: t.text, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}{item.memo ? " 📝" : ""}</span>
-                    {item.time && <span style={{ fontSize: 11, color: "#10b981", fontWeight: 800, flexShrink: 0 }}>⏱ {item.time}</span>}
+                    <span style={{ fontSize: FONT.xs, fontWeight: 700, color: t.sub, flexShrink: 0, width: 74 }}>{item.date}</span>
+                    <span style={{ fontSize: FONT.base, fontWeight: 800, color: t.text, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}{item.memo ? " 📝" : ""}</span>
+                    {item.time && <span style={{ fontSize: FONT.xs, color: COLOR.success, fontWeight: 800, flexShrink: 0 }}>⏱ {item.time}</span>}
                   </button>
                 );
               }
@@ -1061,11 +1050,11 @@ function BookingCalendarTab({ modelMeta, data, addEntry, updateEntry, removeEntr
               var isPaid = p.depositStatus === "입금";
               return (
                 <button key={"p" + idx} onClick={function () { setSelected(p); }} style={{ textAlign: "left", display: "flex", alignItems: "center", gap: 12, background: dark ? "#1e2a4a" : "#eef2ff", border: "1px solid " + (dark ? "#3730a3" : "#c7d2fe"), borderRadius: 9, padding: "10px 12px", cursor: "pointer", width: "100%", boxSizing: "border-box" }}>
-                  <span title={isPaid ? "입금완료" : "미입금"} style={{ width: 7, height: 7, borderRadius: "50%", background: isPaid ? "#10b981" : "#ef4444", flexShrink: 0 }} />
-                  <span style={{ fontSize: 11, fontWeight: 700, color: t.sub, flexShrink: 0, width: 74 }}>{p.date}</span>
-                  <span style={{ fontSize: 13, fontWeight: 800, color: t.text, flexShrink: 0 }}>{p.brand}{p.note ? " 📝" : ""}</span>
-                  <span style={{ fontSize: 12, color: "#4f46e5", fontWeight: 700, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{names}</span>
-                  <span style={{ fontSize: 13, fontWeight: 800, color: "#4f46e5", flexShrink: 0 }}>{fmt(p.totalCost)}</span>
+                  <span title={isPaid ? "입금완료" : "미입금"} style={{ width: 7, height: 7, borderRadius: "50%", background: isPaid ? "#10b981" : COLOR.danger, flexShrink: 0 }} />
+                  <span style={{ fontSize: FONT.xs, fontWeight: 700, color: t.sub, flexShrink: 0, width: 74 }}>{p.date}</span>
+                  <span style={{ fontSize: FONT.base, fontWeight: 800, color: t.text, flexShrink: 0 }}>{p.brand}{p.note ? " 📝" : ""}</span>
+                  <span style={{ fontSize: FONT.sm, color: COLOR.primary, fontWeight: 700, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{names}</span>
+                  <span style={{ fontSize: FONT.base, fontWeight: 800, color: COLOR.primary, flexShrink: 0 }}>{fmt(p.totalCost)}</span>
                 </button>
               );
             })}
@@ -1095,7 +1084,7 @@ function BookingCalendarTab({ modelMeta, data, addEntry, updateEntry, removeEntr
                   <button
                     onClick={function () { setEditingEvent({ date: dateStr }); }}
                     title="일정 추가"
-                    style={{ width: 18, height: 18, borderRadius: 5, border: "1px solid " + t.border, background: "transparent", color: t.sub, cursor: "pointer", fontSize: 12, fontWeight: 900, lineHeight: "16px", padding: 0, flexShrink: 0, boxSizing: "border-box" }}
+                    style={{ width: 18, height: 18, borderRadius: 5, border: "1px solid " + t.border, background: "transparent", color: t.sub, cursor: "pointer", fontSize: FONT.sm, fontWeight: 900, lineHeight: "16px", padding: 0, flexShrink: 0, boxSizing: "border-box" }}
                   >+</button>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 3, overflowY: "auto", flex: 1, minHeight: 0 }}>
@@ -1105,22 +1094,22 @@ function BookingCalendarTab({ modelMeta, data, addEntry, updateEntry, removeEntr
                     return (
                       <button key={p.id} onClick={function () { setSelected(p); }} style={{ textAlign: "left", position: "relative", background: dark ? "#1e2a4a" : "#eef2ff", border: "1px solid " + (dark ? "#3730a3" : "#c7d2fe"), borderRadius: 6, padding: "5px 7px", cursor: "pointer", width: "100%", flexShrink: 0, boxSizing: "border-box" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                          <span title={isPaid ? "입금완료" : "미입금"} style={{ width: 6, height: 6, borderRadius: "50%", background: isPaid ? "#10b981" : "#ef4444", flexShrink: 0 }} />
-                          <div style={{ fontSize: 12, fontWeight: 800, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.brand}{p.note ? " 📝" : ""}</div>
+                          <span title={isPaid ? "입금완료" : "미입금"} style={{ width: 6, height: 6, borderRadius: "50%", background: isPaid ? "#10b981" : COLOR.danger, flexShrink: 0 }} />
+                          <div style={{ fontSize: FONT.sm, fontWeight: 800, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.brand}{p.note ? " 📝" : ""}</div>
                         </div>
-                        <div style={{ fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "#4f46e5", fontWeight: 800 }}>
+                        <div style={{ fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: COLOR.primary, fontWeight: 800 }}>
                           {(p.models || []).map(function (m, i2) { return (i2 > 0 ? ", " : "") + m.name; }).join("")}
                           {p.time ? " · " + p.time : ""}
                         </div>
-                        <div style={{ fontSize: 11, fontWeight: 800, color: "#4f46e5" }}>{fmt(p.totalCost)}</div>
+                        <div style={{ fontSize: FONT.xs, fontWeight: 800, color: "#4f46e5" }}>{fmt(p.totalCost)}</div>
                       </button>
                     );
                   })}
                   {dayEvents.map(function (ev) {
                     return (
                       <button key={ev.id} onClick={function () { setEditingEvent(ev); }} style={{ textAlign: "left", background: dark ? "#1a3a2e" : "#ecfdf5", border: "1px solid " + (dark ? "#166534" : "#a7f3d0"), borderRadius: 6, padding: "5px 7px", cursor: "pointer", width: "100%", flexShrink: 0, boxSizing: "border-box" }}>
-                        <div style={{ fontSize: 12, fontWeight: 800, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ev.title}{ev.memo ? " 📝" : ""}</div>
-                        {ev.time && <div style={{ fontSize: 10, color: "#10b981", fontWeight: 800 }}>⏱ {ev.time}</div>}
+                        <div style={{ fontSize: FONT.sm, fontWeight: 800, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ev.title}{ev.memo ? " 📝" : ""}</div>
+                        {ev.time && <div style={{ fontSize: 10, color: COLOR.success, fontWeight: 800 }}>⏱ {ev.time}</div>}
                       </button>
                     );
                   })}
@@ -1149,15 +1138,15 @@ function ModelDetail({ model, meta, data, addEntry, removeEntry, updateEntry, on
     <div>
       <div style={{ background:"linear-gradient(135deg,#4f46e5 0%,#7c3aed 100%)", borderRadius:14, padding:"14px 18px", marginBottom:12, color:"#fff" }}>
         <div style={{ display:"flex", alignItems:"flex-start", gap:12 }}>
-          <div style={{ width:42, height:42, borderRadius:11, background:"rgba(255,255,255,0.2)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:19, fontWeight:900, flexShrink:0 }}>{meta.nameEn[0]}</div>
+          <div style={{ width:42, height:42, borderRadius:11, background:"rgba(255,255,255,0.2)", display:"flex", alignItems:"center", justifyContent:"center", fontSize: FONT.xl, fontWeight:900, flexShrink:0 }}>{meta.nameEn[0]}</div>
           <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontSize:16, fontWeight:900 }}>{meta.nameKr} <span style={{ fontWeight:300, opacity:0.75, fontSize:13 }}>({meta.nameEn})</span></div>
-            <div style={{ fontSize:11, opacity:0.7, marginTop:1 }}>{meta.fullName} · {meta.nationality}</div>
+            <div style={{ fontSize: FONT.lg, fontWeight:900 }}>{meta.nameKr} <span style={{ fontWeight:300, opacity:0.75, fontSize:13 }}>({meta.nameEn})</span></div>
+            <div style={{ fontSize: FONT.xs, opacity:0.7, marginTop:1 }}>{meta.fullName} · {meta.nationality}</div>
             <div style={{ fontSize:10, opacity:0.55 }}>{meta.account || "계좌 미등록"}</div>
           </div>
           <div style={{ textAlign:"right", flexShrink:0 }}>
             <div style={{ fontSize:10, opacity:0.65 }}>수익 배분</div>
-            <div style={{ fontSize:11, fontWeight:700 }}>에이전시 {pct(meta.agencyAF)} / 모델 {pct(meta.modelAF)}</div>
+            <div style={{ fontSize: FONT.xs, fontWeight:700 }}>에이전시 {pct(meta.agencyAF)} / 모델 {pct(meta.modelAF)}</div>
             <button onClick={function(){ setShowAFEdit(function(v){ return !v; }); }} style={{ marginTop:4, background:"rgba(255,255,255,0.2)", border:"1px solid rgba(255,255,255,0.4)", borderRadius:6, color:"#fff", fontSize:10, fontWeight:700, padding:"2px 8px", cursor:"pointer" }}>AF 수정</button>
           </div>
         </div>
@@ -1166,14 +1155,14 @@ function ModelDetail({ model, meta, data, addEntry, removeEntry, updateEntry, on
       {showAFEdit && (
         <div style={{ background:t.card, border:"1px solid "+t.border, borderRadius:12, padding:14, marginBottom:10 }}>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
-            <span style={{ fontSize:12, fontWeight:800, color:t.text }}>AF 비율 수정</span>
+            <span style={{ fontSize: FONT.sm, fontWeight:800, color:t.text }}>AF 비율 수정</span>
             <button onClick={function(){ setShowAFEdit(false); }} style={{ background:"none", border:"none", color:t.sub, cursor:"pointer", fontSize:18 }}>x</button>
           </div>
           {[["에이전시 촬영 AF","agencyAF","#4f46e5"],["모델 직접 촬영 AF","modelAF","#7c3aed"]].map(function(item) {
             return (
               <div key={item[1]} style={{ marginBottom:10 }}>
                 <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                  <span style={{ fontSize:12, color:t.sub }}>{item[0]}</span>
+                  <span style={{ fontSize: FONT.sm, color:t.sub }}>{item[0]}</span>
                   <span style={{ fontWeight:900, color:item[2], fontSize:14 }}>{pct(meta[item[1]])}</span>
                 </div>
                 <input type="range" min={0} max={60} step={5} value={Math.round(meta[item[1]]*100)}
@@ -1188,22 +1177,22 @@ function ModelDetail({ model, meta, data, addEntry, removeEntry, updateEntry, on
       <div style={{ background:t.card, border:"1px solid "+t.border, borderRadius:12, padding:"10px 12px", marginBottom:10 }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-            <span style={{ fontSize:14, fontWeight:900, color:"#4f46e5" }}>{month}</span>
-            {month === NOW_MONTH && <span style={{ background:"#4f46e5", color:"#fff", fontSize:10, fontWeight:700, padding:"1px 7px", borderRadius:10 }}>이번 달</span>}
+            <span style={{ fontSize: FONT.md, fontWeight:900, color:"#4f46e5" }}>{month}</span>
+            {month === NOW_MONTH && <span style={{ background: COLOR.primary, color:"#fff", fontSize:10, fontWeight:700, padding:"1px 7px", borderRadius:10 }}>이번 달</span>}
             {totalEntries > 0 && <span style={{ background:dark?"#1e293b":"#f1f5f9", color:t.sub, fontSize:10, fontWeight:700, padding:"1px 7px", borderRadius:10 }}>{totalEntries}건</span>}
           </div>
           <div style={{ display:"flex", gap:6 }}>
-            <button onClick={function(){ setView("input"); }} style={{ padding:"4px 10px", borderRadius:7, border:"none", cursor:"pointer", fontSize:11, fontWeight:700, background:view==="input"?"#4f46e5":"transparent", color:view==="input"?"#fff":t.sub }}>입력</button>
-            <button onClick={function(){ setView("report"); }} style={{ padding:"4px 10px", borderRadius:7, border:"none", cursor:"pointer", fontSize:11, fontWeight:700, background:view==="report"?"#4f46e5":"transparent", color:view==="report"?"#fff":t.sub }}>정산서</button>
+            <button onClick={function(){ setView("input"); }} style={{ padding:"4px 10px", borderRadius:7, border:"none", cursor:"pointer", fontSize: FONT.xs, fontWeight:700, background:view==="input"?"#4f46e5":"transparent", color:view==="input"?"#fff":t.sub }}>입력</button>
+            <button onClick={function(){ setView("report"); }} style={{ padding:"4px 10px", borderRadius:7, border:"none", cursor:"pointer", fontSize: FONT.xs, fontWeight:700, background:view==="report"?"#4f46e5":"transparent", color:view==="report"?"#fff":t.sub }}>정산서</button>
           </div>
         </div>
         <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
-          <button onClick={function(){ setMonth(NOW_MONTH); }} style={{ padding:"4px 10px", borderRadius:7, border:"none", cursor:"pointer", fontSize:11, fontWeight:900, background:month===NOW_MONTH?"#4f46e5":(dark?"#1e1b4b":"#eef2ff"), color:month===NOW_MONTH?"#fff":"#4f46e5" }}>{NOW_MONTH} ★</button>
+          <button onClick={function(){ setMonth(NOW_MONTH); }} style={{ padding:"4px 10px", borderRadius:7, border:"none", cursor:"pointer", fontSize: FONT.xs, fontWeight:900, background:month===NOW_MONTH?"#4f46e5":(dark?"#1e1b4b":"#eef2ff"), color:month===NOW_MONTH?"#fff":"#4f46e5" }}>{NOW_MONTH} ★</button>
           <div style={{ width:1, background:t.border, margin:"0 2px" }} />
           {MONTHS.filter(function(m){ return m !== NOW_MONTH; }).map(function(m) {
             var hasData = ((data && data[model] && data[model][m] && data[model][m].agency && data[model][m].agency.length) || 0) + ((data && data[model] && data[model][m] && data[model][m].self && data[model][m].self.length) || 0) > 0;
             return (
-              <button key={m} onClick={function(){ setMonth(m); }} style={{ padding:"4px 9px", borderRadius:7, border:"1px solid "+t.border, cursor:"pointer", fontSize:11, fontWeight:700, background:month===m?"#4f46e5":hasData?(dark?"#1e3a5f":"#f0f9ff"):(dark?"#1e293b":"#f8fafc"), color:month===m?"#fff":hasData?"#0284c7":t.sub }}>{m}</button>
+              <button key={m} onClick={function(){ setMonth(m); }} style={{ padding:"4px 9px", borderRadius:7, border:"1px solid "+t.border, cursor:"pointer", fontSize: FONT.xs, fontWeight:700, background:month===m?"#4f46e5":hasData?(dark?"#1e3a5f":"#f0f9ff"):(dark?"#1e293b":"#f8fafc"), color:month===m?"#fff":hasData?"#0284c7":t.sub }}>{m}</button>
             );
           })}
         </div>
@@ -1221,7 +1210,7 @@ function ModelDetail({ model, meta, data, addEntry, removeEntry, updateEntry, on
                   return (
                     <div key={item[0]} style={{ textAlign:"center" }}>
                       <div style={{ fontSize:9, color:t.sub, marginBottom:2 }}>{item[0]}</div>
-                      <div style={{ fontSize:13, fontWeight:900, color:item[2] }}>{item[1]}</div>
+                      <div style={{ fontSize: FONT.base, fontWeight:900, color:item[2] }}>{item[1]}</div>
                     </div>
                   );
                 })}
@@ -1231,7 +1220,7 @@ function ModelDetail({ model, meta, data, addEntry, removeEntry, updateEntry, on
           <div style={{ background:t.card, border:"1px solid "+t.border, borderRadius:12, padding:14, marginBottom:10 }}>
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
               <span style={{ fontWeight:800, color:t.text, fontSize:13 }}>에이전시 촬영</span>
-              <span style={{ background:dark?"#1e1b4b":"#eef2ff", color:"#4f46e5", fontSize:11, fontWeight:700, padding:"3px 9px", borderRadius:20 }}>AF {pct(meta.agencyAF)}</span>
+              <span style={{ background:dark?"#1e1b4b":"#eef2ff", color: COLOR.primary, fontSize: FONT.xs, fontWeight:700, padding:"3px 9px", borderRadius:20 }}>AF {pct(meta.agencyAF)}</span>
             </div>
             <EntryTable entries={md.agency} af={meta.agencyAF} onRemove={function(id){ removeEntry(model, month, "agency", id); }} onUpdate={function(id, patch){ updateEntry(model, month, "agency", id, patch); }} dark={dark} />
             <EntryForm af={meta.agencyAF} label="에이전시 촬영" onAdd={function(e){ addEntry(model, month, "agency", e); }} dark={dark} />
@@ -1239,7 +1228,7 @@ function ModelDetail({ model, meta, data, addEntry, removeEntry, updateEntry, on
           <div style={{ background:t.card, border:"1px solid "+t.border, borderRadius:12, padding:14 }}>
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
               <span style={{ fontWeight:800, color:t.text, fontSize:13 }}>모델 직접 촬영</span>
-              <span style={{ background:dark?"#2d1a4b":"#f5f3ff", color:"#7c3aed", fontSize:11, fontWeight:700, padding:"3px 9px", borderRadius:20 }}>AF {pct(meta.modelAF)}</span>
+              <span style={{ background:dark?"#2d1a4b":"#f5f3ff", color: COLOR.purple, fontSize: FONT.xs, fontWeight:700, padding:"3px 9px", borderRadius:20 }}>AF {pct(meta.modelAF)}</span>
             </div>
             <EntryTable entries={md.self} af={meta.modelAF} onRemove={function(id){ removeEntry(model, month, "self", id); }} onUpdate={function(id, patch){ updateEntry(model, month, "self", id, patch); }} dark={dark} />
             <EntryForm af={meta.modelAF} label="모델 직접 촬영" onAdd={function(e){ addEntry(model, month, "self", e); }} dark={dark} />
@@ -1271,17 +1260,17 @@ function TaxRow({ model, meta, inc, tax, final, agencyRev, monthData, editingReg
         <td style={{ padding:"9px 10px" }}>
           {editingRegNo === model ? (
             <input autoFocus value={regNoInput} onChange={function(e){ onRegNoInput(fmtRegNo(e.target.value)); }} onBlur={function(){ onCommitEdit(model); }} onKeyDown={function(e){ if(e.key==="Enter") onCommitEdit(model); }} placeholder="000000-0000000" maxLength={14}
-              style={{ border:"2px solid #f59e0b", borderRadius:6, padding:"3px 7px", fontSize:11, width:120, outline:"none", fontFamily:"monospace", background:t.input, color:t.text }} />
+              style={{ border:"2px solid #f59e0b", borderRadius:6, padding:"3px 7px", fontSize: FONT.xs, width:120, outline:"none", fontFamily:"monospace", background:t.input, color:t.text }} />
           ) : (
-            <button onClick={function(){ onStartEdit(model, meta.regNo); }} style={{ background:meta.regNo?(dark?"#451a03":"#fef3c7"):(dark?"#292524":"#fde68a"), border:"1px dashed #f59e0b", borderRadius:6, padding:"2px 8px", fontSize:11, cursor:"pointer", color:meta.regNo?"#f59e0b":"#b45309", fontFamily:"monospace", whiteSpace:"nowrap" }}>
+            <button onClick={function(){ onStartEdit(model, meta.regNo); }} style={{ background:meta.regNo?(dark?"#451a03":"#fef3c7"):(dark?"#292524":"#fde68a"), border:"1px dashed #f59e0b", borderRadius:6, padding:"2px 8px", fontSize: FONT.xs, cursor:"pointer", color:meta.regNo?"#f59e0b":"#b45309", fontFamily:"monospace", whiteSpace:"nowrap" }}>
               {meta.regNo || "입력"}
             </button>
           )}
         </td>
         <td style={{ padding:"9px 10px", textAlign:"right", color:t.sub, fontWeight:600, fontSize:12 }}>{inc>0?fmt(inc):"-"}</td>
-        <td style={{ padding:"9px 10px", textAlign:"right", color:"#7c3aed", fontWeight:800, fontSize:12 }}>{agencyRev>0?fmt(agencyRev):"-"}</td>
-        <td style={{ padding:"9px 10px", textAlign:"right", color:"#ef4444", fontWeight:800, fontSize:12 }}>{tax>0?fmt(tax):"-"}</td>
-        <td style={{ padding:"9px 10px", textAlign:"right", color:"#10b981", fontWeight:900, fontSize:12 }}>{final>0?fmt(final):"-"}</td>
+        <td style={{ padding:"9px 10px", textAlign:"right", color: COLOR.purple, fontWeight:800, fontSize:12 }}>{agencyRev>0?fmt(agencyRev):"-"}</td>
+        <td style={{ padding:"9px 10px", textAlign:"right", color: COLOR.danger, fontWeight:800, fontSize:12 }}>{tax>0?fmt(tax):"-"}</td>
+        <td style={{ padding:"9px 10px", textAlign:"right", color: COLOR.success, fontWeight:900, fontSize:12 }}>{final>0?fmt(final):"-"}</td>
       </tr>
       {exp && (
         <tr>
@@ -1295,7 +1284,7 @@ function TaxRow({ model, meta, inc, tax, final, agencyRev, monthData, editingReg
                     <span style={{ fontWeight:700, color:t.text, fontSize:12 }}>{e.brand || "-"}</span>
                     <span style={{ color:t.sub, fontSize:11 }}>{fmt(c.inc)}</span>
                     <span style={{ color:t.sub }}>→</span>
-                    <span style={{ color:"#10b981", fontWeight:800, fontSize:12 }}>입금액 {fmt(finalAmt(e, e.af))}</span>
+                    <span style={{ color: COLOR.success, fontWeight:800, fontSize:12 }}>입금액 {fmt(finalAmt(e, e.af))}</span>
                   </div>
                 );
               })}
@@ -1420,23 +1409,23 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo, dark }) {
       <div style={{ background:t.card, border:"1px solid "+t.border, borderRadius:14, padding:"14px 16px", marginBottom:12 }}>
         <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12, flexWrap:"wrap", justifyContent:"space-between" }}>
           <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
-            <h2 style={{ fontSize:16, fontWeight:900, color:t.text, margin:0 }}>월별 세무 요약</h2>
+            <h2 style={{ fontSize: FONT.lg, fontWeight:900, color:t.text, margin:0 }}>월별 세무 요약</h2>
             <div style={{ display:"flex", alignItems:"center", gap:6 }}>
               <span style={{ fontSize:18, fontWeight:900, color:"#4f46e5" }}>{month}</span>
-              {month === NOW_MONTH && <span style={{ background:"#4f46e5", color:"#fff", fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:10 }}>이번 달</span>}
+              {month === NOW_MONTH && <span style={{ background: COLOR.primary, color:"#fff", fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:10 }}>이번 달</span>}
             </div>
           </div>
           <div style={{ display:"flex", gap:6 }}>
-            <button onClick={exportExcel} style={{ padding:"6px 12px", borderRadius:8, border:"1px solid "+t.border, background:dark?"#0a1f1a":"#f0fdf4", color:"#10b981", fontWeight:700, fontSize:12, cursor:"pointer" }}>⬇ 엑셀</button>
-            <button onClick={exportPDF} style={{ padding:"6px 12px", borderRadius:8, border:"1px solid "+t.border, background:dark?"#1a0808":"#fff1f2", color:"#ef4444", fontWeight:700, fontSize:12, cursor:"pointer" }}>⬇ PDF</button>
+            <button onClick={exportExcel} style={{ padding:"6px 12px", borderRadius:8, border:"1px solid "+t.border, background:dark?"#0a1f1a":"#f0fdf4", color: COLOR.success, fontWeight:700, fontSize: FONT.sm, cursor:"pointer" }}>⬇ 엑셀</button>
+            <button onClick={exportPDF} style={{ padding:"6px 12px", borderRadius:8, border:"1px solid "+t.border, background:dark?"#1a0808":"#fff1f2", color: COLOR.danger, fontWeight:700, fontSize: FONT.sm, cursor:"pointer" }}>⬇ PDF</button>
           </div>
         </div>
         <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
-          <button onClick={function(){ setMonth(NOW_MONTH); }} style={{ padding:"5px 12px", borderRadius:8, border:"none", cursor:"pointer", fontSize:12, fontWeight:900, background:month===NOW_MONTH?"#4f46e5":(dark?"#1e1b4b":"#eef2ff"), color:month===NOW_MONTH?"#fff":"#4f46e5" }}>{NOW_MONTH} ★</button>
+          <button onClick={function(){ setMonth(NOW_MONTH); }} style={{ padding:"5px 12px", borderRadius:8, border:"none", cursor:"pointer", fontSize: FONT.sm, fontWeight:900, background:month===NOW_MONTH?"#4f46e5":(dark?"#1e1b4b":"#eef2ff"), color:month===NOW_MONTH?"#fff":"#4f46e5" }}>{NOW_MONTH} ★</button>
           <div style={{ width:1, background:t.border, margin:"0 4px" }} />
           {MONTHS.filter(function(m){ return m !== NOW_MONTH; }).map(function(m) {
             return (
-              <button key={m} onClick={function(){ setMonth(m); }} style={{ padding:"5px 10px", borderRadius:8, border:"1px solid "+t.border, cursor:"pointer", fontSize:11, fontWeight:700, background:month===m?"#4f46e5":(dark?"#1e293b":"#f8fafc"), color:month===m?"#fff":t.sub }}>{m}</button>
+              <button key={m} onClick={function(){ setMonth(m); }} style={{ padding:"5px 10px", borderRadius:8, border:"1px solid "+t.border, cursor:"pointer", fontSize: FONT.xs, fontWeight:700, background:month===m?"#4f46e5":(dark?"#1e293b":"#f8fafc"), color:month===m?"#fff":t.sub }}>{m}</button>
             );
           })}
         </div>
@@ -1455,7 +1444,7 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo, dark }) {
 
       <div style={{ background:t.card, border:"1px solid "+t.border, borderRadius:12, overflow:"hidden", marginBottom:12 }}>
         <div style={{ overflowX:"auto", WebkitOverflowScrolling:"touch" }}>
-          <table style={{ width:"100%", fontSize:12, borderCollapse:"collapse", minWidth:480 }}>
+          <table style={{ width:"100%", fontSize: FONT.sm, borderCollapse:"collapse", minWidth:480 }}>
             <thead>
               <tr style={{ background:t.thead }}>
                 {[["모델","left"],["외국인등록번호","left"],["총매출","right"],["에이전시수익","right"],["세금(3.3%)","right"],["모델순수익","right"]].map(function(item, i) {
@@ -1470,9 +1459,9 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo, dark }) {
               <tr style={{ background:dark?"#1e293b":"#eef2ff" }}>
                 <td colSpan={2} style={{ padding:"9px 10px", fontWeight:900, color:"#4338ca", fontSize:12 }}>합계</td>
                 <td style={{ padding:"9px 10px", textAlign:"right", fontWeight:900, color:t.sub, fontSize:12 }}>{fmt(tI)}</td>
-                <td style={{ padding:"9px 10px", textAlign:"right", fontWeight:900, color:"#7c3aed", fontSize:12 }}>{fmt(tA)}</td>
-                <td style={{ padding:"9px 10px", textAlign:"right", fontWeight:900, color:"#ef4444", fontSize:12 }}>{fmt(tT)}</td>
-                <td style={{ padding:"9px 10px", textAlign:"right", fontWeight:900, color:"#10b981", fontSize:12 }}>{fmt(tF)}</td>
+                <td style={{ padding:"9px 10px", textAlign:"right", fontWeight:900, color: COLOR.purple, fontSize:12 }}>{fmt(tA)}</td>
+                <td style={{ padding:"9px 10px", textAlign:"right", fontWeight:900, color: COLOR.danger, fontSize:12 }}>{fmt(tT)}</td>
+                <td style={{ padding:"9px 10px", textAlign:"right", fontWeight:900, color: COLOR.success, fontSize:12 }}>{fmt(tF)}</td>
               </tr>
             </tbody>
           </table>
@@ -1487,16 +1476,16 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo, dark }) {
               <span style={{ fontWeight:900, color:dark?"#fbbf24":"#92400e", fontSize:13 }}>세무서 신고용 — {month}</span>
             </div>
             <div style={{ display:"flex", gap:6 }}>
-              <button onClick={exportTaxFilingExcel} style={{ padding:"5px 11px", borderRadius:8, border:"1px solid "+(dark?"#854d0e":"#fde68a"), background:dark?"#0a1f1a":"#f0fdf4", color:"#10b981", fontWeight:700, fontSize:11, cursor:"pointer" }}>⬇ 엑셀</button>
-              <button onClick={exportTaxFilingPDF} style={{ padding:"5px 11px", borderRadius:8, border:"1px solid "+(dark?"#854d0e":"#fde68a"), background:dark?"#1a0808":"#fff1f2", color:"#ef4444", fontWeight:700, fontSize:11, cursor:"pointer" }}>⬇ PDF</button>
+              <button onClick={exportTaxFilingExcel} style={{ padding:"5px 11px", borderRadius:8, border:"1px solid "+(dark?"#854d0e":"#fde68a"), background:dark?"#0a1f1a":"#f0fdf4", color: COLOR.success, fontWeight:700, fontSize: FONT.xs, cursor:"pointer" }}>⬇ 엑셀</button>
+              <button onClick={exportTaxFilingPDF} style={{ padding:"5px 11px", borderRadius:8, border:"1px solid "+(dark?"#854d0e":"#fde68a"), background:dark?"#1a0808":"#fff1f2", color: COLOR.danger, fontWeight:700, fontSize: FONT.xs, cursor:"pointer" }}>⬇ PDF</button>
             </div>
           </div>
           <div style={{ overflowX:"auto" }}>
-            <table style={{ width:"100%", fontSize:12, borderCollapse:"collapse", minWidth:360 }}>
+            <table style={{ width:"100%", fontSize: FONT.sm, borderCollapse:"collapse", minWidth:360 }}>
               <thead>
                 <tr style={{ borderBottom:"2px solid "+(dark?"#854d0e":"#fde68a") }}>
                   {["이름","국적","외국인등록번호","모델 입금 비용","원천징수(3.3%)"].map(function(h, i) {
-                    return <th key={h} style={{ padding:"7px 10px", textAlign:i>2?"right":"left", color:dark?"#fbbf24":"#92400e", fontSize:11, fontWeight:800, whiteSpace:"nowrap" }}>{h}</th>;
+                    return <th key={h} style={{ padding:"7px 10px", textAlign:i>2?"right":"left", color:dark?"#fbbf24":"#92400e", fontSize: FONT.xs, fontWeight:800, whiteSpace:"nowrap" }}>{h}</th>;
                   })}
                 </tr>
               </thead>
@@ -1515,7 +1504,7 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo, dark }) {
               </tbody>
             </table>
           </div>
-          <p style={{ fontSize:11, color:dark?"#d97706":"#b45309", marginTop:10 }}>※ 모델 입금 비용 = 최종입금 + 세금액</p>
+          <p style={{ fontSize: FONT.xs, color:dark?"#d97706":"#b45309", marginTop:10 }}>※ 모델 입금 비용 = 최종입금 + 세금액</p>
         </div>
       )}
     </div>
@@ -1531,7 +1520,7 @@ function ModelFormModal({ existing, onSave, onClose, dark }) {
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.65)", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:16, overflowY:"auto" }}>
       <div style={{ background:t.card, border:"1px solid "+t.border, borderRadius:18, padding:22, width:"100%", maxWidth:460, boxShadow:"0 30px 60px rgba(0,0,0,0.4)" }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:18 }}>
-          <h3 style={{ color:t.text, fontWeight:900, fontSize:16, margin:0 }}>{existing ? "모델 정보 수정" : "새 모델 추가"}</h3>
+          <h3 style={{ color:t.text, fontWeight:900, fontSize: FONT.lg, margin:0 }}>{existing ? "모델 정보 수정" : "새 모델 추가"}</h3>
           <button onClick={onClose} style={{ background:"none", border:"none", color:t.sub, cursor:"pointer", fontSize:22 }}>x</button>
         </div>
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
@@ -1539,8 +1528,8 @@ function ModelFormModal({ existing, onSave, onClose, dark }) {
             {[["한국 이름 *","nameKr"],["영문 닉네임 *","nameEn"]].map(function(item) {
               return (
                 <div key={item[1]}>
-                  <label style={{ fontSize:11, fontWeight:700, color:t.sub, display:"block", marginBottom:4 }}>{item[0]}</label>
-                  <input value={form[item[1]]} onChange={function(e){ set(item[1], e.target.value); }} style={{ width:"100%", border:"1px solid "+t.ib, borderRadius:8, padding:"8px 10px", fontSize:13, background:t.input, color:t.text, outline:"none", boxSizing:"border-box" }} />
+                  <label style={{ fontSize: FONT.xs, fontWeight:700, color:t.sub, display:"block", marginBottom:4 }}>{item[0]}</label>
+                  <input value={form[item[1]]} onChange={function(e){ set(item[1], e.target.value); }} style={{ width:"100%", border:"1px solid "+t.ib, borderRadius:8, padding:"8px 10px", fontSize: FONT.base, background:t.input, color:t.text, outline:"none", boxSizing:"border-box" }} />
                 </div>
               );
             })}
@@ -1548,9 +1537,9 @@ function ModelFormModal({ existing, onSave, onClose, dark }) {
           {[["Full Name","fullName"],["국적","nationality"],["계좌번호","account"],["외국인등록번호","regNo"]].map(function(item) {
             return (
               <div key={item[1]}>
-                <label style={{ fontSize:11, fontWeight:700, color:t.sub, display:"block", marginBottom:4 }}>{item[0]}</label>
+                <label style={{ fontSize: FONT.xs, fontWeight:700, color:t.sub, display:"block", marginBottom:4 }}>{item[0]}</label>
                 <input value={form[item[1]]} onChange={function(e){ set(item[1], item[1]==="regNo" ? fmtRegNo(e.target.value) : e.target.value); }} maxLength={item[1]==="regNo"?14:undefined}
-                  style={{ width:"100%", border:"1px solid "+t.ib, borderRadius:8, padding:"8px 10px", fontSize:13, background:t.input, color:t.text, outline:"none", boxSizing:"border-box", fontFamily:item[1]==="regNo"?"monospace":"inherit" }} />
+                  style={{ width:"100%", border:"1px solid "+t.ib, borderRadius:8, padding:"8px 10px", fontSize: FONT.base, background:t.input, color:t.text, outline:"none", boxSizing:"border-box", fontFamily:item[1]==="regNo"?"monospace":"inherit" }} />
               </div>
             );
           })}
@@ -1558,7 +1547,7 @@ function ModelFormModal({ existing, onSave, onClose, dark }) {
             return (
               <div key={item[1]}>
                 <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                  <label style={{ fontSize:11, fontWeight:700, color:t.sub }}>{item[0]}</label>
+                  <label style={{ fontSize: FONT.xs, fontWeight:700, color:t.sub }}>{item[0]}</label>
                   <span style={{ fontWeight:900, color:item[2], fontSize:14 }}>{Math.round(form[item[1]]*100)}%</span>
                 </div>
                 <input type="range" min={0} max={60} step={5} value={Math.round(form[item[1]]*100)} onChange={function(e){ set(item[1], Number(e.target.value)/100); }} style={{ width:"100%", accentColor:item[2] }} />
@@ -1567,11 +1556,11 @@ function ModelFormModal({ existing, onSave, onClose, dark }) {
           })}
         </div>
         <div style={{ display:"flex", gap:10, marginTop:18 }}>
-          <button onClick={onClose} style={{ flex:1, padding:"10px 0", borderRadius:9, border:"1px solid "+t.border, background:"transparent", color:t.sub, fontWeight:700, cursor:"pointer" }}>취소</button>
+          <SecondaryButton onClick={onClose} style={{ flex:1 }} dark={dark}>취소</SecondaryButton>
           <button onClick={function(){
             if (!form.nameKr || !form.nameEn) { alert("이름은 필수입니다."); return; }
             onSave(form);
-          }} style={{ flex:2, padding:"10px 0", borderRadius:9, border:"none", background:"linear-gradient(135deg,#4f46e5,#7c3aed)", color:"#fff", fontWeight:700, cursor:"pointer" }}>
+          }} style={{ flex:2, padding:"10px 0", borderRadius:RADIUS.sm, border:"none", background:"linear-gradient(135deg,#4f46e5,#7c3aed)", color:"#fff", fontWeight:700, cursor:"pointer" }}>
             {existing ? "수정 저장" : "모델 추가"}
           </button>
         </div>
@@ -1777,7 +1766,7 @@ export default function App({ currentUser, onLogout }) {
     <div style={{ padding:8 }}>
       {[["overview","연간 요약","📊"],["tax","세무 요약","📋"],["calendar","촬영 캘린더","📅"],["checklist","업무 체크리스트","📝"]].map(function(item) {
         return (
-          <button key={item[0]} onClick={function(){ setTab(item[0]); setMobileNavOpen(false); }} style={{ width:"100%", display:"flex", alignItems:"center", gap:8, padding:"7px 10px", borderRadius:9, border:"none", cursor:"pointer", background:tab===item[0]?"#4f46e5":"transparent", color:tab===item[0]?"#fff":t.sub, fontWeight:700, fontSize:13, marginBottom:2, textAlign:"left" }}>
+          <button key={item[0]} onClick={function(){ setTab(item[0]); setMobileNavOpen(false); }} style={{ width:"100%", display:"flex", alignItems:"center", gap:8, padding:"7px 10px", borderRadius:9, border:"none", cursor:"pointer", background:tab===item[0]?"#4f46e5":"transparent", color:tab===item[0]?"#fff":t.sub, fontWeight:700, fontSize: FONT.base, marginBottom:2, textAlign:"left" }}>
             <span>{item[2]}</span>{item[1]}
           </button>
         );
@@ -1785,19 +1774,19 @@ export default function App({ currentUser, onLogout }) {
       <div style={{ margin:"8px 0", borderTop:"1px solid "+t.border, paddingTop:8 }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", paddingLeft:10, paddingRight:6, marginBottom:6 }}>
           <span style={{ fontSize:10, fontWeight:700, color:t.sub, textTransform:"uppercase" }}>모델 {Object.keys(modelMeta).length}명</span>
-          <button onClick={function(){ setShowModelForm(true); }} style={{ width:22, height:22, borderRadius:6, border:"none", background:"#4f46e5", color:"#fff", cursor:"pointer", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:900 }}>+</button>
+          <button onClick={function(){ setShowModelForm(true); }} style={{ width:22, height:22, borderRadius:6, border:"none", background: COLOR.primary, color:"#fff", cursor:"pointer", fontSize: FONT.md, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:900 }}>+</button>
         </div>
         {Object.keys(modelMeta).map(function(m) {
           return (
             <div key={m} style={{ display:"flex", alignItems:"center", gap:3, marginBottom:2 }}>
-              <button onClick={function(){ setTab(m); setMobileNavOpen(false); }} style={{ flex:1, display:"flex", alignItems:"center", gap:7, padding:"6px 8px", borderRadius:8, border:"none", cursor:"pointer", background:tab===m?"#4f46e5":"transparent", color:tab===m?"#fff":t.sub, fontWeight:700, fontSize:12, textAlign:"left" }}>
+              <button onClick={function(){ setTab(m); setMobileNavOpen(false); }} style={{ flex:1, display:"flex", alignItems:"center", gap:7, padding:"6px 8px", borderRadius:8, border:"none", cursor:"pointer", background:tab===m?"#4f46e5":"transparent", color:tab===m?"#fff":t.sub, fontWeight:700, fontSize: FONT.sm, textAlign:"left" }}>
                 <span style={{ width:20, height:20, borderRadius:5, background:tab===m?"rgba(255,255,255,0.2)":(dark?"#0f172a":"#f1f5f9"), display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, flexShrink:0, fontWeight:900 }}>{modelMeta[m].nameEn[0]}</span>
                 {modelMeta[m].nameKr}
               </button>
               {tab === m && (
                 <div style={{ display:"flex", gap:2 }}>
                   <button onClick={function(){ setEditingModel(m); }} style={{ width:20, height:20, borderRadius:5, border:"none", background:"rgba(255,255,255,0.15)", color:tab===m?"#fff":t.sub, cursor:"pointer", fontSize:10, display:"flex", alignItems:"center", justifyContent:"center" }}>✏</button>
-                  <button onClick={function(){ setDeleteConfirm(m); }} style={{ width:20, height:20, borderRadius:5, border:"none", background:"#ef444440", color:"#ef4444", cursor:"pointer", fontSize:10, display:"flex", alignItems:"center", justifyContent:"center" }}>🗑</button>
+                  <button onClick={function(){ setDeleteConfirm(m); }} style={{ width:20, height:20, borderRadius:5, border:"none", background:"#ef444440", color: COLOR.danger, cursor:"pointer", fontSize:10, display:"flex", alignItems:"center", justifyContent:"center" }}>🗑</button>
                 </div>
               )}
             </div>
@@ -1813,13 +1802,13 @@ export default function App({ currentUser, onLogout }) {
       {editingModel && <ModelFormModal existing={modelMeta[editingModel]} onSave={handleEditModel} onClose={function(){ setEditingModel(null); }} dark={dark} />}
       {deleteConfirm && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.65)", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
-          <div style={{ background:t.card, border:"1px solid "+t.border, borderRadius:16, padding:24, width:"100%", maxWidth:320, textAlign:"center" }}>
+          <div style={{ background:t.card, border:"1px solid "+t.border, borderRadius: RADIUS.lg, padding:24, width:"100%", maxWidth:320, textAlign:"center" }}>
             <div style={{ fontSize:36, marginBottom:10 }}>⚠️</div>
             <h3 style={{ color:t.text, fontWeight:900, marginBottom:8 }}>{deleteConfirm} 삭제</h3>
-            <p style={{ color:t.sub, fontSize:13, marginBottom:20 }}>모든 정산 데이터가 삭제됩니다.</p>
+            <p style={{ color:t.sub, fontSize: FONT.base, marginBottom:20 }}>모든 정산 데이터가 삭제됩니다.</p>
             <div style={{ display:"flex", gap:10 }}>
-              <button onClick={function(){ setDeleteConfirm(null); }} style={{ flex:1, padding:"10px 0", borderRadius:9, border:"1px solid "+t.border, background:"transparent", color:t.sub, fontWeight:700, cursor:"pointer" }}>취소</button>
-              <button onClick={function(){ handleDeleteModel(deleteConfirm); }} style={{ flex:1, padding:"10px 0", borderRadius:9, border:"none", background:"#ef4444", color:"#fff", fontWeight:700, cursor:"pointer" }}>삭제</button>
+              <SecondaryButton onClick={function(){ setDeleteConfirm(null); }} style={{ flex:1 }} dark={dark}>취소</SecondaryButton>
+              <DangerButton onClick={function(){ handleDeleteModel(deleteConfirm); }} style={{ flex:1, background: COLOR.danger, color:"#fff" }}>삭제</DangerButton>
             </div>
           </div>
         </div>
@@ -1838,29 +1827,29 @@ export default function App({ currentUser, onLogout }) {
 
       <header style={{ background:t.card, borderBottom:"1px solid "+t.border, padding:"8px 16px", display:"flex", alignItems:"center", gap:10, position:"sticky", top:0, zIndex:10, boxShadow:"0 1px 6px rgba(0,0,0,0.08)" }}>
         {isMobile && (
-          <button onClick={function(){ setMobileNavOpen(true); }} style={{ width:30, height:30, borderRadius:7, border:"1px solid "+t.border, background:"transparent", color:t.text, cursor:"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>☰</button>
+          <button onClick={function(){ setMobileNavOpen(true); }} style={{ width:30, height:30, borderRadius:7, border:"1px solid "+t.border, background:"transparent", color:t.text, cursor:"pointer", fontSize: FONT.lg, display:"flex", alignItems:"center", justifyContent:"center" }}>☰</button>
         )}
         <img src={process.env.PUBLIC_URL + "/badge-icon.png"} alt="MoMo Agency" style={{ width:34, height:34, borderRadius:9, flexShrink:0, objectFit:"contain" }} />
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ fontWeight:900, color:t.text, fontSize:17, lineHeight:1.15, letterSpacing:-0.3 }}>모델 정산관리 시스템</div>
-          <div style={{ fontSize:10, color:t.sub }}>Model Agency · 2026 소속모델 정산관리</div>
+          <div style={{ fontSize:10, color:t.sub }}>MoMo Agency · 2026 소속모델 정산관리</div>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:5, flexShrink:0 }}>
-          <a href="#projects" style={{ height:28, padding:"0 10px", borderRadius:6, border:"1px solid "+t.border, display:"flex", alignItems:"center", fontWeight:700, fontSize:11, color:t.text, textDecoration:"none" }}>촬영 프로젝트 관리 →</a>
-          <button onClick={undo} disabled={!canUndo} style={{ width:28, height:28, borderRadius:6, border:"1px solid "+t.border, background:canUndo?t.card:"transparent", color:canUndo?t.text:t.sub, cursor:canUndo?"pointer":"not-allowed", fontSize:13, display:"flex", alignItems:"center", justifyContent:"center" }}>↩</button>
-          <button onClick={redo} disabled={!canRedo} style={{ width:28, height:28, borderRadius:6, border:"1px solid "+t.border, background:canRedo?t.card:"transparent", color:canRedo?t.text:t.sub, cursor:canRedo?"pointer":"not-allowed", fontSize:13, display:"flex", alignItems:"center", justifyContent:"center" }}>↪</button>
-          <button onClick={handleSave} disabled={saveStatus==="saving"} style={{ height:28, padding:"0 10px", borderRadius:6, border:"none", cursor:saveStatus==="saving"?"not-allowed":"pointer", fontWeight:700, fontSize:11, background:saveStatus==="saved"?"#d1fae5":saveStatus==="error"?"#fee2e2":unsaved?"#4f46e5":(dark?"#1e293b":"#e2e8f0"), color:saveStatus==="saved"?"#065f46":saveStatus==="error"?"#991b1b":unsaved?"#fff":t.sub }}>
+          <a href="#projects" style={{ height:28, padding:"0 10px", borderRadius:6, border:"1px solid "+t.border, display:"flex", alignItems:"center", fontWeight:700, fontSize: FONT.xs, color:t.text, textDecoration:"none" }}>촬영 프로젝트 관리 →</a>
+          <button onClick={undo} disabled={!canUndo} style={{ width:28, height:28, borderRadius:6, border:"1px solid "+t.border, background:canUndo?t.card:"transparent", color:canUndo?t.text:t.sub, cursor:canUndo?"pointer":"not-allowed", fontSize: FONT.base, display:"flex", alignItems:"center", justifyContent:"center" }}>↩</button>
+          <button onClick={redo} disabled={!canRedo} style={{ width:28, height:28, borderRadius:6, border:"1px solid "+t.border, background:canRedo?t.card:"transparent", color:canRedo?t.text:t.sub, cursor:canRedo?"pointer":"not-allowed", fontSize: FONT.base, display:"flex", alignItems:"center", justifyContent:"center" }}>↪</button>
+          <button onClick={handleSave} disabled={saveStatus==="saving"} style={{ height:28, padding:"0 10px", borderRadius:6, border:"none", cursor:saveStatus==="saving"?"not-allowed":"pointer", fontWeight:700, fontSize: FONT.xs, background:saveStatus==="saved"?"#d1fae5":saveStatus==="error"?"#fee2e2":unsaved?"#4f46e5":(dark?"#1e293b":"#e2e8f0"), color:saveStatus==="saved"?"#065f46":saveStatus==="error"?"#991b1b":unsaved?"#fff":t.sub }}>
             {saveStatus==="saving"?"저장 중...":saveStatus==="saved"?"저장됨":saveStatus==="error"?"실패":unsaved?"저장":"저장됨"}
           </button>
-          <button onClick={function(){ setDark(function(v){ return !v; }); }} style={{ width:28, height:28, borderRadius:6, border:"1px solid "+t.border, background:t.card, color:t.text, cursor:"pointer", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center" }}>{dark?"☀":"🌙"}</button>
-          {currentUser && <span style={{ fontSize:11, color:t.sub, marginLeft:2, whiteSpace:"nowrap" }}>{currentUser.name}</span>}
-          {onLogout && <button onClick={onLogout} title="로그아웃" style={{ width:28, height:28, borderRadius:6, border:"1px solid "+t.border, background:t.card, color:t.sub, cursor:"pointer", fontSize:13, display:"flex", alignItems:"center", justifyContent:"center" }}>🚪</button>}
+          <button onClick={function(){ setDark(function(v){ return !v; }); }} style={{ width:28, height:28, borderRadius:6, border:"1px solid "+t.border, background:t.card, color:t.text, cursor:"pointer", fontSize: FONT.md, display:"flex", alignItems:"center", justifyContent:"center" }}>{dark?"☀":"🌙"}</button>
+          {currentUser && <span style={{ fontSize: FONT.xs, color:t.sub, marginLeft:2, whiteSpace:"nowrap" }}>{currentUser.name}</span>}
+          {onLogout && <button onClick={onLogout} title="로그아웃" style={{ width:28, height:28, borderRadius:6, border:"1px solid "+t.border, background:t.card, color:t.sub, cursor:"pointer", fontSize: FONT.base, display:"flex", alignItems:"center", justifyContent:"center" }}>🚪</button>}
         </div>
       </header>
 
       <div style={{ maxWidth:"100%", margin:"0 auto", padding:"12px "+(isMobile?"12px":"16px"), display:"flex", gap:14, paddingBottom:isMobile?70:16 }}>
         {!isMobile && (
-          <aside style={{ width:165, flexShrink:0 }}>
+          <aside style={{ width:175, flexShrink:0 }}>
             <div style={{ background:t.card, border:"1px solid "+t.border, borderRadius:12, position:"sticky", top:56, overflowY:"auto", maxHeight:"calc(100vh - 70px)" }}>
               {NavContent}
             </div>
