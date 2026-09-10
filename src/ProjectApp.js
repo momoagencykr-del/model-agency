@@ -339,6 +339,10 @@ function ProjectFormModal({ existing, defaultDate, affiliatedModels, paymentInfo
   var [time, setTime] = useState(existing ? existing.time : "");
   var [depositStatus, setDepositStatus] = useState(existing ? existing.depositStatus : "미입금");
   var [note, setNote] = useState(existing ? existing.note : "");
+  var existingInterp = existing && existing.interpreter ? existing.interpreter : { use: false, name: "", fee: "" };
+  var [useInterpreter, setUseInterpreter] = useState(!!existingInterp.use);
+  var [interpName, setInterpName] = useState(existingInterp.name || "");
+  var [interpFee, setInterpFee] = useState(existingInterp.fee || "");
   var [models, setModels] = useState(existing && existing.models ? existing.models.map(function (m) { return Object.assign({}, m); }) : [{ id: uid(), name: "", time: "", agencyPrice: "", reportedPrice: "", handPay: "", opCost: "", partnerRate: 0, useAffiliated: false, linkedModel: "" }]);
   var [totalCost, setTotalCost] = useState(existing ? existing.totalCost : modelSumAgencyPrice(models));
 
@@ -387,6 +391,7 @@ function ProjectFormModal({ existing, defaultDate, affiliatedModels, paymentInfo
       id: projectId,
       date: date, brand: brand.trim(), totalCost: finalTotalCost, time: time,
       depositStatus: depositStatus, note: note, models: cleanModels,
+      interpreter: { use: useInterpreter, name: interpName.trim(), fee: Number(interpFee) || 0 },
     });
   };
 
@@ -479,7 +484,7 @@ function ProjectFormModal({ existing, defaultDate, affiliatedModels, paymentInfo
                 var info = (paymentInfo && paymentInfo[pid]) || { regNo: "", taxType: "3.3%", bank: "", account: "", paid: false };
                 return (
                   <div style={{ paddingTop: 8, marginTop: 2, borderTop: "1px dashed " + t.border }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: COLOR.primary, marginBottom: 6 }}>모델 지급 정보 (저장 즉시 모델 지급관리 탭에 반영됩니다)</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: COLOR.primary, marginBottom: 6 }}>모델 지급 정보 (저장 즉시 섭외비용 지급관리 탭에 반영됩니다)</div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
                       <input value={info.regNo} onChange={function (e) { onChangeInfo(pid, "regNo", e.target.value); }} placeholder="주민등록번호" style={Object.assign({}, inputStyle(t), { padding: "6px 8px", fontSize: 11 })} />
                       <select value={info.taxType} onChange={function (e) { onChangeInfo(pid, "taxType", e.target.value); }} style={{ padding: "6px 8px", borderRadius: 6, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 11 }}>
@@ -500,6 +505,40 @@ function ProjectFormModal({ existing, defaultDate, affiliatedModels, paymentInfo
             </div>
           );
         })}
+
+        <div style={{ marginBottom: 6, background: dark ? "#0c2a2e" : "#ecfeff", border: "1px solid " + (dark ? "#155e63" : "#a5f3fc"), borderRadius: RADIUS.md, padding: "10px 12px" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: useInterpreter ? 10 : 0 }}>
+            <input type="checkbox" checked={useInterpreter} onChange={function (e) { setUseInterpreter(e.target.checked); }} />
+            <span style={{ fontSize: FONT.sm, fontWeight: 800, color: dark ? "#67e8f9" : "#0e7490" }}>🗣 통역사 사용</span>
+          </label>
+          {useInterpreter && (
+            <div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 8 }}>
+                <input value={interpName} onChange={function (e) { setInterpName(e.target.value); }} placeholder="통역사 이름" style={inputStyle(t)} />
+                <input type="number" value={interpFee} onChange={function (e) { setInterpFee(e.target.value); }} placeholder="통역비" style={inputStyle(t)} />
+              </div>
+              {onChangeInfo && (function () {
+                var pid = projectId + "_interpreter";
+                var info = (paymentInfo && paymentInfo[pid]) || { regNo: "", taxType: "3.3%", bank: "", account: "", paid: false };
+                return (
+                  <div style={{ paddingTop: 8, borderTop: "1px dashed " + t.border }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: dark ? "#67e8f9" : "#0e7490", marginBottom: 6 }}>통역사 지급 정보 (저장 즉시 섭외비용 지급관리 탭에 반영됩니다)</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                      <input value={info.regNo} onChange={function (e) { onChangeInfo(pid, "regNo", e.target.value); }} placeholder="주민등록번호" style={Object.assign({}, inputStyle(t), { padding: "6px 8px", fontSize: FONT.xs })} />
+                      <select value={info.taxType} onChange={function (e) { onChangeInfo(pid, "taxType", e.target.value); }} style={{ padding: "6px 8px", borderRadius: RADIUS.sm, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: FONT.xs }}>
+                        <option value="3.3%">3.3% 원천징수</option>
+                        <option value="vat10">부가세 10% (세금계산서)</option>
+                        <option value="none">공제없음</option>
+                      </select>
+                      <input value={info.bank} onChange={function (e) { onChangeInfo(pid, "bank", e.target.value); }} placeholder="입금은행" style={Object.assign({}, inputStyle(t), { padding: "6px 8px", fontSize: FONT.xs })} />
+                      <input value={info.account} onChange={function (e) { onChangeInfo(pid, "account", e.target.value); }} placeholder="입금계좌" style={Object.assign({}, inputStyle(t), { padding: "6px 8px", fontSize: FONT.xs })} />
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+        </div>
 
         <Field label="비고" t={t}><textarea value={note} onChange={function (e) { setNote(e.target.value); }} rows={2} style={Object.assign({}, inputStyle(t), { resize: "vertical" })} /></Field>
 
@@ -756,10 +795,18 @@ function buildPaymentRows(mKey, allProjects, paymentInfo) {
       var pid = p.id + "_" + m.id;
       var info = paymentInfo[pid] || { regNo: "", taxType: "3.3%", bank: "", account: "", paid: false };
       rows.push({
-        pid: pid, date: p.date, brand: p.brand, modelName: m.name, time: p.time,
+        pid: pid, date: p.date, brand: p.brand, modelName: m.name, time: p.time, role: "모델",
         handPay: m.handPay, regNo: info.regNo, taxType: info.taxType, bank: info.bank, account: info.account, paid: info.paid,
       });
     });
+    if (p.interpreter && p.interpreter.use) {
+      var ipid = p.id + "_interpreter";
+      var iinfo = paymentInfo[ipid] || { regNo: "", taxType: "3.3%", bank: "", account: "", paid: false };
+      rows.push({
+        pid: ipid, date: p.date, brand: p.brand, modelName: (p.interpreter.name || "통역사") + " (통역)", time: p.time, role: "통역사",
+        handPay: p.interpreter.fee, regNo: iinfo.regNo, taxType: iinfo.taxType, bank: iinfo.bank, account: iinfo.account, paid: iinfo.paid,
+      });
+    }
   });
   rows.sort(function (a, b) { return (a.date || "").localeCompare(b.date || ""); });
   return rows;
@@ -778,7 +825,7 @@ function csvEscape(v) {
 }
 
 function downloadPaymentsCSV(rows, year, month) {
-  var headers = ["촬영날짜", "브랜드", "모델명", "주민등록번호", "손Pay", "공제방식", "공제액", "최종 입금액", "입금은행", "입금계좌", "지급여부"];
+  var headers = ["촬영날짜", "브랜드", "구분", "모델/통역사명", "주민등록번호", "손Pay", "공제방식", "공제액", "최종 입금액", "입금은행", "입금계좌", "지급여부"];
   var lines = [headers.map(csvEscape).join(",")];
   var totalHandPay = 0, totalDeduction = 0, totalFinal = 0;
   rows.forEach(function (r) {
@@ -787,11 +834,11 @@ function downloadPaymentsCSV(rows, year, month) {
     totalDeduction += c.deduction;
     totalFinal += c.final;
     lines.push([
-      r.date, r.brand, r.modelName, r.regNo, r.handPay,
+      r.date, r.brand, r.role, r.modelName, r.regNo, r.handPay,
       taxTypeLabelKr(r.taxType), c.deduction, c.final, r.bank, r.account, r.paid ? "입금완료" : "미입금",
     ].map(csvEscape).join(","));
   });
-  lines.push(["합계", "", "", "", totalHandPay, "", totalDeduction, totalFinal, "", "", ""].map(csvEscape).join(","));
+  lines.push(["합계", "", "", "", "", totalHandPay, "", totalDeduction, totalFinal, "", "", ""].map(csvEscape).join(","));
 
   var csvContent = "\uFEFF" + lines.join("\r\n");
   var blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -831,7 +878,7 @@ function PaymentsTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
       <div style={{ fontSize: FONT.sm, color: t.sub, fontWeight: 700, marginBottom: 10 }}>지급 예정일: {dueDateLabel(mKey)} (익월말)</div>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
-        <Card title="모델 손Pay 합계" value={fmt(totalHandPay)} t={t} />
+        <Card title="지급 대상 손Pay 합계" value={fmt(totalHandPay)} t={t} />
         <Card title="공제/부가세 합계" value={fmt(totalDeduction)} color="#f59e0b" t={t} />
         <Card title="최종 지급 합계" value={fmt(totalFinal)} color="#10b981" t={t} />
       </div>
@@ -840,14 +887,14 @@ function PaymentsTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: FONT.sm, minWidth: 920 }}>
           <thead>
             <tr style={{ background: t.thead, color: t.sub }}>
-              {["촬영날짜", "브랜드", "모델명", "주민등록번호", "손 Pay", "공제방식", "공제액", "최종 입금액", "입금은행", "입금계좌", "지급여부"].map(function (h) {
+              {["촬영날짜", "브랜드", "구분", "모델/통역사명", "주민등록번호", "손 Pay", "공제방식", "공제액", "최종 입금액", "입금은행", "입금계좌", "지급여부"].map(function (h) {
                 return <th key={h} style={{ padding: "9px 8px", textAlign: "left", fontWeight: 800, whiteSpace: "nowrap" }}>{h}</th>;
               })}
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && (
-              <tr><td colSpan={11} style={{ padding: 20, textAlign: "center", color: t.sub }}>{year}년 {month}월 지급 대상 내역이 없습니다.</td></tr>
+              <tr><td colSpan={12} style={{ padding: 20, textAlign: "center", color: t.sub }}>{year}년 {month}월 지급 대상 내역이 없습니다.</td></tr>
             )}
             {rows.map(function (r) {
               var c = calcPayment(r.handPay, r.taxType);
@@ -855,6 +902,7 @@ function PaymentsTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
                 <tr key={r.pid} style={{ borderTop: "1px solid " + t.border }}>
                   <td style={{ padding: "7px 8px", color: t.text, whiteSpace: "nowrap" }}>{r.date}</td>
                   <td style={{ padding: "7px 8px", color: t.text, whiteSpace: "nowrap" }}>{r.brand}</td>
+                  <td style={{ padding: "7px 8px", whiteSpace: "nowrap" }}><span style={{ fontSize: FONT.xs, fontWeight: 700, padding: "2px 7px", borderRadius: 6, background: r.role === "통역사" ? (dark ? "#0c2a2e" : "#ecfeff") : (dark ? "#1e2a4a" : "#eef2ff"), color: r.role === "통역사" ? (dark ? "#67e8f9" : "#0e7490") : COLOR.primary }}>{r.role}</span></td>
                   <td style={{ padding: "7px 8px", color: t.text, fontWeight: 700, whiteSpace: "nowrap" }}>{r.modelName}</td>
                   <td style={{ padding: "7px 8px" }}><input value={r.regNo} onChange={function (e) { update(r.pid, "regNo", e.target.value); }} placeholder="주민등록번호" style={Object.assign({}, inputStyle(t), { width: 130, padding: "5px 8px" })} /></td>
                   <td style={{ padding: "7px 8px", color: t.text, whiteSpace: "nowrap" }}>{fmt(r.handPay)}</td>
@@ -1148,7 +1196,7 @@ function CalendarDetailModal({ project, paymentInfo, onChangeInfo, affiliatedMod
                 </div>
 
                 <div style={{ paddingTop: 6, borderTop: "1px dashed " + t.border }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: COLOR.primary, marginBottom: 6 }}>지급 정보 (모델 지급관리 연동)</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: COLOR.primary, marginBottom: 6 }}>지급 정보 (섭외비용 지급관리 연동)</div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 6 }}>
                     <input value={info.regNo} onChange={function (e) { onChangeInfo(pid, "regNo", e.target.value); }} placeholder="주민등록번호" style={Object.assign({}, inputStyle(t), { padding: "6px 8px", fontSize: 11 })} />
                     <select value={info.taxType} onChange={function (e) { onChangeInfo(pid, "taxType", e.target.value); }} style={{ padding: "6px 8px", borderRadius: 6, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 11 }}>
@@ -1249,7 +1297,7 @@ function CalendarTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
       <div style={{ marginBottom: 14 }}>
         <MonthStrip year={year} month={month} setYear={setYear} setMonth={setMonth} t={t} dark={dark} />
       </div>
-      <div style={{ fontSize: FONT.sm, color: t.sub, marginBottom: 12 }}>촬영 카드를 클릭하면 모델별 지급 정보(주민등록번호, 공제방식, 계좌, 입금여부)를 바로 등록·수정할 수 있고, 모델 지급관리 탭에도 동일하게 반영됩니다. 카드의 동그라미를 누르면 입금완료 상태를 바로 전환할 수 있습니다.</div>
+      <div style={{ fontSize: FONT.sm, color: t.sub, marginBottom: 12 }}>촬영 카드를 클릭하면 모델별 지급 정보(주민등록번호, 공제방식, 계좌, 입금여부)를 바로 등록·수정할 수 있고, 섭외비용 지급관리 탭에도 동일하게 반영됩니다. 카드의 동그라미를 누르면 입금완료 상태를 바로 전환할 수 있습니다.</div>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
         <Card title="총 섭외비용" value={fmt(monthTotalCost)} color="#4f46e5" t={t} />
@@ -1353,7 +1401,7 @@ export default function ProjectApp({ currentUser, onLogout }) {
   var [dark, setDark] = useState(function () {
     try { return localStorage.getItem("darkMode") === "true"; } catch (e) { return false; }
   });
-  var [tab, setTab] = useState("projects");
+  var [tab, setTab] = useState("calendar");
   var [year, setYear] = useState(NOW_YEAR);
   var [month, setMonth] = useState(NOW_MONTH_NUM);
   var [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -1503,7 +1551,7 @@ export default function ProjectApp({ currentUser, onLogout }) {
     );
   }
 
-  var navItems = [["projects", "월별 촬영 정산내역", "🎬"], ["calendar", "촬영 캘린더", "📅"], ["dashboard", "실적 대시보드", "📈"], ["expenses", "운영비용", "🧾"], ["payments", "모델 지급관리", "💸"]];
+  var navItems = [["calendar", "촬영 캘린더", "📅"], ["projects", "월별 촬영 정산내역", "🎬"], ["dashboard", "실적 대시보드", "📈"], ["expenses", "운영비용", "🧾"], ["payments", "섭외비용 지급관리", "💸"]];
 
   var NavContent = (
     <div style={{ padding: 8 }}>
