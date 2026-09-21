@@ -227,50 +227,113 @@ export default function TaskChecklistTab({ dark }) {
   );
 }
 
+var TEXT_COLORS = ["#e2e8f0", "#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#a855f7"];
+var HILITE_COLORS = ["transparent", "#fef08a", "#bbf7d0", "#bfdbfe", "#fbcfe8"];
+
 // ── 서식 툴바 + contentEditable 메모 영역 ───────────────────────────────
 function NoteEditor({ initialHtml, onChange, t, dark }) {
   var editorRef = useRef(null);
+  var tickState = useState(0);
+  var tick = tickState[1];
+  var refresh = function () { tick(function (n) { return n + 1; }); };
 
   var exec = function (cmd, value) {
     if (editorRef.current) editorRef.current.focus();
     document.execCommand(cmd, false, value || null);
     if (editorRef.current) onChange(editorRef.current.innerHTML);
+    refresh();
+  };
+  var isActive = function (cmd) {
+    try { return document.queryCommandState(cmd); } catch (e) { return false; }
   };
 
-  var toolBtn = function (label, title, onClick) {
+  var insertChecklistLine = function () {
+    exec("insertHTML", '<div>☐ </div>');
+  };
+  var insertLink = function () {
+    var url = window.prompt("연결할 링크 주소를 입력하세요 (https://...)");
+    if (url) exec("createLink", url);
+  };
+  var insertDivider = function () {
+    exec("insertHorizontalRule");
+  };
+
+  // 버튼: 켜져 있을 때(bold 등) 눈에 띄게 강조색으로 표시
+  var toolBtn = function (label, title, onClick, active) {
     return (
       <button
         type="button"
         title={title}
         onMouseDown={function (e) { e.preventDefault(); }}
         onClick={onClick}
-        style={{ minWidth: 30, height: 30, padding: "0 8px", borderRadius: 6, border: "1px solid " + t.border, background: t.card2, color: t.text, fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+        style={{
+          minWidth: 32, height: 32, padding: "0 9px", borderRadius: 7, cursor: "pointer",
+          border: active ? "1.5px solid #4f46e5" : "1.5px solid " + t.border,
+          background: active ? "#4f46e5" : (dark ? "#0f172a" : "#fff"),
+          color: active ? "#fff" : t.text,
+          fontSize: 14, fontWeight: 800, lineHeight: "30px",
+        }}
       >{label}</button>
     );
   };
+  var divider = <div style={{ width: 1, alignSelf: "stretch", background: t.border, margin: "0 2px" }} />;
 
   return (
     <div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 5, padding: "8px 12px", borderTop: "1px solid " + t.border, borderBottom: "1px solid " + t.border }}>
-        {toolBtn(<b>B</b>, "굵게", function () { exec("bold"); })}
-        {toolBtn(<i>I</i>, "기울임", function () { exec("italic"); })}
-        {toolBtn(<span style={{ textDecoration: "underline" }}>U</span>, "밑줄", function () { exec("underline"); })}
-        <div style={{ width: 1, background: t.border, margin: "3px 3px" }} />
-        {toolBtn("•", "글머리 목록", function () { exec("insertUnorderedList"); })}
-        {toolBtn("1.", "번호 목록", function () { exec("insertOrderedList"); })}
-        <div style={{ width: 1, background: t.border, margin: "3px 3px" }} />
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, padding: "10px 12px", borderTop: "1px solid " + t.border, borderBottom: "1px solid " + t.border, background: dark ? "#0b1220" : "#f8fafc" }}>
+        <select
+          onMouseDown={function (e) { if (editorRef.current) editorRef.current.focus(); }}
+          onChange={function (e) { exec("formatBlock", e.target.value); e.target.value = ""; }}
+          defaultValue=""
+          style={{ height: 32, padding: "0 8px", borderRadius: 7, border: "1.5px solid " + t.border, background: dark ? "#0f172a" : "#fff", color: t.text, fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+        >
+          <option value="" disabled>스타일</option>
+          <option value="P">본문</option>
+          <option value="H2">제목 1</option>
+          <option value="H3">제목 2</option>
+        </select>
+        {divider}
+        {toolBtn(<b>B</b>, "굵게", function () { exec("bold"); }, isActive("bold"))}
+        {toolBtn(<i>I</i>, "기울임", function () { exec("italic"); }, isActive("italic"))}
+        {toolBtn(<span style={{ textDecoration: "underline" }}>U</span>, "밑줄", function () { exec("underline"); }, isActive("underline"))}
+        {toolBtn(<span style={{ textDecoration: "line-through" }}>S</span>, "취소선", function () { exec("strikeThrough"); }, isActive("strikeThrough"))}
+        {divider}
+        <span style={{ fontSize: 10, color: t.sub, marginRight: -2 }}>글자색</span>
+        {TEXT_COLORS.map(function (c) {
+          return <button key={c} type="button" title={c} onMouseDown={function (e) { e.preventDefault(); }} onClick={function () { exec("foreColor", c); }} style={{ width: 20, height: 20, borderRadius: "50%", border: "1.5px solid " + t.border, background: c, cursor: "pointer" }} />;
+        })}
+        {divider}
+        <span style={{ fontSize: 10, color: t.sub, marginRight: -2 }}>형광펜</span>
+        {HILITE_COLORS.map(function (c, i) {
+          return (
+            <button key={i} type="button" title={c === "transparent" ? "지우기" : c} onMouseDown={function (e) { e.preventDefault(); }} onClick={function () { exec("hiliteColor", c); }}
+              style={{ width: 20, height: 20, borderRadius: 5, border: "1.5px solid " + t.border, background: c === "transparent" ? (dark ? "#0f172a" : "#fff") : c, cursor: "pointer", position: "relative" }}>
+              {c === "transparent" && <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#ef4444" }}>✕</span>}
+            </button>
+          );
+        })}
+        {divider}
+        {toolBtn("•", "글머리 목록", function () { exec("insertUnorderedList"); }, isActive("insertUnorderedList"))}
+        {toolBtn("1.", "번호 목록", function () { exec("insertOrderedList"); }, isActive("insertOrderedList"))}
+        {toolBtn("☐", "체크리스트 줄 추가", insertChecklistLine)}
+        {divider}
         {toolBtn("→", "들여쓰기", function () { exec("indent"); })}
         {toolBtn("←", "내어쓰기", function () { exec("outdent"); })}
-        <div style={{ width: 1, background: t.border, margin: "3px 3px" }} />
+        {divider}
+        {toolBtn("🔗", "링크 삽입", insertLink)}
+        {toolBtn("—", "구분선 삽입", insertDivider)}
+        {toolBtn("✕", "서식 지우기", function () { exec("removeFormat"); })}
+        {divider}
         {toolBtn("↶", "실행 취소", function () { exec("undo"); })}
         {toolBtn("↷", "다시 실행", function () { exec("redo"); })}
-        {toolBtn("✕", "서식 지우기", function () { exec("removeFormat"); })}
       </div>
       <div
         ref={editorRef}
         contentEditable
         suppressContentEditableWarning
         onInput={function (e) { onChange(e.currentTarget.innerHTML); }}
+        onKeyUp={refresh}
+        onMouseUp={refresh}
         dangerouslySetInnerHTML={{ __html: initialHtml }}
         data-placeholder="이번 주에 한 일, 할 일, 메모를 자유롭게 적어보세요."
         style={{
