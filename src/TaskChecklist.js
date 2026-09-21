@@ -46,6 +46,10 @@ async function saveWork(payload) {
   } catch (e) { return false; }
 }
 
+function escapeHtml(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+function looksLikeHtml(s) { return /<\/?[a-z][\s\S]*>/i.test(s || ""); }
+function textToHtml(s) { return escapeHtml(s || "").split("\n").map(function (line) { return line || "<br>"; }).join("<br>"); }
+
 // ── 옛 구조(카테고리/템플릿/체크박스) 데이터를 새 구조(주차별 자유메모)로 1회 변환 ──
 // 이미 새 형식(checklistWeeklyNotes)이 있으면 그대로 사용, 없으면 과거 기록에서
 // "그 주차에 무슨 업무가 있었는지 · 완료했는지"를 텍스트 줄로 살려서 옮겨준다.
@@ -124,14 +128,21 @@ export default function TaskChecklistTab({ dark }) {
 
   // 타이핑 중 매 글자마다 저장하지 않도록 0.7초 디바운스
   var saveTimerRef = useRef(null);
-  var updateNote = function (periodKey, text) {
+  var notesRef = useRef(notes);
+  notesRef.current = notes;
+  var updateNote = function (periodKey, html) {
     setNotes(function (prev) {
       var next = Object.assign({}, prev);
-      if (text) { next[periodKey] = text; } else { delete next[periodKey]; }
+      var plain = html.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, "").trim();
+      if (plain) { next[periodKey] = html; } else { delete next[periodKey]; }
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(function () { persist(next); }, 700);
       return next;
     });
+  };
+  var saveNow = function () {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    persist(notesRef.current);
   };
 
   if (loading) {
@@ -154,6 +165,7 @@ export default function TaskChecklistTab({ dark }) {
 
   return (
     <div>
+      <style>{"[data-placeholder]:empty:before{content:attr(data-placeholder);color:" + t.sub + ";pointer-events:none;}"}</style>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
         <div style={{ fontSize: 24, fontWeight: 900, color: t.text, letterSpacing: -0.5 }}>업무 체크리스트</div>
         <div style={{ fontSize: 11, color: t.sub }}>{saveStatus === "saving" ? "저장 중..." : saveStatus === "saved" ? "저장됨" : saveStatus === "error" ? "저장 실패" : ""}</div>
@@ -201,22 +213,72 @@ export default function TaskChecklistTab({ dark }) {
       </div>
 
       <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 4 }}>
-        <div style={{ padding: "12px 16px 6px", display: "flex", alignItems: "baseline", gap: 8 }}>
-          <span style={{ fontSize: 16, fontWeight: 900, color: t.text }}>{activeTab.label}</span>
-          <span style={{ fontSize: 12, color: t.sub }}>{activeTab.range}</span>
+        <div style={{ padding: "12px 16px 6px", display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+            <span style={{ fontSize: 16, fontWeight: 900, color: t.text }}>{activeTab.label}</span>
+            <span style={{ fontSize: 12, color: t.sub }}>{activeTab.range}</span>
+          </div>
+          <button onClick={saveNow} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>💾 저장</button>
         </div>
-        <textarea
-          key={activeTab.periodKey}
-          defaultValue={activeText}
-          onChange={function (e) { updateNote(activeTab.periodKey, e.target.value); }}
-          placeholder={"이번 주에 한 일, 할 일, 메모를 자유롭게 적어보세요.\n\n예)\n- 신규 모델 프로필 수집\n- 브랜드 컨택 메일 30건 발송\n- 카야 정산서 발송 예정\n[ ] 세무사에 8월 자료 전달"}
-          style={{
-            width: "100%", minHeight: 420, padding: "10px 16px 18px", border: "none", outline: "none",
-            background: "transparent", color: t.text, fontSize: 14, lineHeight: 1.7, resize: "vertical",
-            boxSizing: "border-box", fontFamily: "inherit",
-          }}
-        />
+
+        <NoteEditor key={activeTab.periodKey} initialHtml={looksLikeHtml(activeText) ? activeText : textToHtml(activeText)} onChange={function (html) { updateNote(activeTab.periodKey, html); }} t={t} dark={dark} />
       </div>
+    </div>
+  );
+}
+
+// ── 서식 툴바 + contentEditable 메모 영역 ───────────────────────────────
+function NoteEditor({ initialHtml, onChange, t, dark }) {
+  var editorRef = useRef(null);
+
+  var exec = function (cmd, value) {
+    if (editorRef.current) editorRef.current.focus();
+    document.execCommand(cmd, false, value || null);
+    if (editorRef.current) onChange(editorRef.current.innerHTML);
+  };
+
+  var toolBtn = function (label, title, onClick) {
+    return (
+      <button
+        type="button"
+        title={title}
+        onMouseDown={function (e) { e.preventDefault(); }}
+        onClick={onClick}
+        style={{ minWidth: 30, height: 30, padding: "0 8px", borderRadius: 6, border: "1px solid " + t.border, background: t.card2, color: t.text, fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+      >{label}</button>
+    );
+  };
+
+  return (
+    <div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 5, padding: "8px 12px", borderTop: "1px solid " + t.border, borderBottom: "1px solid " + t.border }}>
+        {toolBtn(<b>B</b>, "굵게", function () { exec("bold"); })}
+        {toolBtn(<i>I</i>, "기울임", function () { exec("italic"); })}
+        {toolBtn(<span style={{ textDecoration: "underline" }}>U</span>, "밑줄", function () { exec("underline"); })}
+        <div style={{ width: 1, background: t.border, margin: "3px 3px" }} />
+        {toolBtn("•", "글머리 목록", function () { exec("insertUnorderedList"); })}
+        {toolBtn("1.", "번호 목록", function () { exec("insertOrderedList"); })}
+        <div style={{ width: 1, background: t.border, margin: "3px 3px" }} />
+        {toolBtn("→", "들여쓰기", function () { exec("indent"); })}
+        {toolBtn("←", "내어쓰기", function () { exec("outdent"); })}
+        <div style={{ width: 1, background: t.border, margin: "3px 3px" }} />
+        {toolBtn("↶", "실행 취소", function () { exec("undo"); })}
+        {toolBtn("↷", "다시 실행", function () { exec("redo"); })}
+        {toolBtn("✕", "서식 지우기", function () { exec("removeFormat"); })}
+      </div>
+      <div
+        ref={editorRef}
+        contentEditable
+        suppressContentEditableWarning
+        onInput={function (e) { onChange(e.currentTarget.innerHTML); }}
+        dangerouslySetInnerHTML={{ __html: initialHtml }}
+        data-placeholder="이번 주에 한 일, 할 일, 메모를 자유롭게 적어보세요."
+        style={{
+          width: "100%", minHeight: 400, padding: "14px 16px 18px", outline: "none",
+          background: "transparent", color: t.text, fontSize: 14, lineHeight: 1.7,
+          boxSizing: "border-box",
+        }}
+      />
     </div>
   );
 }
