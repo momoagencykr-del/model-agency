@@ -112,16 +112,11 @@ export default function TaskChecklistTab({ dark }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [year, month]);
 
+  // 저장 전 서버에서 다시 읽어와 병합하던 방식은 지연·경쟁 상태(레이스)를 일으켜서 제거.
+  // 이 화면이 들고 있는 notes가 항상 최신 전체 상태이므로 그대로 바로 저장한다.
   var persist = useCallback(async function (nextNotes) {
     setSaveStatus("saving");
-    var current = (await loadWork()) || {};
-    var merged = Object.assign({}, current, { checklistWeeklyNotes: nextNotes });
-    delete merged.checklistTemplates;
-    delete merged.checklistCompletions;
-    delete merged.checklistAdhocEntries;
-    delete merged.checklistCategories;
-    delete merged.checklistAdhocLogs;
-    var ok = await saveWork(merged);
+    var ok = await saveWork({ checklistWeeklyNotes: nextNotes });
     setSaveStatus(ok ? "saved" : "error");
     setTimeout(function () { setSaveStatus("idle"); }, 2000);
   }, []);
@@ -221,7 +216,7 @@ export default function TaskChecklistTab({ dark }) {
           <button onClick={saveNow} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>💾 저장</button>
         </div>
 
-        <NoteEditor key={activeTab.periodKey} initialHtml={looksLikeHtml(activeText) ? activeText : textToHtml(activeText)} onChange={function (html) { updateNote(activeTab.periodKey, html); }} t={t} dark={dark} />
+        <NoteEditor key={activeTab.periodKey} initialHtml={!activeText ? "" : (looksLikeHtml(activeText) ? activeText : textToHtml(activeText))} onChange={function (html) { updateNote(activeTab.periodKey, html); }} t={t} dark={dark} />
       </div>
     </div>
   );
@@ -231,11 +226,20 @@ var TEXT_COLORS = ["#e2e8f0", "#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#a855
 var HILITE_COLORS = ["transparent", "#fef08a", "#bbf7d0", "#bfdbfe", "#fbcfe8"];
 
 // ── 서식 툴바 + contentEditable 메모 영역 ───────────────────────────────
+// 주의: 이 컴포넌트는 마운트 시 딱 한 번만 initialHtml을 채워넣고, 그 뒤로는
+// React가 이 div의 내용을 절대 다시 덮어쓰지 않는다. (타이핑 → 상위 state 갱신
+// → 다시 이 컴포넌트가 리렌더 → dangerouslySetInnerHTML로 innerHTML을 매번
+// 새로 세팅 → 커서가 맨 앞으로 튕기던 것이 "저장/입력이 버벅인다"는 문제의 원인이었음)
 function NoteEditor({ initialHtml, onChange, t, dark }) {
   var editorRef = useRef(null);
   var tickState = useState(0);
   var tick = tickState[1];
   var refresh = function () { tick(function (n) { return n + 1; }); };
+
+  useEffect(function () {
+    if (editorRef.current) editorRef.current.innerHTML = initialHtml;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   var exec = function (cmd, value) {
     if (editorRef.current) editorRef.current.focus();
@@ -334,7 +338,6 @@ function NoteEditor({ initialHtml, onChange, t, dark }) {
         onInput={function (e) { onChange(e.currentTarget.innerHTML); }}
         onKeyUp={refresh}
         onMouseUp={refresh}
-        dangerouslySetInnerHTML={{ __html: initialHtml }}
         data-placeholder="이번 주에 한 일, 할 일, 메모를 자유롭게 적어보세요."
         style={{
           width: "100%", minHeight: 400, padding: "14px 16px 18px", outline: "none",
