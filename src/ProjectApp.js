@@ -857,7 +857,12 @@ function PaymentsTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
   var mKey = monthKey(year, month);
   var rows = buildPaymentRows(mKey, allProjects, paymentInfo);
   var totalHandPay = 0, totalDeduction = 0, totalFinal = 0;
-  rows.forEach(function (r) { var c = calcPayment(r.handPay, r.taxType); totalHandPay += Number(r.handPay) || 0; totalDeduction += c.deduction; totalFinal += c.final; });
+  var interpHandPay = 0, interpCount = 0;
+  rows.forEach(function (r) {
+    var c = calcPayment(r.handPay, r.taxType);
+    totalHandPay += Number(r.handPay) || 0; totalDeduction += c.deduction; totalFinal += c.final;
+    if (r.role === "통역사") { interpHandPay += Number(r.handPay) || 0; interpCount += 1; }
+  });
 
   var update = function (pid, key, value) {
     onChangeInfo(pid, key, value);
@@ -881,6 +886,7 @@ function PaymentsTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
         <Card title="지급 대상 손Pay 합계" value={fmt(totalHandPay)} t={t} />
         <Card title="공제/부가세 합계" value={fmt(totalDeduction)} color="#f59e0b" t={t} />
         <Card title="최종 지급 합계" value={fmt(totalFinal)} color="#10b981" t={t} />
+        <Card title={"통역사 비용 합계 (" + interpCount + "건)"} value={fmt(interpHandPay)} color="#0e7490" t={t} />
       </div>
 
       <div style={{ overflowX: "auto", background: t.card, border: "1px solid " + t.border, borderRadius: 12 }}>
