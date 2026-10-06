@@ -1,6 +1,14 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import * as XLSX from "xlsx";
+import html2canvas from "html2canvas";
 import TaskChecklistTab from "./TaskChecklist";
 import { T, RADIUS, FONT, COLOR, PrimaryButton, SecondaryButton, DangerButton } from "./theme";
+
+// 외국인 모델은 영문 풀네임, 한국인 모델은 한글 이름으로 — 문서/정산서에 표기할 이름
+function displayName(meta) {
+  if (!meta) return "";
+  return meta.nationality === "한국" ? meta.nameKr : (meta.fullName || meta.nameKr);
+}
 
 const MODEL_META_KEY = "modelAgencyMeta_v3";
 const MODEL_DATA_KEY = "modelAgencyData_v3";
@@ -415,32 +423,34 @@ function SettlementReport({ model, meta, data, month, dark }) {
   var allEntries = md.agency.map(function(e){ return Object.assign({}, e, { type:"에이전시", af:meta.agencyAF }); })
     .concat(md.self.map(function(e){ return Object.assign({}, e, { type:"모델직접", af:meta.modelAF }); }));
 
+  var [downloading, setDownloading] = useState(false);
   var handleDownload = function() {
     var el = reportRef.current;
     if (!el) return;
-    var scale = 2;
-    var canvas = document.createElement("canvas");
-    var rect = el.getBoundingClientRect();
-    canvas.width = rect.width * scale;
-    canvas.height = rect.height * scale;
-    var ctx = canvas.getContext("2d");
-    ctx.scale(scale, scale);
-    ctx.fillStyle = dark ? "#1e293b" : "#ffffff";
-    ctx.fillRect(0, 0, rect.width, rect.height);
-    var data_url = canvas.toDataURL("image/png");
-    var a = document.createElement("a");
-    a.download = meta.nameKr + "_" + month + "_정산서.png";
-    a.href = data_url;
-    a.click();
-    alert("브라우저 인쇄(Ctrl+P)를 사용하면 더 정확한 이미지를 저장할 수 있습니다.");
+    setDownloading(true);
+    html2canvas(el, {
+      scale: 2,
+      backgroundColor: dark ? "#1e293b" : "#ffffff",
+      useCORS: true,
+    }).then(function (canvas) {
+      var dataUrl = canvas.toDataURL("image/png");
+      var a = document.createElement("a");
+      a.download = meta.nameKr + "_" + month + "_정산서.png";
+      a.href = dataUrl;
+      a.click();
+      setDownloading(false);
+    }).catch(function (err) {
+      setDownloading(false);
+      alert("이미지 생성에 실패했습니다. 다시 시도해주세요.");
+    });
   };
 
   return (
     <div>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14, flexWrap:"wrap", gap:8 }}>
         <h3 style={{ color:t.text, fontWeight:900, fontSize:15, margin:0 }}>{meta.nameKr} · {month} 정산서</h3>
-        <button onClick={handleDownload} style={{ background: COLOR.primary, color:"#fff", border:"none", borderRadius:8, padding:"8px 16px", fontWeight:700, fontSize: FONT.sm, cursor:"pointer" }}>
-          📥 다운로드 (인쇄)
+        <button onClick={handleDownload} disabled={downloading} style={{ background: COLOR.primary, color:"#fff", border:"none", borderRadius:8, padding:"8px 16px", fontWeight:700, fontSize: FONT.sm, cursor: downloading ? "default" : "pointer", opacity: downloading ? 0.7 : 1 }}>
+          {downloading ? "이미지 생성 중..." : "📥 다운로드 (PNG)"}
         </button>
       </div>
       <div ref={reportRef} style={{ background:dark?"#1e293b":"#fff", borderRadius:14, padding:20, border:"1px solid "+t.border }}>
@@ -1322,26 +1332,24 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo, dark }) {
   var commitEdit = function(model) { onUpdateRegNo(model, regNoInput); setEditingRegNo(null); };
 
   var exportExcel = function() {
-    var head = ["모델","외국인등록번호","총매출","에이전시수익","세금(3.3%)","모델순수익(입금액)"];
-    var body = rows.map(function(r) {
-      return [r.meta.nameKr, r.meta.regNo || "", r.inc, r.agencyRev, r.tax, r.final];
+    // 에이전시 수익(회사 내부 마진)은 외부로 나가는 문서라 제외. 이름은 외국인 모델은 영문 풀네임, 한국인은 한글.
+    var head = ["모델","외국인등록번호","총매출","세금(3.3%)","모델순수익(입금액)"];
+    var aoa = [head];
+    rows.forEach(function(r) {
+      aoa.push([displayName(r.meta), r.meta.regNo || "", r.inc, r.tax, r.final]);
     });
-    var footer = ["합계", "", tI, tA, tT, tF];
-    var html = "<table border='1'><thead><tr>" + head.map(function(h){ return "<th>"+h+"</th>"; }).join("") + "</tr></thead><tbody>"
-      + body.map(function(row){ return "<tr>" + row.map(function(c){ return "<td>"+c+"</td>"; }).join("") + "</tr>"; }).join("")
-      + "<tr>" + footer.map(function(c){ return "<td><b>"+c+"</b></td>"; }).join("") + "</tr>"
-      + "</tbody></table>";
-    var blob = new Blob(["\ufeff", "<html><head><meta charset='utf-8'></head><body>" + html + "</body></html>"], { type: "application/vnd.ms-excel" });
-    var a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = month + "_세무요약.xls";
-    a.click();
+    aoa.push(["합계", "", tI, tT, tF]);
+    var ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws["!cols"] = [{ wch: 20 }, { wch: 16 }, { wch: 14 }, { wch: 12 }, { wch: 16 }];
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "세무요약");
+    XLSX.writeFile(wb, month + "_세무요약.xlsx");
   };
 
   var exportPDF = function() {
-    var head = ["모델","외국인등록번호","총매출","에이전시수익","세금(3.3%)","모델순수익(입금액)"];
+    var head = ["모델","외국인등록번호","총매출","세금(3.3%)","모델순수익(입금액)"];
     var body = rows.map(function(r) {
-      return [r.meta.nameKr, r.meta.regNo || "-", fmt(r.inc), fmt(r.agencyRev), fmt(r.tax), fmt(r.final)];
+      return [displayName(r.meta), r.meta.regNo || "-", fmt(r.inc), fmt(r.tax), fmt(r.final)];
     });
     var win = window.open("", "_blank");
     if (!win) { alert("팝업이 차단되었습니다. 팝업 허용 후 다시 시도해주세요."); return; }
@@ -1352,7 +1360,7 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo, dark }) {
       "</head><body>" +
       "<h1>MoMo Agency — " + month + " 세무 요약</h1>" +
       "<table><thead><tr>" + head.map(function(h){ return "<th>"+h+"</th>"; }).join("") + "</tr></thead><tbody>" + rowsHtml +
-      "</tbody><tfoot><tr><td>합계</td><td></td><td>" + fmt(tI) + "</td><td>" + fmt(tA) + "</td><td>" + fmt(tT) + "</td><td>" + fmt(tF) + "</td></tr></tfoot></table>" +
+      "</tbody><tfoot><tr><td>합계</td><td></td><td>" + fmt(tI) + "</td><td>" + fmt(tT) + "</td><td>" + fmt(tF) + "</td></tr></tfoot></table>" +
       "</body></html>"
     );
     win.document.close();
@@ -1362,27 +1370,25 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo, dark }) {
 
   var exportTaxFilingExcel = function() {
     var head = ["이름","국적","외국인등록번호","모델 입금 비용","원천징수(3.3%)"];
-    var body = taxRows.map(function(r) {
-      return [r.meta.fullName, r.meta.nationality, r.meta.regNo || "", r.final + r.tax, r.tax];
-    });
     var tTaxFinal = taxRows.reduce(function(s,r){ return s + r.final + r.tax; }, 0);
     var tTaxTax = taxRows.reduce(function(s,r){ return s + r.tax; }, 0);
-    var footer = ["합계", "", "", tTaxFinal, tTaxTax];
-    var html = "<table border='1'><thead><tr>" + head.map(function(h){ return "<th>"+h+"</th>"; }).join("") + "</tr></thead><tbody>"
-      + body.map(function(row){ return "<tr>" + row.map(function(c){ return "<td>"+c+"</td>"; }).join("") + "</tr>"; }).join("")
-      + "<tr>" + footer.map(function(c){ return "<td><b>"+c+"</b></td>"; }).join("") + "</tr>"
-      + "</tbody></table><p>※ 모델 입금 비용 = 최종입금 + 세금액</p>";
-    var blob = new Blob(["\ufeff", "<html><head><meta charset='utf-8'></head><body>" + html + "</body></html>"], { type: "application/vnd.ms-excel" });
-    var a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = month + "_세무서신고용.xls";
-    a.click();
+    var aoa = [head];
+    taxRows.forEach(function(r) {
+      aoa.push([displayName(r.meta), r.meta.nationality, r.meta.regNo || "", r.final + r.tax, r.tax]);
+    });
+    aoa.push(["합계", "", "", tTaxFinal, tTaxTax]);
+    aoa.push(["※ 모델 입금 비용 = 최종입금 + 세금액"]);
+    var ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws["!cols"] = [{ wch: 22 }, { wch: 10 }, { wch: 16 }, { wch: 16 }, { wch: 14 }];
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "세무서신고용");
+    XLSX.writeFile(wb, month + "_세무서신고용.xlsx");
   };
 
   var exportTaxFilingPDF = function() {
     var head = ["이름","국적","외국인등록번호","모델 입금 비용","원천징수(3.3%)"];
     var body = taxRows.map(function(r) {
-      return [r.meta.fullName, r.meta.nationality, r.meta.regNo || "미입력", fmt(r.final + r.tax), fmt(r.tax)];
+      return [displayName(r.meta), r.meta.nationality, r.meta.regNo || "미입력", fmt(r.final + r.tax), fmt(r.tax)];
     });
     var tTaxFinal = taxRows.reduce(function(s,r){ return s + r.final + r.tax; }, 0);
     var tTaxTax = taxRows.reduce(function(s,r){ return s + r.tax; }, 0);
