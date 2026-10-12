@@ -1297,7 +1297,6 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo, dark }) {
   var nowIdx = MONTHS.indexOf(NOW_MONTH);
   var [startIdx, setStartIdx] = useState(Math.max(0, nowIdx - 2));
   var [endIdx, setEndIdx] = useState(nowIdx);
-  var [basis, setBasis] = useState("gross"); // gross | tax | final
   var [editingRegNo, setEditingRegNo] = useState(null);
   var [regNoInput, setRegNoInput] = useState("");
   var [ext, setExt] = useState({ projects: [], paymentInfo: {} });
@@ -1362,47 +1361,43 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo, dark }) {
     }
   });
 
-  var cell = function (person, idx) { var m = person.months[idx]; return m ? m[basis] : 0; };
-  var personTotal = function (person) { return monthIdxs.reduce(function (s, idx) { return s + cell(person, idx); }, 0); };
+  // 월별 칸은 모델 수익(세전), 오른쪽에 기간 합산(세전 · 원천징수 · 입금액)을 한 행에 모두 표시
+  var cell = function (person, idx) { var m = person.months[idx]; return m ? m.gross : 0; };
+  var pSum = function (person, key) { return monthIdxs.reduce(function (s, idx) { return s + ((person.months[idx] || {})[key] || 0); }, 0); };
   var monthTotal = function (idx) { return people.reduce(function (s, pr) { return s + cell(pr, idx); }, 0); };
-  var grandTotal = people.reduce(function (s, pr) { return s + personTotal(pr); }, 0);
-  var allSum = function (key) { return people.reduce(function (s, pr) { return s + monthIdxs.reduce(function (x, idx) { return x + ((pr.months[idx] || {})[key] || 0); }, 0); }, 0); };
+  var allSum = function (key) { return people.reduce(function (s, pr) { return s + pSum(pr, key); }, 0); };
 
   var order = { "소속": 0, "외부모델": 1, "통역/매니저": 2 };
   people.sort(function (a, b) { return (order[a.src] - order[b.src]); });
 
-  var basisLabel = { gross: "모델 수익(세전)", tax: "원천징수(3.3%)", final: "입금액(실지급)" }[basis];
   var won = function (n) { return n > 0 ? "₩" + Math.round(n).toLocaleString() : ""; };
 
   var startEdit = function (model, cur) { setEditingRegNo(model); setRegNoInput(cur || ""); };
   var commitEdit = function (model) { onUpdateRegNo(model, regNoInput); setEditingRegNo(null); };
 
-  var buildAoa = function (b) {
-    var head = ["이름", "번호"].concat(monthIdxs.map(function (i) { return MONTHS[i]; })).concat(["합산"]);
+  var buildAoa = function () {
+    var head = ["이름", "번호"].concat(monthIdxs.map(function (i) { return MONTHS[i]; })).concat(["모델 수익(세전)", "원천징수(3.3%)", "입금액"]);
     var aoa = [head];
     people.forEach(function (pr) {
-      var vals = monthIdxs.map(function (i) { var m = pr.months[i]; return m ? m[b] : ""; });
-      aoa.push([pr.name, pr.regNo || ""].concat(vals).concat([monthIdxs.reduce(function (s, i) { return s + ((pr.months[i] || {})[b] || 0); }, 0)]));
+      var vals = monthIdxs.map(function (i) { var m = pr.months[i]; return m ? m.gross : ""; });
+      aoa.push([pr.name, pr.regNo || ""].concat(vals).concat([pSum(pr, "gross"), pSum(pr, "tax"), pSum(pr, "final")]));
     });
     aoa.push([]);
-    var tot = people.reduce(function (s, pr) { return s + monthIdxs.reduce(function (x, i) { return x + ((pr.months[i] || {})[b] || 0); }, 0); }, 0);
     var blanks = []; for (var k = 0; k < monthIdxs.length - 1; k++) blanks.push("");
-    aoa.push(["", ""].concat(blanks).concat([rangeLabel + " 인건비총액", tot]));
+    aoa.push(["", ""].concat(blanks).concat([rangeLabel + " 인건비총액", allSum("gross"), allSum("tax"), allSum("final")]));
     return aoa;
   };
 
   var exportExcel = function () {
     var wb = XLSX.utils.book_new();
-    [["gross", "모델수익(세전)"], ["tax", "원천징수"], ["final", "입금액"]].forEach(function (pair, i) {
-      var ws = XLSX.utils.aoa_to_sheet(buildAoa(pair[0]));
-      ws["!cols"] = [{ wch: 28 }, { wch: 18 }].concat(monthIdxs.map(function () { return { wch: 14 }; })).concat([{ wch: 22 }]);
-      XLSX.utils.book_append_sheet(wb, ws, pair[1]);
-    });
+    var ws = XLSX.utils.aoa_to_sheet(buildAoa());
+    ws["!cols"] = [{ wch: 28 }, { wch: 18 }].concat(monthIdxs.map(function () { return { wch: 14 }; })).concat([{ wch: 20 }, { wch: 16 }, { wch: 14 }]);
+    XLSX.utils.book_append_sheet(wb, ws, "인건비");
     XLSX.writeFile(wb, year + "_" + rangeLabel + "_인건비.xlsx");
   };
 
   var exportPDF = function () {
-    var aoa = buildAoa(basis);
+    var aoa = buildAoa();
     var win = window.open("", "_blank");
     if (!win) { alert("팝업이 차단되었습니다. 팝업 허용 후 다시 시도해주세요."); return; }
     var n = function (v) { return typeof v === "number" ? (v ? "₩" + Math.round(v).toLocaleString() : "") : (v || ""); };
@@ -1410,7 +1405,7 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo, dark }) {
       var tag = ri === 0 ? "th" : "td";
       return "<tr>" + row.map(function (c, ci) { return "<" + tag + (ci > 1 ? " class='r'" : "") + ">" + n(c) + "</" + tag + ">"; }).join("") + "</tr>";
     }).join("");
-    win.document.write("<html><head><meta charset='utf-8'><title>" + rangeLabel + "_인건비</title><style>body{font-family:sans-serif;padding:24px;}h1{font-size:18px;}table{border-collapse:collapse;margin-top:12px;}th,td{border:1px solid #ccc;padding:7px 10px;font-size:12px;}.r{text-align:right;}th{background:#f1f5f9;}</style></head><body><h1>MoMo Agency — " + year + "년 " + rangeLabel + " 인건비 (" + basisLabel + ")</h1><table>" + html + "</table></body></html>");
+    win.document.write("<html><head><meta charset='utf-8'><title>" + rangeLabel + "_인건비</title><style>body{font-family:sans-serif;padding:24px;}h1{font-size:18px;}table{border-collapse:collapse;margin-top:12px;}th,td{border:1px solid #ccc;padding:7px 10px;font-size:12px;}.r{text-align:right;}th{background:#f1f5f9;}@page{size:landscape;}</style></head><body><h1>MoMo Agency — " + year + "년 " + rangeLabel + " 인건비</h1><table>" + html + "</table></body></html>");
     win.document.close(); win.focus(); setTimeout(function () { win.print(); }, 300);
   };
 
@@ -1433,28 +1428,24 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo, dark }) {
           <select value={startIdx} onChange={function (e) { setStartIdx(Number(e.target.value)); }} style={sel}>{MONTHS.map(function (m, i) { return <option key={m} value={i}>{year}년 {m}</option>; })}</select>
           <span style={{ color: t.sub }}>~</span>
           <select value={endIdx} onChange={function (e) { setEndIdx(Number(e.target.value)); }} style={sel}>{MONTHS.map(function (m, i) { return <option key={m} value={i}>{year}년 {m}</option>; })}</select>
-          <div style={{ display: "flex", gap: 4, marginLeft: "auto", flexWrap: "wrap" }}>
-            {[["gross", "모델 수익(세전)"], ["tax", "원천징수 3.3%"], ["final", "입금액"]].map(function (o) {
-              var on = basis === o[0];
-              return <button key={o[0]} onClick={function () { setBasis(o[0]); }} style={{ padding: "6px 11px", borderRadius: 8, border: on ? "none" : "1px solid " + t.border, background: on ? COLOR.primary : "transparent", color: on ? "#fff" : t.sub, fontWeight: 700, fontSize: FONT.xs, cursor: "pointer" }}>{o[1]}</button>;
-            })}
-          </div>
         </div>
       </div>
 
       <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 12, overflow: "hidden", marginBottom: 8 }}>
         <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-          <table style={{ width: "100%", fontSize: FONT.sm, borderCollapse: "collapse", minWidth: 420 + monthIdxs.length * 110 }}>
+          <table style={{ width: "100%", fontSize: FONT.sm, borderCollapse: "collapse", minWidth: 560 + monthIdxs.length * 110 }}>
             <thead>
               <tr>
                 <th style={th("left")}>이름</th>
                 <th style={th("left")}>번호</th>
                 {monthIdxs.map(function (i) { return <th key={i} style={th("right")}>{MONTHS[i]}</th>; })}
-                <th style={Object.assign({}, th("right"), { background: dark ? "#3b2a1a" : "#fed7aa", color: dark ? "#fdba74" : "#9a3412" })}>합산</th>
+                <th style={Object.assign({}, th("right"), { background: dark ? "#3b2a1a" : "#fed7aa", color: dark ? "#fdba74" : "#9a3412" })}>모델 수익(세전)</th>
+                <th style={Object.assign({}, th("right"), { color: COLOR.danger })}>원천징수(3.3%)</th>
+                <th style={Object.assign({}, th("right"), { color: COLOR.success })}>입금액</th>
               </tr>
             </thead>
             <tbody>
-              {people.length === 0 && <tr><td colSpan={monthIdxs.length + 3} style={{ padding: 24, textAlign: "center", color: t.sub }}>해당 기간에 지급 내역이 없습니다.</td></tr>}
+              {people.length === 0 && <tr><td colSpan={monthIdxs.length + 5} style={{ padding: 24, textAlign: "center", color: t.sub }}>해당 기간에 지급 내역이 없습니다.</td></tr>}
               {people.map(function (pr) {
                 var sc = srcColor[pr.src];
                 return (
@@ -1465,18 +1456,21 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo, dark }) {
                         <span style={{ fontWeight: 800, color: t.text, fontSize: 12 }}>{pr.name}</span>
                       </div>
                     </td>
-                    <td style={{ padding: "9px 10px" }}>
+                    <td style={{ padding: "9px 10px", whiteSpace: "nowrap" }}>
                       {pr.model && editingRegNo === pr.model ? (
                         <input autoFocus value={regNoInput} onChange={function (e) { setRegNoInput(fmtRegNo(e.target.value)); }} onBlur={function () { commitEdit(pr.model); }} onKeyDown={function (e) { if (e.key === "Enter") commitEdit(pr.model); }} placeholder="000000-0000000" maxLength={14}
                           style={{ border: "2px solid #f59e0b", borderRadius: 6, padding: "3px 7px", fontSize: FONT.xs, width: 120, outline: "none", fontFamily: "monospace", background: t.input, color: t.text }} />
-                      ) : pr.model ? (
-                        <button onClick={function () { startEdit(pr.model, pr.regNo); }} style={{ background: "transparent", border: "1px dashed #f59e0b", borderRadius: 6, padding: "2px 8px", fontSize: FONT.xs, cursor: "pointer", color: pr.regNo ? t.text : "#b45309", fontFamily: "monospace", whiteSpace: "nowrap" }}>{pr.regNo || "입력"}</button>
                       ) : (
-                        <span style={{ fontFamily: "monospace", fontSize: FONT.xs, color: pr.regNo ? t.text : "#b45309" }}>{pr.regNo || "미입력(촬영관리에서 입력)"}</span>
+                        <span style={{ fontFamily: "monospace", fontSize: FONT.sm, color: pr.regNo ? t.text : "#b45309" }}>
+                          {pr.regNo || (pr.model ? "미입력" : "미입력(촬영관리)")}
+                          {pr.model && <button title="번호 수정" onClick={function () { startEdit(pr.model, pr.regNo); }} style={{ marginLeft: 6, background: "transparent", border: "none", cursor: "pointer", color: t.sub, fontSize: 11, padding: 0 }}>✎</button>}
+                        </span>
                       )}
                     </td>
                     {monthIdxs.map(function (i) { return <td key={i} style={{ padding: "9px 10px", textAlign: "right", color: t.text, fontWeight: 600, fontSize: 12, whiteSpace: "nowrap" }}>{won(cell(pr, i))}</td>; })}
-                    <td style={{ padding: "9px 10px", textAlign: "right", fontWeight: 900, fontSize: 12, whiteSpace: "nowrap", background: dark ? "#3b2a1a" : "#ffedd5", color: dark ? "#fdba74" : "#9a3412" }}>{won(personTotal(pr))}</td>
+                    <td style={{ padding: "9px 10px", textAlign: "right", fontWeight: 900, fontSize: 12, whiteSpace: "nowrap", background: dark ? "#3b2a1a" : "#ffedd5", color: dark ? "#fdba74" : "#9a3412" }}>{won(pSum(pr, "gross"))}</td>
+                    <td style={{ padding: "9px 10px", textAlign: "right", fontWeight: 800, fontSize: 12, whiteSpace: "nowrap", color: COLOR.danger }}>{won(pSum(pr, "tax")) || "-"}</td>
+                    <td style={{ padding: "9px 10px", textAlign: "right", fontWeight: 900, fontSize: 12, whiteSpace: "nowrap", color: COLOR.success }}>{won(pSum(pr, "final"))}</td>
                   </tr>
                 );
               })}
@@ -1484,7 +1478,9 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo, dark }) {
                 <tr style={{ background: dark ? "#1e293b" : "#f1f5f9" }}>
                   <td colSpan={2} style={{ padding: "9px 10px", fontWeight: 900, color: t.text, fontSize: 12 }}>월별 합계</td>
                   {monthIdxs.map(function (i) { return <td key={i} style={{ padding: "9px 10px", textAlign: "right", fontWeight: 800, color: t.text, fontSize: 12, whiteSpace: "nowrap" }}>{won(monthTotal(i))}</td>; })}
-                  <td style={{ padding: "9px 10px" }} />
+                  <td style={{ padding: "9px 10px", textAlign: "right", fontWeight: 900, fontSize: 12, color: t.text }}>{won(allSum("gross"))}</td>
+                  <td style={{ padding: "9px 10px", textAlign: "right", fontWeight: 900, fontSize: 12, color: COLOR.danger }}>{won(allSum("tax")) || "-"}</td>
+                  <td style={{ padding: "9px 10px", textAlign: "right", fontWeight: 900, fontSize: 12, color: COLOR.success }}>{won(allSum("final"))}</td>
                 </tr>
               )}
             </tbody>
@@ -1492,14 +1488,18 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo, dark }) {
         </div>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
         <div style={{ background: "#fde047", color: "#1f2937", borderRadius: 10, padding: "10px 16px", display: "flex", gap: 14, alignItems: "baseline" }}>
-          <span style={{ fontSize: FONT.sm, fontWeight: 800 }}>{rangeLabel} 인건비총액 ({basisLabel})</span>
-          <span style={{ fontSize: FONT.lg, fontWeight: 900 }}>{"₩" + Math.round(grandTotal).toLocaleString()}</span>
+          <span style={{ fontSize: FONT.sm, fontWeight: 800 }}>{rangeLabel} 인건비총액 (세전)</span>
+          <span style={{ fontSize: FONT.lg, fontWeight: 900 }}>{"₩" + Math.round(allSum("gross")).toLocaleString()}</span>
+        </div>
+        <div style={{ background: dark ? "#071a14" : "#f0fdf4", color: COLOR.success, borderRadius: 10, padding: "10px 16px", display: "flex", gap: 14, alignItems: "baseline" }}>
+          <span style={{ fontSize: FONT.sm, fontWeight: 800 }}>실지급(입금액)</span>
+          <span style={{ fontSize: FONT.lg, fontWeight: 900 }}>{"₩" + Math.round(allSum("final")).toLocaleString()}</span>
         </div>
       </div>
       <p style={{ fontSize: FONT.xs, color: t.sub, margin: "4px 2px" }}>
-        세전 {won(allSum("gross")) || "-"} = 원천징수 {won(allSum("tax")) || "-"} + 입금액 {won(allSum("final")) || "-"} · 소속모델 + 촬영관리 시스템의 외부모델·통역/매니저 지급건 포함{extLoaded ? "" : " (촬영관리 데이터 불러오는 중...)"}
+        월별 칸은 모델 수익(세전) 기준 · 세전 = 원천징수 + 입금액 · 소속모델 + 촬영관리 시스템의 외부모델·통역/매니저 지급건 포함{extLoaded ? "" : " (촬영관리 데이터 불러오는 중...)"}
       </p>
     </div>
   );
