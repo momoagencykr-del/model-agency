@@ -580,6 +580,36 @@ async function fetchBookedProjects() {
   } catch (e) { return []; }
 }
 
+// 촬영 프로젝트 관리 시스템의 촬영건 + 지급정보(주민번호/공제방식)를 함께 읽어옴
+async function fetchProjectBundle() {
+  try {
+    var r = await fetch("/api/project-sheets");
+    var j = await r.json();
+    var saved = j && j.data;
+    if (!saved) return { projects: [], paymentInfo: {} };
+    var projects = [];
+    if (Array.isArray(saved.projects)) projects = saved.projects;
+    else if (saved.projects && typeof saved.projects === "object") {
+      Object.keys(saved.projects).forEach(function (k) { (saved.projects[k] || []).forEach(function (p) { projects.push(p); }); });
+    }
+    var pi = {};
+    var raw = saved.paymentInfo || {};
+    var nested = Object.keys(raw).some(function (k) { return /^\d{4}-\d{2}$/.test(k); });
+    if (nested) Object.keys(raw).forEach(function (mk) { Object.keys(raw[mk] || {}).forEach(function (pid) { pi[pid] = raw[mk][pid]; }); });
+    else pi = raw;
+    return { projects: projects, paymentInfo: pi };
+  } catch (e) { return { projects: [], paymentInfo: {} }; }
+}
+
+// 손Pay 기준 공제 계산 (촬영관리 시스템 calcPayment와 동일 규칙)
+function payCalc(handPay, taxType) {
+  var hp = Number(handPay) || 0;
+  if (taxType === "vat10") return { gross: hp, tax: 0, net: hp + Math.round(hp * 0.1) };
+  if (taxType === "none") return { gross: hp, tax: 0, net: hp };
+  var d = Math.round(hp * 0.033);
+  return { gross: hp, tax: d, net: hp - d };
+}
+
 async function fetchCalendarEvents() {
   try {
     var r = await fetch("/api/calendar-sheets");
@@ -1250,7 +1280,7 @@ function ModelDetail({ model, meta, data, addEntry, removeEntry, updateEntry, on
 }
 
 // ── 세무 요약 행 ──────────────────────────────────────────────────────────────
-function TaxRow({ model, meta, inc, tax, final, agencyRev, monthData, editingRegNo, regNoInput, onStartEdit, onCommitEdit, onRegNoInput, dark }) {
+function TaxRow({ model, meta, tax, final, monthData, editingRegNo, regNoInput, onStartEdit, onCommitEdit, onRegNoInput, dark }) {
   var t = T(dark);
   var [exp, setExp] = useState(false);
   var all = monthData.agency.map(function(e){ return Object.assign({}, e, { type:"에이전시", af:meta.agencyAF }); })
@@ -1262,8 +1292,11 @@ function TaxRow({ model, meta, inc, tax, final, agencyRev, monthData, editingReg
           <div style={{ display:"flex", alignItems:"center", gap:7 }}>
             <button onClick={function(){ if(all.length>0) setExp(function(v){ return !v; }); }} style={{ width:20, height:20, borderRadius:5, border:"1px solid "+t.border, background:"transparent", cursor:all.length>0?"pointer":"default", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, transition:"transform 0.2s", transform:exp?"rotate(0deg)":"rotate(-90deg)", color:t.sub, fontSize:9 }}>▼</button>
             <div>
-              <div style={{ fontWeight:800, color:t.text, fontSize:12 }}>{meta.nameKr}</div>
-              <div style={{ fontSize:9, color:t.sub }}>{meta.nationality}</div>
+              <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                <span style={{ fontSize:9, fontWeight:800, padding:"1px 6px", borderRadius:5, background:dark?"#1e1b4b":"#eef2ff", color: COLOR.primary }}>소속</span>
+                <span style={{ fontWeight:800, color:t.text, fontSize:12 }}>{displayName(meta)}</span>
+              </div>
+              <div style={{ fontSize:9, color:t.sub }}>{meta.nameKr} · {meta.nationality}</div>
             </div>
           </div>
         </td>
@@ -1277,14 +1310,13 @@ function TaxRow({ model, meta, inc, tax, final, agencyRev, monthData, editingReg
             </button>
           )}
         </td>
-        <td style={{ padding:"9px 10px", textAlign:"right", color:t.sub, fontWeight:600, fontSize:12 }}>{inc>0?fmt(inc):"-"}</td>
-        <td style={{ padding:"9px 10px", textAlign:"right", color: COLOR.purple, fontWeight:800, fontSize:12 }}>{agencyRev>0?fmt(agencyRev):"-"}</td>
+        <td style={{ padding:"9px 10px", textAlign:"right", color:t.text, fontWeight:700, fontSize:12 }}>{(final+tax)>0?fmt(final+tax):"-"}</td>
         <td style={{ padding:"9px 10px", textAlign:"right", color: COLOR.danger, fontWeight:800, fontSize:12 }}>{tax>0?fmt(tax):"-"}</td>
         <td style={{ padding:"9px 10px", textAlign:"right", color: COLOR.success, fontWeight:900, fontSize:12 }}>{final>0?fmt(final):"-"}</td>
       </tr>
       {exp && (
         <tr>
-          <td colSpan={6} style={{ padding:0, background:dark?"#0f172a":"#f8f9ff", borderBottom:"1px solid "+t.border }}>
+          <td colSpan={5} style={{ padding:0, background:dark?"#0f172a":"#f8f9ff", borderBottom:"1px solid "+t.border }}>
             <div style={{ padding:"10px 12px 12px 44px" }}>
               {all.map(function(e) {
                 var c = calc(e.income, e.af, e.otherDeduct);
@@ -1312,55 +1344,96 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo, dark }) {
   var [month, setMonth] = useState(NOW_MONTH);
   var [editingRegNo, setEditingRegNo] = useState(null);
   var [regNoInput, setRegNoInput] = useState("");
+  var [ext, setExt] = useState({ projects: [], paymentInfo: {} });
+  var [extLoaded, setExtLoaded] = useState(false);
 
+  useEffect(function () {
+    fetchProjectBundle().then(function (b) { setExt(b); setExtLoaded(true); });
+  }, []);
+
+  // ① 소속모델 (모델 정산관리 데이터) — 모델수익(세전) = 입금액 + 원천징수
   var rows = Object.keys(modelMeta).map(function(model) {
     var meta = modelMeta[model];
     var md = (data && data[model] && data[model][month]) || { agency: [], self: [] };
-    var inc = 0, tax = 0, final = 0, agencyRev = 0;
-    md.agency.forEach(function(e){ var c=calc(e.income,meta.agencyAF,e.otherDeduct); inc+=c.inc; tax+=c.tax; final+=finalAmt(e, meta.agencyAF); agencyRev+=c.fee; });
-    md.self.forEach(function(e){ var c=calc(e.income,meta.modelAF,e.otherDeduct); inc+=c.inc; tax+=c.tax; final+=finalAmt(e, meta.modelAF); agencyRev+=c.fee; });
-    return { model:model, meta:meta, inc:inc, tax:tax, final:final, agencyRev:agencyRev, monthData:md };
+    var tax = 0, final = 0;
+    md.agency.forEach(function(e){ var c=calc(e.income,meta.agencyAF,e.otherDeduct); tax+=c.tax; final+=finalAmt(e, meta.agencyAF); });
+    md.self.forEach(function(e){ var c=calc(e.income,meta.modelAF,e.otherDeduct); tax+=c.tax; final+=finalAmt(e, meta.modelAF); });
+    return { model:model, meta:meta, gross: final + tax, tax:tax, final:final, monthData:md };
   });
 
-  var tI = rows.reduce(function(s,r){ return s+r.inc; }, 0);
-  var tT = rows.reduce(function(s,r){ return s+r.tax; }, 0);
-  var tF = rows.reduce(function(s,r){ return s+r.final; }, 0);
-  var tA = rows.reduce(function(s,r){ return s+r.agencyRev; }, 0);
-  var taxRows = rows.filter(function(r){ return r.final > 0; });
+  // ② 촬영관리 시스템의 외부(비소속) 모델 · 통역비(or 현장매니저) — 같은 사람은 월 단위로 합산
+  //    (소속모델로 연동된 건은 이미 ①에 반영되어 있으므로 제외해 중복 방지)
+  var ym = CAL_NOW.getFullYear() + "-" + pad2(MONTHS.indexOf(month) + 1);
+  var extMap = {};
+  var addExt = function (name, info, hp, role, brand) {
+    info = info || {};
+    var key = role + "|" + name + "|" + (info.regNo || "");
+    var c = payCalc(hp, info.taxType || "3.3%");
+    if (!extMap[key]) extMap[key] = { key: key, name: name, regNo: info.regNo || "", role: role, gross: 0, tax: 0, final: 0, brands: [] };
+    var r = extMap[key];
+    r.gross += c.gross; r.tax += c.tax; r.final += c.net;
+    if (brand && r.brands.indexOf(brand) === -1) r.brands.push(brand);
+  };
+  ext.projects.forEach(function (p) {
+    if (!p.date || p.date.slice(0, 7) !== ym) return;
+    (p.models || []).forEach(function (m) {
+      if (m.useAffiliated && m.linkedModel) return;
+      if (!m.name || !(Number(m.handPay) > 0)) return;
+      addExt(m.name, ext.paymentInfo[p.id + "_" + m.id], m.handPay, "외부모델", p.brand);
+    });
+    if (p.interpreter && p.interpreter.use && Number(p.interpreter.fee) > 0) {
+      addExt(p.interpreter.name || "통역/매니저", ext.paymentInfo[p.id + "_interpreter"], p.interpreter.fee, "통역/매니저", p.brand);
+    }
+  });
+  var extRows = Object.keys(extMap).map(function (k) { return extMap[k]; });
+
+  var tG = rows.reduce(function(s,r){ return s+r.gross; }, 0) + extRows.reduce(function(s,r){ return s+r.gross; }, 0);
+  var tT = rows.reduce(function(s,r){ return s+r.tax; }, 0) + extRows.reduce(function(s,r){ return s+r.tax; }, 0);
+  var tF = rows.reduce(function(s,r){ return s+r.final; }, 0) + extRows.reduce(function(s,r){ return s+r.final; }, 0);
 
   var startEdit = function(model, cur) { setEditingRegNo(model); setRegNoInput(cur || ""); };
   var commitEdit = function(model) { onUpdateRegNo(model, regNoInput); setEditingRegNo(null); };
 
-  var exportExcel = function() {
-    // 에이전시 수익(회사 내부 마진)은 외부로 나가는 문서라 제외. 이름은 외국인 모델은 영문 풀네임, 한국인은 한글.
-    var head = ["모델","외국인등록번호","총매출","세금(3.3%)","모델순수익(입금액)"];
-    var aoa = [head];
-    rows.forEach(function(r) {
-      aoa.push([displayName(r.meta), r.meta.regNo || "", r.inc, r.tax, r.final]);
+  // 내보내기용 통합 행 (금액 있는 사람만)
+  var exportRows = function () {
+    var list = [];
+    rows.filter(function (r) { return r.gross > 0; }).forEach(function (r) {
+      list.push({ src: "소속모델", name: displayName(r.meta), nat: r.meta.nationality || "", regNo: r.meta.regNo || "", gross: r.gross, tax: r.tax, final: r.final });
     });
-    aoa.push(["합계", "", tI, tT, tF]);
+    extRows.filter(function (r) { return r.gross > 0; }).forEach(function (r) {
+      list.push({ src: r.role === "외부모델" ? "외부모델(촬영관리)" : "통역/매니저(촬영관리)", name: r.name, nat: "", regNo: r.regNo, gross: r.gross, tax: r.tax, final: r.final });
+    });
+    return list;
+  };
+  var HEAD = ["구분", "이름", "국적", "주민/외국인등록번호", "모델 수익(세전)", "원천징수(3.3%)", "입금액"];
+
+  var exportExcel = function() {
+    var list = exportRows();
+    var aoa = [HEAD];
+    list.forEach(function (r) { aoa.push([r.src, r.name, r.nat, r.regNo, r.gross, r.tax, r.final]); });
+    aoa.push(["합계", "", "", "", tG, tT, tF]);
     var ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws["!cols"] = [{ wch: 20 }, { wch: 16 }, { wch: 14 }, { wch: 12 }, { wch: 16 }];
+    ws["!cols"] = [{ wch: 20 }, { wch: 26 }, { wch: 10 }, { wch: 18 }, { wch: 16 }, { wch: 14 }, { wch: 14 }];
     var wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "세무요약");
-    XLSX.writeFile(wb, month + "_세무요약.xlsx");
+    XLSX.writeFile(wb, CAL_NOW.getFullYear() + "_" + month + "_세무요약.xlsx");
   };
 
   var exportPDF = function() {
-    var head = ["모델","외국인등록번호","총매출","세금(3.3%)","모델순수익(입금액)"];
-    var body = rows.map(function(r) {
-      return [displayName(r.meta), r.meta.regNo || "-", fmt(r.inc), fmt(r.tax), fmt(r.final)];
-    });
+    var list = exportRows();
     var win = window.open("", "_blank");
     if (!win) { alert("팝업이 차단되었습니다. 팝업 허용 후 다시 시도해주세요."); return; }
-    var rowsHtml = body.map(function(row){ return "<tr>" + row.map(function(c){ return "<td>"+c+"</td>"; }).join("") + "</tr>"; }).join("");
+    var body = list.map(function (r) {
+      return "<tr><td>" + r.src + "</td><td>" + r.name + "</td><td>" + (r.nat || "") + "</td><td>" + (r.regNo || "미입력") + "</td><td>" + fmt(r.gross) + "</td><td>" + fmt(r.tax) + "</td><td>" + fmt(r.final) + "</td></tr>";
+    }).join("");
     win.document.write(
       "<html><head><meta charset='utf-8'><title>" + month + "_세무요약</title>" +
-      "<style>body{font-family:sans-serif;padding:24px;} h1{font-size:18px;} table{width:100%;border-collapse:collapse;margin-top:12px;} th,td{border:1px solid #ccc;padding:8px;font-size:12px;text-align:right;} th:nth-child(1),td:nth-child(1),th:nth-child(2),td:nth-child(2){text-align:left;} tfoot td{font-weight:800;background:#f1f5f9;}</style>" +
+      "<style>body{font-family:sans-serif;padding:24px;} h1{font-size:18px;} table{width:100%;border-collapse:collapse;margin-top:12px;} th,td{border:1px solid #ccc;padding:8px;font-size:12px;text-align:right;} th:nth-child(-n+4),td:nth-child(-n+4){text-align:left;} tfoot td{font-weight:800;background:#f1f5f9;}</style>" +
       "</head><body>" +
-      "<h1>MoMo Agency — " + month + " 세무 요약</h1>" +
-      "<table><thead><tr>" + head.map(function(h){ return "<th>"+h+"</th>"; }).join("") + "</tr></thead><tbody>" + rowsHtml +
-      "</tbody><tfoot><tr><td>합계</td><td></td><td>" + fmt(tI) + "</td><td>" + fmt(tT) + "</td><td>" + fmt(tF) + "</td></tr></tfoot></table>" +
+      "<h1>MoMo Agency — " + CAL_NOW.getFullYear() + "년 " + month + " 세무 요약</h1>" +
+      "<table><thead><tr>" + HEAD.map(function(h){ return "<th>"+h+"</th>"; }).join("") + "</tr></thead><tbody>" + body +
+      "</tbody><tfoot><tr><td colspan='4'>합계</td><td>" + fmt(tG) + "</td><td>" + fmt(tT) + "</td><td>" + fmt(tF) + "</td></tr></tfoot></table>" +
+      "<p style='font-size:11px;color:#666;margin-top:10px'>※ 모델 수익(세전) = 원천징수 + 입금액</p>" +
       "</body></html>"
     );
     win.document.close();
@@ -1368,47 +1441,7 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo, dark }) {
     setTimeout(function(){ win.print(); }, 300);
   };
 
-  var exportTaxFilingExcel = function() {
-    var head = ["이름","국적","외국인등록번호","모델 입금 비용","원천징수(3.3%)"];
-    var tTaxFinal = taxRows.reduce(function(s,r){ return s + r.final + r.tax; }, 0);
-    var tTaxTax = taxRows.reduce(function(s,r){ return s + r.tax; }, 0);
-    var aoa = [head];
-    taxRows.forEach(function(r) {
-      aoa.push([displayName(r.meta), r.meta.nationality, r.meta.regNo || "", r.final + r.tax, r.tax]);
-    });
-    aoa.push(["합계", "", "", tTaxFinal, tTaxTax]);
-    aoa.push(["※ 모델 입금 비용 = 최종입금 + 세금액"]);
-    var ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws["!cols"] = [{ wch: 22 }, { wch: 10 }, { wch: 16 }, { wch: 16 }, { wch: 14 }];
-    var wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "세무서신고용");
-    XLSX.writeFile(wb, month + "_세무서신고용.xlsx");
-  };
-
-  var exportTaxFilingPDF = function() {
-    var head = ["이름","국적","외국인등록번호","모델 입금 비용","원천징수(3.3%)"];
-    var body = taxRows.map(function(r) {
-      return [displayName(r.meta), r.meta.nationality, r.meta.regNo || "미입력", fmt(r.final + r.tax), fmt(r.tax)];
-    });
-    var tTaxFinal = taxRows.reduce(function(s,r){ return s + r.final + r.tax; }, 0);
-    var tTaxTax = taxRows.reduce(function(s,r){ return s + r.tax; }, 0);
-    var win = window.open("", "_blank");
-    if (!win) { alert("팝업이 차단되었습니다. 팝업 허용 후 다시 시도해주세요."); return; }
-    var rowsHtml = body.map(function(row){ return "<tr>" + row.map(function(c){ return "<td>"+c+"</td>"; }).join("") + "</tr>"; }).join("");
-    win.document.write(
-      "<html><head><meta charset='utf-8'><title>" + month + "_세무서신고용</title>" +
-      "<style>body{font-family:sans-serif;padding:24px;} h1{font-size:18px;margin-bottom:2px;} .sub{color:#92400e;font-size:12px;margin-bottom:14px;} table{width:100%;border-collapse:collapse;} th,td{border:1px solid #ccc;padding:8px;font-size:12px;text-align:right;} th:nth-child(1),td:nth-child(1),th:nth-child(2),td:nth-child(2),th:nth-child(3),td:nth-child(3){text-align:left;} tfoot td{font-weight:800;background:#f1f5f9;} .note{font-size:11px;color:#b45309;margin-top:10px;}</style>" +
-      "</head><body>" +
-      "<h1>MoMo Agency</h1><div class='sub'>세무서 신고용 — " + month + "</div>" +
-      "<table><thead><tr>" + head.map(function(h){ return "<th>"+h+"</th>"; }).join("") + "</tr></thead><tbody>" + rowsHtml +
-      "</tbody><tfoot><tr><td>합계</td><td></td><td></td><td>" + fmt(tTaxFinal) + "</td><td>" + fmt(tTaxTax) + "</td></tr></tfoot></table>" +
-      "<div class='note'>※ 모델 입금 비용 = 최종입금 + 세금액</div>" +
-      "</body></html>"
-    );
-    win.document.close();
-    win.focus();
-    setTimeout(function(){ win.print(); }, 300);
-  };
+  var thStyle = function (align, color) { return { padding:"9px 10px", textAlign:align, fontSize:10, color:color || t.sub, fontWeight:700, borderBottom:"1px solid "+t.border, whiteSpace:"nowrap" }; };
 
   return (
     <div>
@@ -1437,35 +1470,53 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo, dark }) {
         </div>
       </div>
 
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:8, marginBottom:12 }}>
-        {[["총 매출액",fmt(tI),dark?"#e2e8f0":"#334155",dark?"#1e293b":"#f8fafc"],["에이전시 수익",fmt(tA),"#7c3aed",dark?"#1a0d2e":"#f5f3ff"],["원천징수 3.3%",fmt(tT),"#ef4444",dark?"#1a0808":"#fff1f2"],["모델 총 순수익",fmt(tF),"#10b981",dark?"#071a14":"#f0fdf4"]].map(function(item) {
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8, marginBottom:12 }}>
+        {[["모델 수익 (세전)",fmt(tG),dark?"#e2e8f0":"#334155",dark?"#1e293b":"#f8fafc"],["원천징수 3.3%",fmt(tT),"#ef4444",dark?"#1a0808":"#fff1f2"],["입금액 (실지급)",fmt(tF),"#10b981",dark?"#071a14":"#f0fdf4"]].map(function(item) {
           return (
             <div key={item[0]} style={{ background:item[3], borderRadius:12, padding:"12px 14px" }}>
-              <div style={{ fontSize:10, color:item[2], opacity:0.7, marginBottom:4 }}>{item[0]}</div>
+              <div style={{ fontSize:10, color:item[2], opacity:0.75, marginBottom:4 }}>{item[0]}</div>
               <div style={{ fontSize:17, fontWeight:900, color:item[2] }}>{item[1]}</div>
             </div>
           );
         })}
       </div>
 
-      <div style={{ background:t.card, border:"1px solid "+t.border, borderRadius:12, overflow:"hidden", marginBottom:12 }}>
+      <div style={{ background:t.card, border:"1px solid "+t.border, borderRadius:12, overflow:"hidden", marginBottom:8 }}>
         <div style={{ overflowX:"auto", WebkitOverflowScrolling:"touch" }}>
-          <table style={{ width:"100%", fontSize: FONT.sm, borderCollapse:"collapse", minWidth:480 }}>
+          <table style={{ width:"100%", fontSize: FONT.sm, borderCollapse:"collapse", minWidth:520 }}>
             <thead>
               <tr style={{ background:t.thead }}>
-                {[["모델","left"],["외국인등록번호","left"],["총매출","right"],["에이전시수익","right"],["세금(3.3%)","right"],["모델순수익","right"]].map(function(item, i) {
-                  return <th key={item[0]} style={{ padding:"9px 10px", textAlign:item[1], fontSize:10, color:i===3?"#7c3aed":i===4?"#ef4444":i===5?"#10b981":t.sub, fontWeight:700, textTransform:"uppercase", borderBottom:"1px solid "+t.border, whiteSpace:"nowrap" }}>{item[0]}</th>;
-                })}
+                <th style={thStyle("left")}>이름</th>
+                <th style={thStyle("left")}>주민/외국인등록번호</th>
+                <th style={thStyle("right")}>모델 수익(세전)</th>
+                <th style={thStyle("right", "#ef4444")}>원천징수(3.3%)</th>
+                <th style={thStyle("right", "#10b981")}>입금액</th>
               </tr>
             </thead>
             <tbody>
               {rows.map(function(r) {
-                return <TaxRow key={r.model} model={r.model} meta={r.meta} inc={r.inc} tax={r.tax} final={r.final} agencyRev={r.agencyRev} monthData={r.monthData} editingRegNo={editingRegNo} regNoInput={regNoInput} onStartEdit={startEdit} onCommitEdit={commitEdit} onRegNoInput={setRegNoInput} dark={dark} />;
+                return <TaxRow key={r.model} model={r.model} meta={r.meta} tax={r.tax} final={r.final} monthData={r.monthData} editingRegNo={editingRegNo} regNoInput={regNoInput} onStartEdit={startEdit} onCommitEdit={commitEdit} onRegNoInput={setRegNoInput} dark={dark} />;
+              })}
+              {extRows.map(function (r) {
+                return (
+                  <tr key={r.key} style={{ borderBottom:"1px solid "+t.border }}>
+                    <td style={{ padding:"9px 10px 9px 37px" }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                        <span style={{ fontSize:9, fontWeight:800, padding:"1px 6px", borderRadius:5, background: r.role === "외부모델" ? (dark?"#3b2a05":"#fef3c7") : (dark?"#0c2a2e":"#ecfeff"), color: r.role === "외부모델" ? "#b45309" : "#0e7490" }}>{r.role}</span>
+                        <span style={{ fontWeight:800, color:t.text, fontSize:12 }}>{r.name}</span>
+                      </div>
+                      <div style={{ fontSize:9, color:t.sub }}>촬영관리 · {r.brands.join(", ")}</div>
+                    </td>
+                    <td style={{ padding:"9px 10px", fontFamily:"monospace", fontSize: FONT.xs, color: r.regNo ? t.text : "#b45309" }}>{r.regNo || "미입력 (촬영관리에서 입력)"}</td>
+                    <td style={{ padding:"9px 10px", textAlign:"right", color:t.text, fontWeight:700, fontSize:12 }}>{fmt(r.gross)}</td>
+                    <td style={{ padding:"9px 10px", textAlign:"right", color: COLOR.danger, fontWeight:800, fontSize:12 }}>{r.tax > 0 ? fmt(r.tax) : "-"}</td>
+                    <td style={{ padding:"9px 10px", textAlign:"right", color: COLOR.success, fontWeight:900, fontSize:12 }}>{fmt(r.final)}</td>
+                  </tr>
+                );
               })}
               <tr style={{ background:dark?"#1e293b":"#eef2ff" }}>
                 <td colSpan={2} style={{ padding:"9px 10px", fontWeight:900, color:"#4338ca", fontSize:12 }}>합계</td>
-                <td style={{ padding:"9px 10px", textAlign:"right", fontWeight:900, color:t.sub, fontSize:12 }}>{fmt(tI)}</td>
-                <td style={{ padding:"9px 10px", textAlign:"right", fontWeight:900, color: COLOR.purple, fontSize:12 }}>{fmt(tA)}</td>
+                <td style={{ padding:"9px 10px", textAlign:"right", fontWeight:900, color:t.text, fontSize:12 }}>{fmt(tG)}</td>
                 <td style={{ padding:"9px 10px", textAlign:"right", fontWeight:900, color: COLOR.danger, fontSize:12 }}>{fmt(tT)}</td>
                 <td style={{ padding:"9px 10px", textAlign:"right", fontWeight:900, color: COLOR.success, fontSize:12 }}>{fmt(tF)}</td>
               </tr>
@@ -1473,46 +1524,9 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo, dark }) {
           </table>
         </div>
       </div>
-
-      {taxRows.length > 0 && (
-        <div style={{ background:dark?"#1a1200":"#fffbeb", border:"1px solid "+(dark?"#854d0e":"#fde68a"), borderRadius:12, padding:14 }}>
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10, flexWrap:"wrap" }}>
-            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-              <span>📋</span>
-              <span style={{ fontWeight:900, color:dark?"#fbbf24":"#92400e", fontSize:13 }}>세무서 신고용 — {month}</span>
-            </div>
-            <div style={{ display:"flex", gap:6 }}>
-              <button onClick={exportTaxFilingExcel} style={{ padding:"5px 11px", borderRadius:8, border:"1px solid "+(dark?"#854d0e":"#fde68a"), background:dark?"#0a1f1a":"#f0fdf4", color: COLOR.success, fontWeight:700, fontSize: FONT.xs, cursor:"pointer" }}>⬇ 엑셀</button>
-              <button onClick={exportTaxFilingPDF} style={{ padding:"5px 11px", borderRadius:8, border:"1px solid "+(dark?"#854d0e":"#fde68a"), background:dark?"#1a0808":"#fff1f2", color: COLOR.danger, fontWeight:700, fontSize: FONT.xs, cursor:"pointer" }}>⬇ PDF</button>
-            </div>
-          </div>
-          <div style={{ overflowX:"auto" }}>
-            <table style={{ width:"100%", fontSize: FONT.sm, borderCollapse:"collapse", minWidth:360 }}>
-              <thead>
-                <tr style={{ borderBottom:"2px solid "+(dark?"#854d0e":"#fde68a") }}>
-                  {["이름","국적","외국인등록번호","모델 입금 비용","원천징수(3.3%)"].map(function(h, i) {
-                    return <th key={h} style={{ padding:"7px 10px", textAlign:i>2?"right":"left", color:dark?"#fbbf24":"#92400e", fontSize: FONT.xs, fontWeight:800, whiteSpace:"nowrap" }}>{h}</th>;
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {taxRows.map(function(r) {
-                  return (
-                    <tr key={r.model} style={{ borderBottom:"1px solid "+(dark?"#451a03":"#fef3c7") }}>
-                      <td style={{ padding:"8px 10px", fontWeight:700, color:t.text }}>{r.meta.fullName}</td>
-                      <td style={{ padding:"8px 10px", color:t.sub }}>{r.meta.nationality}</td>
-                      <td style={{ padding:"8px 10px", fontFamily:"monospace", color:r.meta.regNo?"#f59e0b":"#b45309", fontWeight:r.meta.regNo?700:400 }}>{r.meta.regNo || "미입력"}</td>
-                      <td style={{ padding:"8px 10px", textAlign:"right", fontWeight:700, color:t.text }}>{fmt(r.final+r.tax)}</td>
-                      <td style={{ padding:"8px 10px", textAlign:"right", fontWeight:900, color:"#ef4444" }}>{fmt(r.tax)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <p style={{ fontSize: FONT.xs, color:dark?"#d97706":"#b45309", marginTop:10 }}>※ 모델 입금 비용 = 최종입금 + 세금액</p>
-        </div>
-      )}
+      <p style={{ fontSize: FONT.xs, color:t.sub, margin:"4px 2px" }}>
+        ※ 모델 수익(세전) = 원천징수 + 입금액 · 소속모델 + 촬영관리 시스템의 외부모델·통역/매니저 지급건 포함{extLoaded ? "" : " (촬영관리 데이터 불러오는 중...)"}
+      </p>
     </div>
   );
 }
