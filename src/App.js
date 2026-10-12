@@ -21,8 +21,8 @@ const MAX_HISTORY = 50;
 const DEFAULT_MODELS = {
   "폴린": { nameKr:"폴린", nameEn:"Pauline", fullName:"GUILLET PAULINE MANON LEA", nationality:"프랑스", agencyAF:0.3, modelAF:0.3, account:"하나 545-910326-40107", regNo:"" },
   "엘리자": { nameKr:"엘리자", nameEn:"Eliza", fullName:"MANUSHINA ELIZAVETA", nationality:"러시아", agencyAF:0.4, modelAF:0.3, account:"토스 1002-5374-4275", regNo:"" },
-  "루미": { nameKr:"루미", nameEn:"Lumi", fullName:"Lumi", nationality:"미정", agencyAF:0.4, modelAF:0.3, account:"", regNo:"" },
-  "카야": { nameKr:"카야", nameEn:"Kaya", fullName:"Kaya", nationality:"미정", agencyAF:0.2, modelAF:0.1, account:"", regNo:"" },
+  "루미": { nameKr:"루미", nameEn:"Lumi", fullName:"TSANOVA RUMYANA IVANOVA", nationality:"미정", agencyAF:0.4, modelAF:0.3, account:"", regNo:"" },
+  "카야": { nameKr:"카야", nameEn:"Kaya", fullName:"KOPTIAEVSKAIA KS-ENIIA", nationality:"미정", agencyAF:0.2, modelAF:0.1, account:"", regNo:"" },
   "엘리사": { nameKr:"엘리사", nameEn:"Elysa", fullName:"Elysa", nationality:"미정", agencyAF:0.2, modelAF:0.1, account:"", regNo:"" },
   "로만": { nameKr:"로만", nameEn:"Roman", fullName:"Roman", nationality:"미정", agencyAF:0.2, modelAF:0.1, account:"", regNo:"" },
   "송일웅": { nameKr:"송일웅", nameEn:"Song Il-woong", fullName:"Song Il-woong", nationality:"한국", agencyAF:0.2, modelAF:0.1, account:"", regNo:"" },
@@ -79,6 +79,18 @@ function yearTotals(modelKey, data, meta) {
 
 function fmt(n) { return n > 0 ? "\u20a9" + Math.round(n).toLocaleString() : "-"; }
 function pct(n) { return Math.round(n * 100) + "%"; }
+
+// 저장된 모델 정보에 영문 풀네임이 닉네임으로만 들어있는 경우 실제 풀네임으로 보정
+var FULLNAME_FIX = { "루미": "TSANOVA RUMYANA IVANOVA", "카야": "KOPTIAEVSKAIA KS-ENIIA" };
+function fixFullNames(meta) {
+  if (!meta) return meta;
+  var out = Object.assign({}, meta);
+  Object.keys(FULLNAME_FIX).forEach(function (k) {
+    if (out[k] && (!out[k].fullName || out[k].fullName === out[k].nameEn)) out[k] = Object.assign({}, out[k], { fullName: FULLNAME_FIX[k] });
+  });
+  return out;
+}
+
 function fmtRegNo(val) {
   var d = val.replace(/\D/g, "").slice(0, 13);
   return d.length <= 6 ? d : d.slice(0, 6) + "-" + d.slice(6);
@@ -1280,68 +1292,12 @@ function ModelDetail({ model, meta, data, addEntry, removeEntry, updateEntry, on
 }
 
 // ── 세무 요약 행 ──────────────────────────────────────────────────────────────
-function TaxRow({ model, meta, tax, final, monthData, editingRegNo, regNoInput, onStartEdit, onCommitEdit, onRegNoInput, dark }) {
-  var t = T(dark);
-  var [exp, setExp] = useState(false);
-  var all = monthData.agency.map(function(e){ return Object.assign({}, e, { type:"에이전시", af:meta.agencyAF }); })
-    .concat(monthData.self.map(function(e){ return Object.assign({}, e, { type:"모델직접", af:meta.modelAF }); }));
-  return (
-    <>
-      <tr style={{ borderBottom:exp?"none":"1px solid "+t.border, background:exp?(dark?"#1a2744":"#f8f9ff"):t.card, opacity:final===0?0.35:1 }}>
-        <td style={{ padding:"9px 10px" }}>
-          <div style={{ display:"flex", alignItems:"center", gap:7 }}>
-            <button onClick={function(){ if(all.length>0) setExp(function(v){ return !v; }); }} style={{ width:20, height:20, borderRadius:5, border:"1px solid "+t.border, background:"transparent", cursor:all.length>0?"pointer":"default", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, transition:"transform 0.2s", transform:exp?"rotate(0deg)":"rotate(-90deg)", color:t.sub, fontSize:9 }}>▼</button>
-            <div>
-              <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-                <span style={{ fontSize:9, fontWeight:800, padding:"1px 6px", borderRadius:5, background:dark?"#1e1b4b":"#eef2ff", color: COLOR.primary }}>소속</span>
-                <span style={{ fontWeight:800, color:t.text, fontSize:12 }}>{displayName(meta)}</span>
-              </div>
-              <div style={{ fontSize:9, color:t.sub }}>{meta.nameKr} · {meta.nationality}</div>
-            </div>
-          </div>
-        </td>
-        <td style={{ padding:"9px 10px" }}>
-          {editingRegNo === model ? (
-            <input autoFocus value={regNoInput} onChange={function(e){ onRegNoInput(fmtRegNo(e.target.value)); }} onBlur={function(){ onCommitEdit(model); }} onKeyDown={function(e){ if(e.key==="Enter") onCommitEdit(model); }} placeholder="000000-0000000" maxLength={14}
-              style={{ border:"2px solid #f59e0b", borderRadius:6, padding:"3px 7px", fontSize: FONT.xs, width:120, outline:"none", fontFamily:"monospace", background:t.input, color:t.text }} />
-          ) : (
-            <button onClick={function(){ onStartEdit(model, meta.regNo); }} style={{ background:meta.regNo?(dark?"#451a03":"#fef3c7"):(dark?"#292524":"#fde68a"), border:"1px dashed #f59e0b", borderRadius:6, padding:"2px 8px", fontSize: FONT.xs, cursor:"pointer", color:meta.regNo?"#f59e0b":"#b45309", fontFamily:"monospace", whiteSpace:"nowrap" }}>
-              {meta.regNo || "입력"}
-            </button>
-          )}
-        </td>
-        <td style={{ padding:"9px 10px", textAlign:"right", color:t.text, fontWeight:700, fontSize:12 }}>{(final+tax)>0?fmt(final+tax):"-"}</td>
-        <td style={{ padding:"9px 10px", textAlign:"right", color: COLOR.danger, fontWeight:800, fontSize:12 }}>{tax>0?fmt(tax):"-"}</td>
-        <td style={{ padding:"9px 10px", textAlign:"right", color: COLOR.success, fontWeight:900, fontSize:12 }}>{final>0?fmt(final):"-"}</td>
-      </tr>
-      {exp && (
-        <tr>
-          <td colSpan={5} style={{ padding:0, background:dark?"#0f172a":"#f8f9ff", borderBottom:"1px solid "+t.border }}>
-            <div style={{ padding:"10px 12px 12px 44px" }}>
-              {all.map(function(e) {
-                var c = calc(e.income, e.af, e.otherDeduct);
-                return (
-                  <div key={e.id} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, flexWrap:"wrap" }}>
-                    <span style={{ fontSize:10, fontWeight:700, padding:"2px 6px", borderRadius:6, background:e.type==="에이전시"?(dark?"#1e1b4b":"#eef2ff"):(dark?"#2d1a4b":"#f5f3ff"), color:e.type==="에이전시"?"#4f46e5":"#7c3aed" }}>{e.type}</span>
-                    <span style={{ fontWeight:700, color:t.text, fontSize:12 }}>{e.brand || "-"}</span>
-                    <span style={{ color:t.sub, fontSize:11 }}>{fmt(c.inc)}</span>
-                    <span style={{ color:t.sub }}>→</span>
-                    <span style={{ color: COLOR.success, fontWeight:800, fontSize:12 }}>입금액 {fmt(finalAmt(e, e.af))}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </td>
-        </tr>
-      )}
-    </>
-  );
-}
-
-// ── 세무 요약 ─────────────────────────────────────────────────────────────────
 function TaxSummary({ data, modelMeta, onUpdateRegNo, dark }) {
   var t = T(dark);
-  var [month, setMonth] = useState(NOW_MONTH);
+  var nowIdx = MONTHS.indexOf(NOW_MONTH);
+  var [startIdx, setStartIdx] = useState(Math.max(0, nowIdx - 2));
+  var [endIdx, setEndIdx] = useState(nowIdx);
+  var [basis, setBasis] = useState("gross"); // gross | tax | final
   var [editingRegNo, setEditingRegNo] = useState(null);
   var [regNoInput, setRegNoInput] = useState("");
   var [ext, setExt] = useState({ projects: [], paymentInfo: {} });
@@ -1351,181 +1307,199 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo, dark }) {
     fetchProjectBundle().then(function (b) { setExt(b); setExtLoaded(true); });
   }, []);
 
-  // ① 소속모델 (모델 정산관리 데이터) — 모델수익(세전) = 입금액 + 원천징수
-  var rows = Object.keys(modelMeta).map(function(model) {
+  var lo = Math.min(startIdx, endIdx), hi = Math.max(startIdx, endIdx);
+  var monthIdxs = [];
+  for (var mi = lo; mi <= hi; mi++) monthIdxs.push(mi);
+  var rangeLabel = MONTHS[lo] === MONTHS[hi] ? MONTHS[lo] : (lo + 1) + "~" + (hi + 1) + "월";
+  var year = CAL_NOW.getFullYear();
+
+  // 사람별(소속모델 / 외부모델 / 통역·매니저) × 월별 {gross, tax, final}
+  var people = [];
+  var byKey = {};
+  var getPerson = function (key, init) {
+    if (!byKey[key]) { byKey[key] = Object.assign({ key: key, months: {} }, init); people.push(byKey[key]); }
+    return byKey[key];
+  };
+  var addAmt = function (person, idx, gross, tax, final) {
+    var m = person.months[idx] || { gross: 0, tax: 0, final: 0 };
+    m.gross += gross; m.tax += tax; m.final += final; person.months[idx] = m;
+  };
+
+  // ① 소속모델 (모델 정산관리 데이터)
+  Object.keys(modelMeta).forEach(function (model) {
     var meta = modelMeta[model];
-    var md = (data && data[model] && data[model][month]) || { agency: [], self: [] };
-    var tax = 0, final = 0;
-    md.agency.forEach(function(e){ var c=calc(e.income,meta.agencyAF,e.otherDeduct); tax+=c.tax; final+=finalAmt(e, meta.agencyAF); });
-    md.self.forEach(function(e){ var c=calc(e.income,meta.modelAF,e.otherDeduct); tax+=c.tax; final+=finalAmt(e, meta.modelAF); });
-    return { model:model, meta:meta, gross: final + tax, tax:tax, final:final, monthData:md };
+    monthIdxs.forEach(function (idx) {
+      var md = (data && data[model] && data[model][MONTHS[idx]]) || { agency: [], self: [] };
+      var tax = 0, final = 0;
+      md.agency.forEach(function (e) { var c = calc(e.income, meta.agencyAF, e.otherDeduct); tax += c.tax; final += finalAmt(e, meta.agencyAF); });
+      md.self.forEach(function (e) { var c = calc(e.income, meta.modelAF, e.otherDeduct); tax += c.tax; final += finalAmt(e, meta.modelAF); });
+      if (final + tax > 0) {
+        var pr = getPerson("m|" + model, { src: "소속", name: displayName(meta), regNo: meta.regNo || "", model: model, nat: meta.nationality || "" });
+        addAmt(pr, idx, final + tax, tax, final);
+      }
+    });
   });
 
-  // ② 촬영관리 시스템의 외부(비소속) 모델 · 통역비(or 현장매니저) — 같은 사람은 월 단위로 합산
-  //    (소속모델로 연동된 건은 이미 ①에 반영되어 있으므로 제외해 중복 방지)
-  var ym = CAL_NOW.getFullYear() + "-" + pad2(MONTHS.indexOf(month) + 1);
-  var extMap = {};
-  var addExt = function (name, info, hp, role, brand) {
-    info = info || {};
-    var key = role + "|" + name + "|" + (info.regNo || "");
-    var c = payCalc(hp, info.taxType || "3.3%");
-    if (!extMap[key]) extMap[key] = { key: key, name: name, regNo: info.regNo || "", role: role, gross: 0, tax: 0, final: 0, brands: [] };
-    var r = extMap[key];
-    r.gross += c.gross; r.tax += c.tax; r.final += c.net;
-    if (brand && r.brands.indexOf(brand) === -1) r.brands.push(brand);
-  };
+  // ② 촬영관리 시스템의 외부(비소속) 모델 · 통역비(or 현장매니저) — 소속모델로 연동된 건은 ①에 있으므로 제외
   ext.projects.forEach(function (p) {
-    if (!p.date || p.date.slice(0, 7) !== ym) return;
+    if (!p.date || p.date.slice(0, 4) !== String(year)) return;
+    var idx = Number(p.date.slice(5, 7)) - 1;
+    if (idx < lo || idx > hi) return;
+    var push = function (name, info, hp, src) {
+      info = info || {};
+      var c = payCalc(hp, info.taxType || "3.3%");
+      var pr = getPerson("x|" + src + "|" + name, { src: src, name: name, regNo: info.regNo || "", model: null, nat: "" });
+      if (!pr.regNo && info.regNo) pr.regNo = info.regNo;
+      addAmt(pr, idx, c.gross, c.tax, c.net);
+    };
     (p.models || []).forEach(function (m) {
       if (m.useAffiliated && m.linkedModel) return;
       if (!m.name || !(Number(m.handPay) > 0)) return;
-      addExt(m.name, ext.paymentInfo[p.id + "_" + m.id], m.handPay, "외부모델", p.brand);
+      push(m.name, ext.paymentInfo[p.id + "_" + m.id], m.handPay, "외부모델");
     });
     if (p.interpreter && p.interpreter.use && Number(p.interpreter.fee) > 0) {
-      addExt(p.interpreter.name || "통역/매니저", ext.paymentInfo[p.id + "_interpreter"], p.interpreter.fee, "통역/매니저", p.brand);
+      push(p.interpreter.name || "통역/매니저", ext.paymentInfo[p.id + "_interpreter"], p.interpreter.fee, "통역/매니저");
     }
   });
-  var extRows = Object.keys(extMap).map(function (k) { return extMap[k]; });
 
-  var tG = rows.reduce(function(s,r){ return s+r.gross; }, 0) + extRows.reduce(function(s,r){ return s+r.gross; }, 0);
-  var tT = rows.reduce(function(s,r){ return s+r.tax; }, 0) + extRows.reduce(function(s,r){ return s+r.tax; }, 0);
-  var tF = rows.reduce(function(s,r){ return s+r.final; }, 0) + extRows.reduce(function(s,r){ return s+r.final; }, 0);
+  var cell = function (person, idx) { var m = person.months[idx]; return m ? m[basis] : 0; };
+  var personTotal = function (person) { return monthIdxs.reduce(function (s, idx) { return s + cell(person, idx); }, 0); };
+  var monthTotal = function (idx) { return people.reduce(function (s, pr) { return s + cell(pr, idx); }, 0); };
+  var grandTotal = people.reduce(function (s, pr) { return s + personTotal(pr); }, 0);
+  var allSum = function (key) { return people.reduce(function (s, pr) { return s + monthIdxs.reduce(function (x, idx) { return x + ((pr.months[idx] || {})[key] || 0); }, 0); }, 0); };
 
-  var startEdit = function(model, cur) { setEditingRegNo(model); setRegNoInput(cur || ""); };
-  var commitEdit = function(model) { onUpdateRegNo(model, regNoInput); setEditingRegNo(null); };
+  var order = { "소속": 0, "외부모델": 1, "통역/매니저": 2 };
+  people.sort(function (a, b) { return (order[a.src] - order[b.src]); });
 
-  // 내보내기용 통합 행 (금액 있는 사람만)
-  var exportRows = function () {
-    var list = [];
-    rows.filter(function (r) { return r.gross > 0; }).forEach(function (r) {
-      list.push({ src: "소속모델", name: displayName(r.meta), nat: r.meta.nationality || "", regNo: r.meta.regNo || "", gross: r.gross, tax: r.tax, final: r.final });
+  var basisLabel = { gross: "모델 수익(세전)", tax: "원천징수(3.3%)", final: "입금액(실지급)" }[basis];
+  var won = function (n) { return n > 0 ? "₩" + Math.round(n).toLocaleString() : ""; };
+
+  var startEdit = function (model, cur) { setEditingRegNo(model); setRegNoInput(cur || ""); };
+  var commitEdit = function (model) { onUpdateRegNo(model, regNoInput); setEditingRegNo(null); };
+
+  var buildAoa = function (b) {
+    var head = ["이름", "번호"].concat(monthIdxs.map(function (i) { return MONTHS[i]; })).concat(["합산"]);
+    var aoa = [head];
+    people.forEach(function (pr) {
+      var vals = monthIdxs.map(function (i) { var m = pr.months[i]; return m ? m[b] : ""; });
+      aoa.push([pr.name, pr.regNo || ""].concat(vals).concat([monthIdxs.reduce(function (s, i) { return s + ((pr.months[i] || {})[b] || 0); }, 0)]));
     });
-    extRows.filter(function (r) { return r.gross > 0; }).forEach(function (r) {
-      list.push({ src: r.role === "외부모델" ? "외부모델(촬영관리)" : "통역/매니저(촬영관리)", name: r.name, nat: "", regNo: r.regNo, gross: r.gross, tax: r.tax, final: r.final });
-    });
-    return list;
+    aoa.push([]);
+    var tot = people.reduce(function (s, pr) { return s + monthIdxs.reduce(function (x, i) { return x + ((pr.months[i] || {})[b] || 0); }, 0); }, 0);
+    var blanks = []; for (var k = 0; k < monthIdxs.length - 1; k++) blanks.push("");
+    aoa.push(["", ""].concat(blanks).concat([rangeLabel + " 인건비총액", tot]));
+    return aoa;
   };
-  var HEAD = ["구분", "이름", "국적", "주민/외국인등록번호", "모델 수익(세전)", "원천징수(3.3%)", "입금액"];
 
-  var exportExcel = function() {
-    var list = exportRows();
-    var aoa = [HEAD];
-    list.forEach(function (r) { aoa.push([r.src, r.name, r.nat, r.regNo, r.gross, r.tax, r.final]); });
-    aoa.push(["합계", "", "", "", tG, tT, tF]);
-    var ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws["!cols"] = [{ wch: 20 }, { wch: 26 }, { wch: 10 }, { wch: 18 }, { wch: 16 }, { wch: 14 }, { wch: 14 }];
+  var exportExcel = function () {
     var wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "세무요약");
-    XLSX.writeFile(wb, CAL_NOW.getFullYear() + "_" + month + "_세무요약.xlsx");
+    [["gross", "모델수익(세전)"], ["tax", "원천징수"], ["final", "입금액"]].forEach(function (pair, i) {
+      var ws = XLSX.utils.aoa_to_sheet(buildAoa(pair[0]));
+      ws["!cols"] = [{ wch: 28 }, { wch: 18 }].concat(monthIdxs.map(function () { return { wch: 14 }; })).concat([{ wch: 22 }]);
+      XLSX.utils.book_append_sheet(wb, ws, pair[1]);
+    });
+    XLSX.writeFile(wb, year + "_" + rangeLabel + "_인건비.xlsx");
   };
 
-  var exportPDF = function() {
-    var list = exportRows();
+  var exportPDF = function () {
+    var aoa = buildAoa(basis);
     var win = window.open("", "_blank");
     if (!win) { alert("팝업이 차단되었습니다. 팝업 허용 후 다시 시도해주세요."); return; }
-    var body = list.map(function (r) {
-      return "<tr><td>" + r.src + "</td><td>" + r.name + "</td><td>" + (r.nat || "") + "</td><td>" + (r.regNo || "미입력") + "</td><td>" + fmt(r.gross) + "</td><td>" + fmt(r.tax) + "</td><td>" + fmt(r.final) + "</td></tr>";
+    var n = function (v) { return typeof v === "number" ? (v ? "₩" + Math.round(v).toLocaleString() : "") : (v || ""); };
+    var html = aoa.map(function (row, ri) {
+      var tag = ri === 0 ? "th" : "td";
+      return "<tr>" + row.map(function (c, ci) { return "<" + tag + (ci > 1 ? " class='r'" : "") + ">" + n(c) + "</" + tag + ">"; }).join("") + "</tr>";
     }).join("");
-    win.document.write(
-      "<html><head><meta charset='utf-8'><title>" + month + "_세무요약</title>" +
-      "<style>body{font-family:sans-serif;padding:24px;} h1{font-size:18px;} table{width:100%;border-collapse:collapse;margin-top:12px;} th,td{border:1px solid #ccc;padding:8px;font-size:12px;text-align:right;} th:nth-child(-n+4),td:nth-child(-n+4){text-align:left;} tfoot td{font-weight:800;background:#f1f5f9;}</style>" +
-      "</head><body>" +
-      "<h1>MoMo Agency — " + CAL_NOW.getFullYear() + "년 " + month + " 세무 요약</h1>" +
-      "<table><thead><tr>" + HEAD.map(function(h){ return "<th>"+h+"</th>"; }).join("") + "</tr></thead><tbody>" + body +
-      "</tbody><tfoot><tr><td colspan='4'>합계</td><td>" + fmt(tG) + "</td><td>" + fmt(tT) + "</td><td>" + fmt(tF) + "</td></tr></tfoot></table>" +
-      "<p style='font-size:11px;color:#666;margin-top:10px'>※ 모델 수익(세전) = 원천징수 + 입금액</p>" +
-      "</body></html>"
-    );
-    win.document.close();
-    win.focus();
-    setTimeout(function(){ win.print(); }, 300);
+    win.document.write("<html><head><meta charset='utf-8'><title>" + rangeLabel + "_인건비</title><style>body{font-family:sans-serif;padding:24px;}h1{font-size:18px;}table{border-collapse:collapse;margin-top:12px;}th,td{border:1px solid #ccc;padding:7px 10px;font-size:12px;}.r{text-align:right;}th{background:#f1f5f9;}</style></head><body><h1>MoMo Agency — " + year + "년 " + rangeLabel + " 인건비 (" + basisLabel + ")</h1><table>" + html + "</table></body></html>");
+    win.document.close(); win.focus(); setTimeout(function () { win.print(); }, 300);
   };
 
-  var thStyle = function (align, color) { return { padding:"9px 10px", textAlign:align, fontSize:10, color:color || t.sub, fontWeight:700, borderBottom:"1px solid "+t.border, whiteSpace:"nowrap" }; };
+  var sel = { padding: "6px 10px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 13, fontWeight: 700 };
+  var th = function (align) { return { padding: "9px 10px", textAlign: align, fontSize: 11, color: t.sub, fontWeight: 700, borderBottom: "1px solid " + t.border, whiteSpace: "nowrap", background: t.thead }; };
+  var srcColor = { "소속": [dark ? "#1e1b4b" : "#eef2ff", COLOR.primary], "외부모델": [dark ? "#3b2a05" : "#fef3c7", "#b45309"], "통역/매니저": [dark ? "#0c2a2e" : "#ecfeff", "#0e7490"] };
 
   return (
     <div>
-      <div style={{ background:t.card, border:"1px solid "+t.border, borderRadius:14, padding:"14px 16px", marginBottom:12 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12, flexWrap:"wrap", justifyContent:"space-between" }}>
-          <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
-            <h2 style={{ fontSize: FONT.lg, fontWeight:900, color:t.text, margin:0 }}>월별 세무 요약</h2>
-            <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-              <span style={{ fontSize:18, fontWeight:900, color:"#4f46e5" }}>{month}</span>
-              {month === NOW_MONTH && <span style={{ background: COLOR.primary, color:"#fff", fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:10 }}>이번 달</span>}
-            </div>
-          </div>
-          <div style={{ display:"flex", gap:6 }}>
-            <button onClick={exportExcel} style={{ padding:"6px 12px", borderRadius:8, border:"1px solid "+t.border, background:dark?"#0a1f1a":"#f0fdf4", color: COLOR.success, fontWeight:700, fontSize: FONT.sm, cursor:"pointer" }}>⬇ 엑셀</button>
-            <button onClick={exportPDF} style={{ padding:"6px 12px", borderRadius:8, border:"1px solid "+t.border, background:dark?"#1a0808":"#fff1f2", color: COLOR.danger, fontWeight:700, fontSize: FONT.sm, cursor:"pointer" }}>⬇ PDF</button>
+      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: "14px 16px", marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "space-between", marginBottom: 12 }}>
+          <h2 style={{ fontSize: FONT.lg, fontWeight: 900, color: t.text, margin: 0 }}>세무 요약 · 인건비</h2>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button onClick={exportExcel} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid " + t.border, background: dark ? "#0a1f1a" : "#f0fdf4", color: COLOR.success, fontWeight: 700, fontSize: FONT.sm, cursor: "pointer" }}>⬇ 엑셀</button>
+            <button onClick={exportPDF} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid " + t.border, background: dark ? "#1a0808" : "#fff1f2", color: COLOR.danger, fontWeight: 700, fontSize: FONT.sm, cursor: "pointer" }}>⬇ PDF</button>
           </div>
         </div>
-        <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
-          {MONTHS.map(function(m) {
-            var isNow = m === NOW_MONTH;
-            var isSel = month === m;
-            return (
-              <button key={m} onClick={function(){ setMonth(m); }} style={{ padding:"5px 10px", borderRadius:8, border: isNow ? "2px solid #4f46e5" : "1px solid "+t.border, cursor:"pointer", fontSize: FONT.xs, fontWeight: isNow ? 900 : 700, background:isSel?"#4f46e5":(dark?"#1e293b":"#f8fafc"), color:isSel?"#fff":t.sub }}>{m}{isNow ? " ★" : ""}</button>
-            );
-          })}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: FONT.sm, color: t.sub, fontWeight: 700 }}>조회 기간</span>
+          <select value={startIdx} onChange={function (e) { setStartIdx(Number(e.target.value)); }} style={sel}>{MONTHS.map(function (m, i) { return <option key={m} value={i}>{year}년 {m}</option>; })}</select>
+          <span style={{ color: t.sub }}>~</span>
+          <select value={endIdx} onChange={function (e) { setEndIdx(Number(e.target.value)); }} style={sel}>{MONTHS.map(function (m, i) { return <option key={m} value={i}>{year}년 {m}</option>; })}</select>
+          <div style={{ display: "flex", gap: 4, marginLeft: "auto", flexWrap: "wrap" }}>
+            {[["gross", "모델 수익(세전)"], ["tax", "원천징수 3.3%"], ["final", "입금액"]].map(function (o) {
+              var on = basis === o[0];
+              return <button key={o[0]} onClick={function () { setBasis(o[0]); }} style={{ padding: "6px 11px", borderRadius: 8, border: on ? "none" : "1px solid " + t.border, background: on ? COLOR.primary : "transparent", color: on ? "#fff" : t.sub, fontWeight: 700, fontSize: FONT.xs, cursor: "pointer" }}>{o[1]}</button>;
+            })}
+          </div>
         </div>
       </div>
 
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8, marginBottom:12 }}>
-        {[["모델 수익 (세전)",fmt(tG),dark?"#e2e8f0":"#334155",dark?"#1e293b":"#f8fafc"],["원천징수 3.3%",fmt(tT),"#ef4444",dark?"#1a0808":"#fff1f2"],["입금액 (실지급)",fmt(tF),"#10b981",dark?"#071a14":"#f0fdf4"]].map(function(item) {
-          return (
-            <div key={item[0]} style={{ background:item[3], borderRadius:12, padding:"12px 14px" }}>
-              <div style={{ fontSize:10, color:item[2], opacity:0.75, marginBottom:4 }}>{item[0]}</div>
-              <div style={{ fontSize:17, fontWeight:900, color:item[2] }}>{item[1]}</div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div style={{ background:t.card, border:"1px solid "+t.border, borderRadius:12, overflow:"hidden", marginBottom:8 }}>
-        <div style={{ overflowX:"auto", WebkitOverflowScrolling:"touch" }}>
-          <table style={{ width:"100%", fontSize: FONT.sm, borderCollapse:"collapse", minWidth:520 }}>
+      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 12, overflow: "hidden", marginBottom: 8 }}>
+        <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+          <table style={{ width: "100%", fontSize: FONT.sm, borderCollapse: "collapse", minWidth: 420 + monthIdxs.length * 110 }}>
             <thead>
-              <tr style={{ background:t.thead }}>
-                <th style={thStyle("left")}>이름</th>
-                <th style={thStyle("left")}>주민/외국인등록번호</th>
-                <th style={thStyle("right")}>모델 수익(세전)</th>
-                <th style={thStyle("right", "#ef4444")}>원천징수(3.3%)</th>
-                <th style={thStyle("right", "#10b981")}>입금액</th>
+              <tr>
+                <th style={th("left")}>이름</th>
+                <th style={th("left")}>번호</th>
+                {monthIdxs.map(function (i) { return <th key={i} style={th("right")}>{MONTHS[i]}</th>; })}
+                <th style={Object.assign({}, th("right"), { background: dark ? "#3b2a1a" : "#fed7aa", color: dark ? "#fdba74" : "#9a3412" })}>합산</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map(function(r) {
-                return <TaxRow key={r.model} model={r.model} meta={r.meta} tax={r.tax} final={r.final} monthData={r.monthData} editingRegNo={editingRegNo} regNoInput={regNoInput} onStartEdit={startEdit} onCommitEdit={commitEdit} onRegNoInput={setRegNoInput} dark={dark} />;
-              })}
-              {extRows.map(function (r) {
+              {people.length === 0 && <tr><td colSpan={monthIdxs.length + 3} style={{ padding: 24, textAlign: "center", color: t.sub }}>해당 기간에 지급 내역이 없습니다.</td></tr>}
+              {people.map(function (pr) {
+                var sc = srcColor[pr.src];
                 return (
-                  <tr key={r.key} style={{ borderBottom:"1px solid "+t.border }}>
-                    <td style={{ padding:"9px 10px 9px 37px" }}>
-                      <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-                        <span style={{ fontSize:9, fontWeight:800, padding:"1px 6px", borderRadius:5, background: r.role === "외부모델" ? (dark?"#3b2a05":"#fef3c7") : (dark?"#0c2a2e":"#ecfeff"), color: r.role === "외부모델" ? "#b45309" : "#0e7490" }}>{r.role}</span>
-                        <span style={{ fontWeight:800, color:t.text, fontSize:12 }}>{r.name}</span>
+                  <tr key={pr.key} style={{ borderBottom: "1px solid " + t.border }}>
+                    <td style={{ padding: "9px 10px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 5, background: sc[0], color: sc[1], whiteSpace: "nowrap" }}>{pr.src}</span>
+                        <span style={{ fontWeight: 800, color: t.text, fontSize: 12 }}>{pr.name}</span>
                       </div>
-                      <div style={{ fontSize:9, color:t.sub }}>촬영관리 · {r.brands.join(", ")}</div>
                     </td>
-                    <td style={{ padding:"9px 10px", fontFamily:"monospace", fontSize: FONT.xs, color: r.regNo ? t.text : "#b45309" }}>{r.regNo || "미입력 (촬영관리에서 입력)"}</td>
-                    <td style={{ padding:"9px 10px", textAlign:"right", color:t.text, fontWeight:700, fontSize:12 }}>{fmt(r.gross)}</td>
-                    <td style={{ padding:"9px 10px", textAlign:"right", color: COLOR.danger, fontWeight:800, fontSize:12 }}>{r.tax > 0 ? fmt(r.tax) : "-"}</td>
-                    <td style={{ padding:"9px 10px", textAlign:"right", color: COLOR.success, fontWeight:900, fontSize:12 }}>{fmt(r.final)}</td>
+                    <td style={{ padding: "9px 10px" }}>
+                      {pr.model && editingRegNo === pr.model ? (
+                        <input autoFocus value={regNoInput} onChange={function (e) { setRegNoInput(fmtRegNo(e.target.value)); }} onBlur={function () { commitEdit(pr.model); }} onKeyDown={function (e) { if (e.key === "Enter") commitEdit(pr.model); }} placeholder="000000-0000000" maxLength={14}
+                          style={{ border: "2px solid #f59e0b", borderRadius: 6, padding: "3px 7px", fontSize: FONT.xs, width: 120, outline: "none", fontFamily: "monospace", background: t.input, color: t.text }} />
+                      ) : pr.model ? (
+                        <button onClick={function () { startEdit(pr.model, pr.regNo); }} style={{ background: "transparent", border: "1px dashed #f59e0b", borderRadius: 6, padding: "2px 8px", fontSize: FONT.xs, cursor: "pointer", color: pr.regNo ? t.text : "#b45309", fontFamily: "monospace", whiteSpace: "nowrap" }}>{pr.regNo || "입력"}</button>
+                      ) : (
+                        <span style={{ fontFamily: "monospace", fontSize: FONT.xs, color: pr.regNo ? t.text : "#b45309" }}>{pr.regNo || "미입력(촬영관리에서 입력)"}</span>
+                      )}
+                    </td>
+                    {monthIdxs.map(function (i) { return <td key={i} style={{ padding: "9px 10px", textAlign: "right", color: t.text, fontWeight: 600, fontSize: 12, whiteSpace: "nowrap" }}>{won(cell(pr, i))}</td>; })}
+                    <td style={{ padding: "9px 10px", textAlign: "right", fontWeight: 900, fontSize: 12, whiteSpace: "nowrap", background: dark ? "#3b2a1a" : "#ffedd5", color: dark ? "#fdba74" : "#9a3412" }}>{won(personTotal(pr))}</td>
                   </tr>
                 );
               })}
-              <tr style={{ background:dark?"#1e293b":"#eef2ff" }}>
-                <td colSpan={2} style={{ padding:"9px 10px", fontWeight:900, color:"#4338ca", fontSize:12 }}>합계</td>
-                <td style={{ padding:"9px 10px", textAlign:"right", fontWeight:900, color:t.text, fontSize:12 }}>{fmt(tG)}</td>
-                <td style={{ padding:"9px 10px", textAlign:"right", fontWeight:900, color: COLOR.danger, fontSize:12 }}>{fmt(tT)}</td>
-                <td style={{ padding:"9px 10px", textAlign:"right", fontWeight:900, color: COLOR.success, fontSize:12 }}>{fmt(tF)}</td>
-              </tr>
+              {people.length > 0 && (
+                <tr style={{ background: dark ? "#1e293b" : "#f1f5f9" }}>
+                  <td colSpan={2} style={{ padding: "9px 10px", fontWeight: 900, color: t.text, fontSize: 12 }}>월별 합계</td>
+                  {monthIdxs.map(function (i) { return <td key={i} style={{ padding: "9px 10px", textAlign: "right", fontWeight: 800, color: t.text, fontSize: 12, whiteSpace: "nowrap" }}>{won(monthTotal(i))}</td>; })}
+                  <td style={{ padding: "9px 10px" }} />
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
       </div>
-      <p style={{ fontSize: FONT.xs, color:t.sub, margin:"4px 2px" }}>
-        ※ 모델 수익(세전) = 원천징수 + 입금액 · 소속모델 + 촬영관리 시스템의 외부모델·통역/매니저 지급건 포함{extLoaded ? "" : " (촬영관리 데이터 불러오는 중...)"}
+
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+        <div style={{ background: "#fde047", color: "#1f2937", borderRadius: 10, padding: "10px 16px", display: "flex", gap: 14, alignItems: "baseline" }}>
+          <span style={{ fontSize: FONT.sm, fontWeight: 800 }}>{rangeLabel} 인건비총액 ({basisLabel})</span>
+          <span style={{ fontSize: FONT.lg, fontWeight: 900 }}>{"₩" + Math.round(grandTotal).toLocaleString()}</span>
+        </div>
+      </div>
+      <p style={{ fontSize: FONT.xs, color: t.sub, margin: "4px 2px" }}>
+        세전 {won(allSum("gross")) || "-"} = 원천징수 {won(allSum("tax")) || "-"} + 입금액 {won(allSum("final")) || "-"} · 소속모델 + 촬영관리 시스템의 외부모델·통역/매니저 지급건 포함{extLoaded ? "" : " (촬영관리 데이터 불러오는 중...)"}
       </p>
     </div>
   );
@@ -1592,7 +1566,7 @@ function ModelFormModal({ existing, onSave, onClose, dark }) {
 // ── 메인 앱 ───────────────────────────────────────────────────────────────────
 export default function App({ currentUser, onLogout }) {
   var [modelMeta, setModelMeta] = useState(function() {
-    try { var s = localStorage.getItem(MODEL_META_KEY); return s ? JSON.parse(s) : DEFAULT_MODELS; } catch(e) { return DEFAULT_MODELS; }
+    try { var s = localStorage.getItem(MODEL_META_KEY); return fixFullNames(s ? JSON.parse(s) : DEFAULT_MODELS); } catch(e) { return DEFAULT_MODELS; }
   });
   var [data, setData] = useState(function() {
     try { var s = localStorage.getItem(MODEL_DATA_KEY); return s ? JSON.parse(s) : initData(DEFAULT_MODELS); } catch(e) { return initData(DEFAULT_MODELS); }
@@ -1626,7 +1600,7 @@ export default function App({ currentUser, onLogout }) {
         setData(saved.data);
         historyRef.current = [{ data: saved.data, modelMeta: (saved.modelMeta || DEFAULT_MODELS) }];
       }
-      if (saved && saved.modelMeta) setModelMeta(saved.modelMeta);
+      if (saved && saved.modelMeta) setModelMeta(fixFullNames(saved.modelMeta));
       setLoading(false);
     }).catch(function() { setLoading(false); });
   }, []);
