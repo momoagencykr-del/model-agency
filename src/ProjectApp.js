@@ -787,6 +787,10 @@ function ExpensesTab({ year, month, setYear, setMonth, expenses, recurringExpens
 }
 
 // ── 지급관리 탭 ──────────────────────────────────────────────────────────
+// 2026-07 이전 촬영건은 시스템 도입 전 과거 내역 → 모두 지급완료로 처리
+var PAID_CUTOFF = "2026-07";
+function isPrePaid(date) { return !!date && date.slice(0, 7) < PAID_CUTOFF; }
+
 function buildPaymentRows(mKey, allProjects, paymentInfo) {
   var list = projectsForMonth(allProjects, mKey);
   var rows = [];
@@ -796,7 +800,7 @@ function buildPaymentRows(mKey, allProjects, paymentInfo) {
       var info = paymentInfo[pid] || { regNo: "", taxType: "3.3%", bank: "", account: "", paid: false };
       rows.push({
         pid: pid, date: p.date, brand: p.brand, modelName: m.name, time: p.time, role: "모델",
-        handPay: m.handPay, regNo: info.regNo, taxType: info.taxType, bank: info.bank, account: info.account, paid: info.paid,
+        handPay: m.handPay, regNo: info.regNo, taxType: info.taxType, bank: info.bank, account: info.account, paid: info.paid || isPrePaid(p.date),
       });
     });
     if (p.interpreter && p.interpreter.use) {
@@ -804,7 +808,7 @@ function buildPaymentRows(mKey, allProjects, paymentInfo) {
       var iinfo = paymentInfo[ipid] || { regNo: "", taxType: "3.3%", bank: "", account: "", paid: false };
       rows.push({
         pid: ipid, date: p.date, brand: p.brand, modelName: (p.interpreter.name || "통역비(or 현장매니저)") + " (통역)", time: p.time, role: "통역비(or 현장매니저)",
-        handPay: p.interpreter.fee, regNo: iinfo.regNo, taxType: iinfo.taxType, bank: iinfo.bank, account: iinfo.account, paid: iinfo.paid,
+        handPay: p.interpreter.fee, regNo: iinfo.regNo, taxType: iinfo.taxType, bank: iinfo.bank, account: iinfo.account, paid: iinfo.paid || isPrePaid(p.date),
       });
     }
   });

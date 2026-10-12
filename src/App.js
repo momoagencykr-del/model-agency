@@ -91,6 +91,12 @@ function fixFullNames(meta) {
   return out;
 }
 
+// 2026년 1~6월 = 시스템 도입 전 내역 (지급 완료로 처리)
+function isPreSystemMonth(monthLabel) {
+  var n = parseInt(monthLabel, 10);
+  return !!n && n <= 6;
+}
+
 function fmtRegNo(val) {
   var d = val.replace(/\D/g, "").slice(0, 13);
   return d.length <= 6 ? d : d.slice(0, 6) + "-" + d.slice(6);
@@ -318,7 +324,9 @@ function EntryForm({ af, label, onAdd, dark }) {
 }
 
 // ── 입력 테이블 ───────────────────────────────────────────────────────────────
-function EntryTable({ entries, af, onRemove, onUpdate, dark }) {
+function EntryTable({ entries, af, onRemove, onUpdate, dark, monthLabel }) {
+  // 1~6월은 시스템 도입 전 과거 내역 → 모두 입금완료로 간주
+  var pastClosed = isPreSystemMonth(monthLabel);
   var t = T(dark);
   var [editId, setEditId] = useState(null);
   var [ef, setEf] = useState(null);
@@ -385,7 +393,7 @@ function EntryTable({ entries, af, onRemove, onUpdate, dark }) {
 
         var displayFinal = finalAmt(e, af);
         var hasOverride = e.actualPaid !== undefined && e.actualPaid !== null && e.actualPaid !== "";
-        var isPaid = !!e.paid;
+        var isPaid = !!e.paid || pastClosed;
         return (
           <div key={e.id} style={{ background: isPaid ? (dark?"#0a2015":"#f0fdf4") : (dark?"#0f172a":"#f8fafc"), border: "1.5px solid " + (isPaid ? "#10b981" : t.border), borderRadius:10, padding:"10px 12px" }}>
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, flexWrap:"wrap", gap:6 }}>
@@ -687,7 +695,7 @@ function SettlementSidePanel({ dark, modelMeta, data, addEntry, updateEntry, rem
           <EntryForm af={entryType === "agency" ? meta.agencyAF : meta.modelAF} label={entryType === "agency" ? "에이전시 촬영" : "모델 직접 촬영"}
             onAdd={function (e) { addEntry(selModel, monthKey, entryType, Object.assign({}, e, { brand: e.brand || defaultBrand, paid: false, settleDate: settleDate })); }} dark={dark} />
           <div style={{ marginTop: 10 }}>
-            <EntryTable entries={md[entryType]} af={entryType === "agency" ? meta.agencyAF : meta.modelAF}
+            <EntryTable monthLabel={monthKey} entries={md[entryType]} af={entryType === "agency" ? meta.agencyAF : meta.modelAF}
               onRemove={function (id) { removeEntry(selModel, monthKey, entryType, id); }}
               onUpdate={function (id, patch) { updateEntry(selModel, monthKey, entryType, id, patch); }} dark={dark} />
           </div>
@@ -1274,7 +1282,7 @@ function ModelDetail({ model, meta, data, addEntry, removeEntry, updateEntry, on
               <span style={{ fontWeight:800, color:t.text, fontSize:13 }}>에이전시 촬영</span>
               <span style={{ background:dark?"#1e1b4b":"#eef2ff", color: COLOR.primary, fontSize: FONT.xs, fontWeight:700, padding:"3px 9px", borderRadius:20 }}>AF {pct(meta.agencyAF)}</span>
             </div>
-            <EntryTable entries={md.agency} af={meta.agencyAF} onRemove={function(id){ removeEntry(model, month, "agency", id); }} onUpdate={function(id, patch){ updateEntry(model, month, "agency", id, patch); }} dark={dark} />
+            <EntryTable monthLabel={month} entries={md.agency} af={meta.agencyAF} onRemove={function(id){ removeEntry(model, month, "agency", id); }} onUpdate={function(id, patch){ updateEntry(model, month, "agency", id, patch); }} dark={dark} />
             <EntryForm af={meta.agencyAF} label="에이전시 촬영" onAdd={function(e){ addEntry(model, month, "agency", e); }} dark={dark} />
           </div>
           <div style={{ background:t.card, border:"1px solid "+t.border, borderRadius:12, padding:14 }}>
@@ -1282,7 +1290,7 @@ function ModelDetail({ model, meta, data, addEntry, removeEntry, updateEntry, on
               <span style={{ fontWeight:800, color:t.text, fontSize:13 }}>모델 직접 촬영</span>
               <span style={{ background:dark?"#2d1a4b":"#f5f3ff", color: COLOR.purple, fontSize: FONT.xs, fontWeight:700, padding:"3px 9px", borderRadius:20 }}>AF {pct(meta.modelAF)}</span>
             </div>
-            <EntryTable entries={md.self} af={meta.modelAF} onRemove={function(id){ removeEntry(model, month, "self", id); }} onUpdate={function(id, patch){ updateEntry(model, month, "self", id, patch); }} dark={dark} />
+            <EntryTable monthLabel={month} entries={md.self} af={meta.modelAF} onRemove={function(id){ removeEntry(model, month, "self", id); }} onUpdate={function(id, patch){ updateEntry(model, month, "self", id, patch); }} dark={dark} />
             <EntryForm af={meta.modelAF} label="모델 직접 촬영" onAdd={function(e){ addEntry(model, month, "self", e); }} dark={dark} />
           </div>
         </div>
