@@ -852,6 +852,38 @@ function downloadPaymentsCSV(rows, year, month) {
   URL.revokeObjectURL(url);
 }
 
+
+// ── 모델 정산관리(소속모델) 데이터 연동 ─────────────────────────────────────
+async function fetchSettlement() {
+  try { var r = await fetch("/api/sheets"); var j = await r.json(); return (j && j.data) || {}; } catch (e) { return {}; }
+}
+function settleCalc(e, af) {
+  var inc = Number(e.income) || 0, od = Number(e.otherDeduct) || 0;
+  var after = inc - Math.round(inc * af) - od;
+  var tax = Math.round(after * 0.033);
+  var final = (e.actualPaid !== undefined && e.actualPaid !== null && e.actualPaid !== "") ? (Number(e.actualPaid) || 0) : after - tax;
+  return { inc: inc, tax: tax, final: final };
+}
+// 특정 월(라벨 "7월")의 소속모델 정산 항목 목록
+function settlementRowsForMonth(settlement, monthLabel) {
+  var meta = settlement.modelMeta || {}, data = settlement.data || {};
+  var rows = [];
+  Object.keys(meta).forEach(function (model) {
+    var md = data[model] && data[model][monthLabel];
+    if (!md) return;
+    ["agency", "self"].forEach(function (type) {
+      (md[type] || []).forEach(function (e) {
+        var af = type === "agency" ? meta[model].agencyAF : meta[model].modelAF;
+        var c = settleCalc(e, af);
+        if (!c.inc) return;
+        rows.push({ key: model + "|" + monthLabel + "|" + type + "|" + e.id, model: model, monthLabel: monthLabel, type: type, id: e.id,
+          name: meta[model].nameKr, brand: e.brand || "", settleDate: e.settleDate || "", inc: c.inc, tax: c.tax, final: c.final, paid: !!e.paid });
+      });
+    });
+  });
+  return rows;
+}
+
 function PaymentsTab({ year, month, setYear, setMonth, allProjects, paymentInfo, onChangeInfo, dark }) {
   var t = T(dark);
   var mKey = monthKey(year, month);
@@ -868,6 +900,55 @@ function PaymentsTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
     onChangeInfo(pid, key, value);
   };
 
+  // 소속모델 정산 데이터 (모델 정산관리 시스템과 연동)
+  var [settlement, setSettlement] = useState(null);
+  useEffect(function () { fetchSettlement().then(setSettlement); }, []);
+  var sameYear = year === NOW.getFullYear();
+  var settleRows = settlement && sameYear ? settlementRowsForMonth(settlement, month + "월") : [];
+
+  var toggleSettlePaid = async function (row) {
+    setSettlement(function (prev) {
+      var next = JSON.parse(JSON.stringify(prev));
+      var arr = next.data[row.model][row.monthLabel][row.type];
+      var e = arr.find(function (x) { return x.id === row.id; });
+      if (e) e.paid = !row.paid;
+      return next;
+    });
+    try {
+      var latest = await fetchSettlement();
+      var arr = latest.data && latest.data[row.model] && latest.data[row.model][row.monthLabel] && latest.data[row.model][row.monthLabel][row.type];
+      var e = arr && arr.find(function (x) { return x.id === row.id; });
+      if (!e) return;
+      e.paid = !row.paid;
+      await fetch("/api/sheets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ data: latest }) });
+    } catch (err) { alert("정산관리 입금 상태 저장에 실패했습니다."); }
+  };
+
+  // ⚠️ 지난 달 미지급 건: 선택한 달 이전의 미지급 항목을 모두 모아서 상단에 표시
+  var curIdx = monthKeyToIndex(mKey);
+  var pastKeys = {};
+  (allProjects || []).forEach(function (p) { var k = monthKeyOfDate(p.date); if (k && monthKeyToIndex(k) < curIdx) pastKeys[k] = true; });
+  var overdue = [];
+  Object.keys(pastKeys).sort().forEach(function (k) {
+    buildPaymentRows(k, allProjects, paymentInfo).forEach(function (r) {
+      if (!r.paid && Number(r.handPay) > 0) {
+        var c = calcPayment(r.handPay, r.taxType);
+        overdue.push({ src: "촬영관리", key: r.pid, date: r.date, brand: r.brand, role: r.role, name: r.modelName, amount: c.final, due: dueDateLabel(k), onToggle: function () { update(r.pid, "paid", true); } });
+      }
+    });
+  });
+  if (settlement && sameYear) {
+    var pastMonths = [];
+    for (var pm = 1; pm < month; pm++) pastMonths.push(pm);
+    pastMonths.forEach(function (mNum) {
+      settlementRowsForMonth(settlement, mNum + "월").forEach(function (r) {
+        if (!r.paid) overdue.push({ src: "정산관리", key: r.key, date: r.settleDate || (year + "-" + pad2(mNum)), brand: r.brand, role: r.type === "agency" ? "소속(에이전시)" : "소속(직접)", name: r.name, amount: r.final, due: dueDateLabel(monthKey(year, mNum)), onToggle: function () { toggleSettlePaid(r); } });
+      });
+    });
+  }
+  overdue.sort(function (a, b) { return (a.date || "").localeCompare(b.date || ""); });
+  var overdueTotal = overdue.reduce(function (s, o) { return s + (o.amount || 0); }, 0);
+
   return (
     <div>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
@@ -881,6 +962,40 @@ function PaymentsTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
         <MonthStrip year={year} month={month} setYear={setYear} setMonth={setMonth} t={t} dark={dark} />
       </div>
       <div style={{ fontSize: FONT.sm, color: t.sub, fontWeight: 700, marginBottom: 10 }}>지급 예정일: {dueDateLabel(mKey)} (익월말)</div>
+
+      {overdue.length > 0 && (
+        <div style={{ background: dark ? "#2a1508" : "#fff7ed", border: "2px solid #f97316", borderRadius: 12, padding: "12px 14px", marginBottom: 14 }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+            <div style={{ fontSize: FONT.md, fontWeight: 900, color: dark ? "#fdba74" : "#c2410c" }}>⚠️ 지난 달 미지급 건 {overdue.length}건 — 처리 필요</div>
+            <div style={{ fontSize: FONT.sm, fontWeight: 800, color: dark ? "#fdba74" : "#c2410c" }}>미지급 합계 {fmt(overdueTotal)}</div>
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: FONT.sm, minWidth: 720 }}>
+              <thead>
+                <tr style={{ color: t.sub }}>
+                  {["촬영/정산일", "출처", "브랜드", "구분", "이름", "지급할 금액", "지급 예정일(경과)", "처리"].map(function (h) { return <th key={h} style={{ padding: "6px 8px", textAlign: "left", fontWeight: 800, whiteSpace: "nowrap" }}>{h}</th>; })}
+                </tr>
+              </thead>
+              <tbody>
+                {overdue.map(function (o) {
+                  return (
+                    <tr key={o.src + o.key} style={{ borderTop: "1px solid " + (dark ? "#7c2d12" : "#fed7aa") }}>
+                      <td style={{ padding: "6px 8px", color: t.text, whiteSpace: "nowrap" }}>{o.date}</td>
+                      <td style={{ padding: "6px 8px", whiteSpace: "nowrap" }}><span style={{ fontSize: FONT.xs, fontWeight: 700, padding: "2px 7px", borderRadius: 6, background: o.src === "정산관리" ? (dark ? "#1e1b4b" : "#eef2ff") : (dark ? "#1f2937" : "#f1f5f9"), color: o.src === "정산관리" ? COLOR.primary : t.sub }}>{o.src}</span></td>
+                      <td style={{ padding: "6px 8px", color: t.text, whiteSpace: "nowrap" }}>{o.brand}</td>
+                      <td style={{ padding: "6px 8px", color: t.sub, whiteSpace: "nowrap", fontSize: FONT.xs }}>{o.role}</td>
+                      <td style={{ padding: "6px 8px", color: t.text, fontWeight: 800, whiteSpace: "nowrap" }}>{o.name}</td>
+                      <td style={{ padding: "6px 8px", color: t.text, fontWeight: 800, whiteSpace: "nowrap" }}>{fmt(o.amount)}</td>
+                      <td style={{ padding: "6px 8px", color: COLOR.danger, fontWeight: 700, whiteSpace: "nowrap" }}>{o.due}</td>
+                      <td style={{ padding: "6px 8px" }}><button onClick={o.onToggle} style={{ padding: "4px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 800, fontSize: FONT.xs, background: "#fee2e2", color: "#991b1b" }}>미입금 → 입금완료</button></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
         <Card title="지급 대상 손Pay 합계" value={fmt(totalHandPay)} t={t} />
@@ -926,6 +1041,39 @@ function PaymentsTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
                   <td style={{ padding: "7px 8px" }}>
                     <button onClick={function () { update(r.pid, "paid", !r.paid); }} style={{ padding: "4px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: FONT.xs, background: r.paid ? "#d1fae5" : "#fee2e2", color: r.paid ? "#065f46" : "#991b1b" }}>{r.paid ? "입금완료" : "미입금"}</button>
                   </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{ marginTop: 18, display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+        <div style={{ fontSize: FONT.md, fontWeight: 900, color: t.text }}>소속모델 정산 내역 <span style={{ fontSize: FONT.xs, color: t.sub, fontWeight: 600 }}>· 모델 정산관리 시스템 연동</span></div>
+        <div style={{ fontSize: FONT.sm, color: t.sub }}>{settleRows.length}건 · 입금액 합계 <b style={{ color: COLOR.success }}>{fmt(settleRows.reduce(function (s, r) { return s + r.final; }, 0))}</b></div>
+      </div>
+      <div style={{ overflowX: "auto", background: t.card, border: "1px solid " + t.border, borderRadius: 12 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: FONT.sm, minWidth: 780 }}>
+          <thead>
+            <tr style={{ background: t.thead, color: t.sub }}>
+              {["모델", "구분", "브랜드", "정산받는 날짜", "업체입금", "원천징수(3.3%)", "모델 입금액", "지급여부"].map(function (h) { return <th key={h} style={{ padding: "9px 8px", textAlign: "left", fontWeight: 800, whiteSpace: "nowrap" }}>{h}</th>; })}
+            </tr>
+          </thead>
+          <tbody>
+            {!settlement && <tr><td colSpan={8} style={{ padding: 16, textAlign: "center", color: t.sub }}>정산 데이터 불러오는 중...</td></tr>}
+            {settlement && !sameYear && <tr><td colSpan={8} style={{ padding: 16, textAlign: "center", color: t.sub }}>모델 정산관리는 {NOW.getFullYear()}년 데이터만 연동됩니다.</td></tr>}
+            {settlement && sameYear && settleRows.length === 0 && <tr><td colSpan={8} style={{ padding: 16, textAlign: "center", color: t.sub }}>{month}월 소속모델 정산 내역이 없습니다.</td></tr>}
+            {settleRows.map(function (r) {
+              return (
+                <tr key={r.key} style={{ borderTop: "1px solid " + t.border, background: r.paid ? (dark ? "#0a2015" : "#f0fdf4") : "transparent" }}>
+                  <td style={{ padding: "7px 8px", color: t.text, fontWeight: 800, whiteSpace: "nowrap" }}>{r.name}</td>
+                  <td style={{ padding: "7px 8px", color: t.sub, fontSize: FONT.xs, whiteSpace: "nowrap" }}>{r.type === "agency" ? "에이전시 촬영" : "모델 직접 촬영"}</td>
+                  <td style={{ padding: "7px 8px", color: t.text, whiteSpace: "nowrap" }}>{r.brand}</td>
+                  <td style={{ padding: "7px 8px", color: t.sub, whiteSpace: "nowrap" }}>{r.settleDate || "-"}</td>
+                  <td style={{ padding: "7px 8px", color: t.text, whiteSpace: "nowrap" }}>{fmt(r.inc)}</td>
+                  <td style={{ padding: "7px 8px", color: COLOR.danger, whiteSpace: "nowrap" }}>{r.tax ? "-" + fmt(r.tax) : "-"}</td>
+                  <td style={{ padding: "7px 8px", color: t.text, fontWeight: 800, whiteSpace: "nowrap" }}>{fmt(r.final)}</td>
+                  <td style={{ padding: "7px 8px" }}><button onClick={function () { toggleSettlePaid(r); }} style={{ padding: "4px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: FONT.xs, background: r.paid ? "#d1fae5" : "#fee2e2", color: r.paid ? "#065f46" : "#991b1b" }}>{r.paid ? "입금완료" : "미입금"}</button></td>
                 </tr>
               );
             })}
