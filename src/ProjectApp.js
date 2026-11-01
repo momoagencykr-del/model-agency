@@ -1782,9 +1782,13 @@ export default function ProjectApp({ currentUser, onLogout }) {
   var removeProject = useCallback(async function (id) {
     var target = allProjects.find(function (p) { return p.id === id; });
     if (target) await syncLinkedModelsToSettlement(target, target, true);
+    // 삭제된 촬영건의 지급정보(주민번호·계좌·지급여부)도 함께 정리 (남겨두면 쓰레기 데이터가 쌓임)
+    var cleanedPI = {};
+    Object.keys(paymentInfo).forEach(function (k) { if (k.indexOf(id + "_") !== 0) cleanedPI[k] = paymentInfo[k]; });
+    setPaymentInfo(cleanedPI);
     setAllProjects(function (prev) {
       var next = prev.filter(function (p) { return p.id !== id; });
-      persistLocal(next, expenses, paymentInfo, recurringExpenses); pushH(next, expenses, paymentInfo, recurringExpenses); setUnsaved(true); return next;
+      persistLocal(next, expenses, cleanedPI, recurringExpenses); pushH(next, expenses, cleanedPI, recurringExpenses); setUnsaved(true); return next;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expenses, paymentInfo, recurringExpenses, allProjects]);
