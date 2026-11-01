@@ -1853,6 +1853,27 @@ export default function ProjectApp({ currentUser, onLogout }) {
     setTimeout(function () { setSaveStatus("idle"); }, 2500);
   }, [allProjects, expenses, paymentInfo, recurringExpenses]);
 
+  // 자동 저장: 변경 후 2초간 추가 입력이 없으면 저장.
+  // (정산관리 연동은 등록·수정·삭제 즉시 반영되는데 촬영 내역은 '저장'을 눌러야만 저장되어,
+  //  저장을 안 누르고 나가면 두 시스템이 서로 어긋나던 문제 해결)
+  var handleSaveRef = useRef(handleSave);
+  useEffect(function () { handleSaveRef.current = handleSave; }, [handleSave]);
+  var unsavedRef = useRef(unsaved);
+  useEffect(function () { unsavedRef.current = unsaved; }, [unsaved]);
+  useEffect(function () {
+    if (!unsaved) return;
+    var id = setTimeout(function () { handleSaveRef.current(); }, 2000);
+    return function () { clearTimeout(id); };
+  }, [unsaved, allProjects, expenses, paymentInfo, recurringExpenses]);
+  useEffect(function () {
+    var onBeforeUnload = function (e) { if (unsavedRef.current) { e.preventDefault(); e.returnValue = ""; } };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return function () {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      if (unsavedRef.current) handleSaveRef.current(); // 정산관리 화면으로 전환 시 미저장분 즉시 저장
+    };
+  }, []);
+
   var t = T(dark);
   var canUndo = historyIdx.current > 0;
   var canRedo = historyIdx.current < historyRef.current.length - 1;
