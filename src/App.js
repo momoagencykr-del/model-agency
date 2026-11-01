@@ -110,6 +110,42 @@ async function loadSheets() {
   } catch(e) { return null; }
 }
 
+
+// ── 동시 편집 보호: 저장 시 서버 최신본과 3-way 병합 ─────────────────────────
+// base = 마지막으로 서버와 맞춘 상태, local = 이 화면의 상태, remote = 지금 서버 상태.
+// 이 화면에서 안 건드린 항목은 서버(촬영관리 연동 등) 값을 따르고, 이 화면에서 바꾼 항목만 덮어쓴다.
+function sameJson(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+function mergeEntryArr(b, l, r) {
+  var byId = function (arr) { var m = {}; (arr || []).forEach(function (e) { if (e) m[String(e.id)] = e; }); return m; };
+  var bm = byId(b), lm = byId(l), rm = byId(r);
+  var ids = [];
+  (l || []).forEach(function (e) { if (e && ids.indexOf(String(e.id)) === -1) ids.push(String(e.id)); });
+  (r || []).forEach(function (e) { if (e && ids.indexOf(String(e.id)) === -1) ids.push(String(e.id)); });
+  var out = [];
+  ids.forEach(function (id) {
+    var inL = id in lm, inR = id in rm, inB = id in bm;
+    if (inL && inR) out.push(sameJson(lm[id], bm[id]) ? rm[id] : lm[id]);
+    else if (inL) { if (!inB || !sameJson(lm[id], bm[id])) out.push(lm[id]); }
+    else if (inR) { if (!inB) out.push(rm[id]); }
+  });
+  return out;
+}
+function mergeSettlementData(base, local, remote) {
+  base = base || {}; local = local || {}; remote = remote || {};
+  var out = {};
+  var models = Object.keys(Object.assign({}, local, remote));
+  models.forEach(function (model) {
+    var bM = base[model] || {}, lM = local[model] || {}, rM = remote[model] || {};
+    if (!(model in local) && (model in base)) return; // 이 화면에서 삭제한 모델
+    out[model] = {};
+    Object.keys(Object.assign({}, lM, rM)).forEach(function (mo) {
+      var bb = bM[mo] || {}, ll = lM[mo] || {}, rr = rM[mo] || {};
+      out[model][mo] = Object.assign({}, rr, ll, { agency: mergeEntryArr(bb.agency, ll.agency, rr.agency), self: mergeEntryArr(bb.self, ll.self, rr.self) });
+    });
+  });
+  return out;
+}
+
 async function saveSheets(p) {
   try {
     var r = await fetch("/api/sheets", {
@@ -1605,6 +1641,7 @@ export default function App({ currentUser, onLogout }) {
   useEffect(function() {
     loadSheets().then(function(saved) {
       if (saved && saved.data) {
+        serverBaseRef.current = saved.data;
         setData(saved.data);
         historyRef.current = [{ data: saved.data, modelMeta: (saved.modelMeta || DEFAULT_MODELS) }];
       }
@@ -1640,11 +1677,20 @@ export default function App({ currentUser, onLogout }) {
     saveData(snap.data); saveMeta(snap.modelMeta); setUnsaved(true);
   }, []);
 
+  var serverBaseRef = useRef(null);
   var handleSave = useCallback(async function() {
     setSaveStatus("saving");
-    var ok = await saveSheets({ data: data, modelMeta: modelMeta });
+    // 다른 화면(촬영관리 연동, 다른 PC/탭)에서 바뀐 내용을 덮어쓰지 않도록 최신본과 병합 후 저장
+    var latest = await loadSheets();
+    var merged = data;
+    if (latest && latest.data && serverBaseRef.current) merged = mergeSettlementData(serverBaseRef.current, data, latest.data);
+    var ok = await saveSheets({ data: merged, modelMeta: modelMeta });
     setSaveStatus(ok ? "saved" : "error");
-    if (ok) setUnsaved(false);
+    if (ok) {
+      serverBaseRef.current = merged;
+      if (!sameJson(merged, data)) setData(merged);
+      setUnsaved(false);
+    }
     setTimeout(function() { setSaveStatus("idle"); }, 2500);
   }, [data, modelMeta]);
 
@@ -1659,6 +1705,26 @@ export default function App({ currentUser, onLogout }) {
       if (unsavedRef.current) { handleSaveRef.current(); }
     }, AUTOSAVE_MS);
     return function() { clearInterval(id); };
+  }, []);
+
+  // 다른 탭/화면에서 돌아오면 저장 안 된 변경이 없을 때 서버 최신본으로 갱신
+  useEffect(function() {
+    var onFocus = function() {
+      if (unsavedRef.current) return;
+      loadSheets().then(function(saved) {
+        if (unsavedRef.current || !saved || !saved.data) return;
+        serverBaseRef.current = saved.data;
+        setData(saved.data);
+      });
+    };
+    var onBeforeUnload = function(e) { if (unsavedRef.current) { e.preventDefault(); e.returnValue = ""; } };
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return function() {
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      if (unsavedRef.current) handleSaveRef.current(); // 화면 전환 시 미저장분 즉시 저장
+    };
   }, []);
 
   // 변경 후 잠시 멈추면 자동 저장 (디바운스 3초) — 수동 저장 없이도 실시간으로 안전하게 저장됨

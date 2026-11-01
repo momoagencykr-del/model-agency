@@ -176,8 +176,48 @@ async function fetchAffiliatedModels() {
   } catch (e) { return {}; }
 }
 
-async function syncLinkedModelsToSettlement(project, prevProject) {
-  var hasLinks = (project.models || []).some(function (m) { return m.linkedModel; })
+// ── 촬영관리 ↔ 모델 정산관리 연동 ─────────────────────────────────────────
+// 연동 항목은 entry.id(=모델 행의 linkedEntryId)로 추적한다. 월/구분(agency/self)이 바뀌어도
+// 어느 위치에 있든 찾아서 하나만 남기고, 정산관리에서 사용자가 수정한 값(입금여부·정산일·공제 등)은 보존한다.
+var AUTO_NOTE = "촬영정산내역 자동연동";
+function syncedIncomeOf(m) {
+  return (m.reportedPrice !== "" && m.reportedPrice !== undefined && m.reportedPrice !== null) ? (Number(m.reportedPrice) || 0) : (Number(m.agencyPrice) || 0);
+}
+function locateEntry(data, model, id) {
+  var out = [];
+  var md = data[model] || {};
+  Object.keys(md).forEach(function (mo) {
+    ["agency", "self"].forEach(function (type) {
+      ((md[mo] && md[mo][type]) || []).forEach(function (e) { if (e && String(e.id) === String(id)) out.push({ mo: mo, type: type, entry: e }); });
+    });
+  });
+  return out;
+}
+function removeEntryEverywhere(data, model, id) {
+  var md = data[model] || {};
+  Object.keys(md).forEach(function (mo) {
+    ["agency", "self"].forEach(function (type) {
+      if (md[mo] && md[mo][type]) md[mo][type] = md[mo][type].filter(function (e) { return !(e && String(e.id) === String(id)); });
+    });
+  });
+}
+function placeLinkedEntry(data, model, monthLabel, project, m, entryId) {
+  var locs = locateEntry(data, model, entryId);
+  var existing = locs.length ? locs[0].entry : null;
+  var type = locs.length ? locs[0].type : "agency";
+  removeEntryEverywhere(data, model, entryId);
+  if (!data[model]) data[model] = {};
+  if (!data[model][monthLabel]) data[model][monthLabel] = { agency: [], self: [] };
+  if (!data[model][monthLabel][type]) data[model][monthLabel][type] = [];
+  var entry = Object.assign({ otherDeduct: 0, paid: false, note: AUTO_NOTE }, existing || {}, {
+    id: entryId, brand: project.brand, income: syncedIncomeOf(m), linkedProjectId: project.id, shootDate: project.date,
+  });
+  data[model][monthLabel][type].push(entry);
+}
+
+// removing=true 이면 이 촬영건의 연동 항목을 정산관리에서 모두 삭제
+async function syncLinkedModelsToSettlement(project, prevProject, removing) {
+  var hasLinks = (project && (project.models || []).some(function (m) { return m.linkedModel; }))
     || (prevProject ? (prevProject.models || []).some(function (m) { return m.linkedModel; }) : false);
   if (!hasLinks) return;
 
@@ -186,49 +226,152 @@ async function syncLinkedModelsToSettlement(project, prevProject) {
     var j = await r.json();
     var settlement = (j && j.data) || {};
     var modelMeta = settlement.modelMeta || {};
-    var data = settlement.data || {};
-    var changed = false;
+    if (!settlement.data) settlement.data = {};
+    var data = settlement.data;
 
-    // 이전 버전에서 연동돼있었지만 이번 저장에서 더 이상 연동되지 않는 라인은 정리
+    var keep = {};
+    if (!removing) (project.models || []).forEach(function (m) { if (m.linkedModel && m.linkedEntryId) keep[m.linkedModel + "|" + m.linkedEntryId] = true; });
     if (prevProject) {
       (prevProject.models || []).forEach(function (pm) {
-        if (!pm.linkedModel || !pm.linkedEntryId) return;
-        var stillSame = (project.models || []).some(function (m) {
-          return m.id === pm.id && m.linkedModel === pm.linkedModel && m.linkedEntryId === pm.linkedEntryId;
-        });
-        if (!stillSame && data[pm.linkedModel]) {
-          Object.keys(data[pm.linkedModel]).forEach(function (mo) {
-            var arr = (data[pm.linkedModel][mo] && data[pm.linkedModel][mo].agency) || [];
-            var idx = arr.findIndex(function (e) { return e.id === pm.linkedEntryId; });
-            if (idx >= 0) { arr.splice(idx, 1); changed = true; }
-          });
-        }
+        if (pm.linkedModel && pm.linkedEntryId && !keep[pm.linkedModel + "|" + pm.linkedEntryId]) removeEntryEverywhere(data, pm.linkedModel, pm.linkedEntryId);
       });
     }
 
-    var monthLabel = koreanMonthLabel(project.date);
-    (project.models || []).forEach(function (m) {
-      if (!m.linkedModel || !modelMeta[m.linkedModel] || !monthLabel) return;
-      if (!data[m.linkedModel]) data[m.linkedModel] = {};
-      if (!data[m.linkedModel][monthLabel]) data[m.linkedModel][monthLabel] = { agency: [], self: [] };
-      var arr = data[m.linkedModel][monthLabel].agency;
-      var entryId = m.linkedEntryId || (Date.now() + Math.floor(Math.random() * 1000));
-      var syncedIncome = (m.reportedPrice !== "" && m.reportedPrice !== undefined && m.reportedPrice !== null) ? (Number(m.reportedPrice) || 0) : (Number(m.agencyPrice) || 0);
-      var entry = { id: entryId, brand: project.brand, income: syncedIncome, otherDeduct: 0, note: "촬영정산내역 자동연동" };
-      var idx = arr.findIndex(function (e) { return e.id === entryId; });
-      if (idx >= 0) { arr[idx] = entry; } else { arr.push(entry); }
-      m.linkedEntryId = entryId;
-      changed = true;
+    if (!removing) {
+      var monthLabel = koreanMonthLabel(project.date);
+      (project.models || []).forEach(function (m) {
+        if (!m.linkedModel || !modelMeta[m.linkedModel] || !monthLabel) return;
+        var entryId = m.linkedEntryId || (Date.now() + Math.floor(Math.random() * 100000));
+        placeLinkedEntry(data, m.linkedModel, monthLabel, project, m, entryId);
+        m.linkedEntryId = entryId;
+      });
+    }
+
+    await fetch("/api/sheets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data: settlement }),
     });
-
-    if (changed) {
-      await fetch("/api/sheets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data: settlement }),
-      });
-    }
   } catch (e) { console.error("정산관리 연동 실패", e); }
+}
+
+// 전체 점검: 촬영관리의 소속모델 연동건과 정산관리 데이터를 대조해 문제를 찾고, 수정본을 만든다
+function analyzeSettlementLinks(projects, settlement) {
+  var s = JSON.parse(JSON.stringify(settlement || {}));
+  if (!s.data) s.data = {};
+  var data = s.data, meta = s.modelMeta || {};
+  var issues = [], linkAssign = [], referenced = {};
+  var nm = function (model) { return (meta[model] && meta[model].nameKr) || model; };
+
+  (projects || []).forEach(function (p) {
+    var monthLabel = koreanMonthLabel(p.date);
+    (p.models || []).forEach(function (m) {
+      if (!m.linkedModel || !meta[m.linkedModel] || !monthLabel) return;
+      var income = syncedIncomeOf(m);
+      var id = m.linkedEntryId;
+      var locs = id ? locateEntry(data, m.linkedModel, id) : [];
+      var base = { model: nm(m.linkedModel), brand: p.brand, date: p.date };
+      if (!id || locs.length === 0) {
+        issues.push(Object.assign({ kind: "누락", detail: "정산관리에 없음 → " + monthLabel + "에 " + fmt(income) + " 추가" }, base));
+        if (!id) { id = Date.now() + Math.floor(Math.random() * 100000) + issues.length; linkAssign.push({ projectId: p.id, rowId: m.id, entryId: id }); }
+      } else {
+        if (locs.length > 1) issues.push(Object.assign({ kind: "중복", detail: locs.length + "개 → 1개로 정리 (" + locs.map(function (l) { return l.mo; }).join(", ") + ")" }, base));
+        if (locs[0].mo !== monthLabel) issues.push(Object.assign({ kind: "월 불일치", detail: locs[0].mo + " → " + monthLabel + "로 이동" }, base));
+        var cur = locs[0].entry;
+        if ((Number(cur.income) || 0) !== income) issues.push(Object.assign({ kind: "금액 불일치", detail: "정산관리 " + fmt(cur.income) + " → 촬영관리 " + fmt(income) }, base));
+        else if ((cur.brand || "") !== (p.brand || "")) issues.push(Object.assign({ kind: "브랜드 불일치", detail: "'" + (cur.brand || "") + "' → '" + p.brand + "'" }, base));
+      }
+      placeLinkedEntry(data, m.linkedModel, monthLabel, p, m, id);
+      referenced[m.linkedModel + "|" + id] = true;
+    });
+  });
+
+  // 삭제된 촬영건의 자동연동 항목(고아) + 같은 달·같은 브랜드의 수동 입력 중복 의심
+  Object.keys(data).forEach(function (model) {
+    Object.keys(data[model] || {}).forEach(function (mo) {
+      var md = data[model][mo]; if (!md) return;
+      var autoBrands = {};
+      ["agency", "self"].forEach(function (type) {
+        md[type] = (md[type] || []).filter(function (e) {
+          var auto = e && (e.linkedProjectId || e.note === AUTO_NOTE);
+          if (auto && !referenced[model + "|" + e.id]) {
+            issues.push({ kind: "고아(삭제된 촬영건)", model: nm(model), brand: e.brand, date: mo, detail: fmt(e.income) + " 항목 삭제" });
+            return false;
+          }
+          if (auto) autoBrands[(e.brand || "").trim()] = true;
+          return true;
+        });
+      });
+      ["agency", "self"].forEach(function (type) {
+        (md[type] || []).forEach(function (e) {
+          var auto = e.linkedProjectId || e.note === AUTO_NOTE;
+          if (!auto && e.brand && autoBrands[e.brand.trim()]) issues.push({ kind: "중복 의심(수동입력)", model: nm(model), brand: e.brand, date: mo, detail: fmt(e.income) + " — 같은 달 자동연동 건과 브랜드가 같음, 직접 확인 필요(자동 수정 안 함)", warnOnly: true });
+        });
+      });
+    });
+  });
+  return { settlement: s, issues: issues, linkAssign: linkAssign };
+}
+
+function SyncCheckModal({ allProjects, onLinkIds, onClose, dark }) {
+  var t = T(dark);
+  var [state, setState] = useState({ loading: true });
+  var run = function () {
+    setState({ loading: true });
+    fetch("/api/sheets").then(function (r) { return r.json(); }).then(function (j) {
+      var res = analyzeSettlementLinks(allProjects, (j && j.data) || {});
+      setState({ loading: false, res: res });
+    }).catch(function () { setState({ loading: false, error: true }); });
+  };
+  useEffect(run, []); // eslint-disable-line react-hooks/exhaustive-deps
+  var apply = async function () {
+    setState(function (s) { return Object.assign({}, s, { applying: true }); });
+    try {
+      await fetch("/api/sheets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ data: state.res.settlement }) });
+      if (state.res.linkAssign.length) onLinkIds(state.res.linkAssign);
+      setState({ loading: false, done: true });
+    } catch (e) { alert("저장 실패"); setState(function (s) { return Object.assign({}, s, { applying: false }); }); }
+  };
+  var issues = state.res ? state.res.issues : [];
+  var fixable = issues.filter(function (i) { return !i.warnOnly; }).length;
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }}>
+      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: RADIUS.lg, padding: 22, width: "100%", maxWidth: 860, maxHeight: "86vh", overflowY: "auto" }}>
+        <h3 style={{ color: t.text, fontWeight: 900, fontSize: FONT.lg, margin: "0 0 4px" }}>🔍 정산 연동 점검</h3>
+        <div style={{ fontSize: FONT.xs, color: t.sub, marginBottom: 14 }}>촬영관리의 소속모델 연동건과 모델 정산관리 데이터를 대조합니다. 수정 전 목록을 확인하세요.</div>
+        {state.loading && <div style={{ padding: 30, textAlign: "center", color: t.sub }}>점검 중...</div>}
+        {state.error && <div style={{ padding: 30, textAlign: "center", color: COLOR.danger }}>정산 데이터를 불러오지 못했습니다.</div>}
+        {state.done && <div style={{ padding: 30, textAlign: "center", color: COLOR.success, fontWeight: 800 }}>수정 완료되었습니다. 모델 정산관리 화면을 새로고침하면 반영된 내용이 보입니다.</div>}
+        {state.res && !state.done && (
+          issues.length === 0 ? <div style={{ padding: 30, textAlign: "center", color: COLOR.success, fontWeight: 800 }}>✓ 불일치 없음 — 촬영관리와 정산관리가 일치합니다.</div> : (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: FONT.sm }}>
+                <thead><tr style={{ background: t.thead }}>{["유형", "모델", "브랜드", "촬영일/월", "내용"].map(function (h) { return <th key={h} style={{ padding: "8px", textAlign: "left", color: t.sub, whiteSpace: "nowrap" }}>{h}</th>; })}</tr></thead>
+                <tbody>
+                  {issues.map(function (i, k) {
+                    return (
+                      <tr key={k} style={{ borderTop: "1px solid " + t.border }}>
+                        <td style={{ padding: "7px 8px", fontWeight: 800, whiteSpace: "nowrap", color: i.warnOnly ? COLOR.warning : COLOR.danger }}>{i.kind}</td>
+                        <td style={{ padding: "7px 8px", color: t.text, fontWeight: 700, whiteSpace: "nowrap" }}>{i.model}</td>
+                        <td style={{ padding: "7px 8px", color: t.text }}>{i.brand}</td>
+                        <td style={{ padding: "7px 8px", color: t.sub, whiteSpace: "nowrap" }}>{i.date}</td>
+                        <td style={{ padding: "7px 8px", color: t.text }}>{i.detail}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )
+        )}
+        <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
+          <SecondaryButton onClick={onClose} dark={dark}>닫기</SecondaryButton>
+          {state.res && !state.done && <SecondaryButton onClick={run} dark={dark}>다시 점검</SecondaryButton>}
+          {state.res && !state.done && fixable > 0 && <PrimaryButton onClick={apply} disabled={state.applying}>{state.applying ? "수정 중..." : "모두 수정 (" + fixable + "건)"}</PrimaryButton>}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // 이전 버전 데이터를 새 구조로 변환
@@ -552,7 +695,8 @@ function ProjectFormModal({ existing, defaultDate, affiliatedModels, paymentInfo
 }
 
 // ── 촬영 정산내역 탭 ──────────────────────────────────────────────────────
-function ProjectsTab({ year, month, setYear, setMonth, allProjects, expenses, recurringExpenses, affiliatedModels, paymentInfo, onChangeInfo, onAdd, onUpdate, onRemove, dark }) {
+function ProjectsTab({ year, month, setYear, setMonth, allProjects, expenses, recurringExpenses, affiliatedModels, paymentInfo, onChangeInfo, onAdd, onUpdate, onRemove, onLinkIds, dark }) {
+  var [showSyncCheck, setShowSyncCheck] = useState(false);
   var t = T(dark);
   var mKey = monthKey(year, month);
   var list = projectsForMonth(allProjects, mKey).slice().sort(function (a, b) { return (a.date || "").localeCompare(b.date || ""); });
@@ -583,7 +727,11 @@ function ProjectsTab({ year, month, setYear, setMonth, allProjects, expenses, re
 
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
         <MonthHeading year={year} month={month} t={t} />
-        <PrimaryButton onClick={function () { setShowForm(true); }} style={{ flexShrink: 0 }}>+ 촬영 정산 추가</PrimaryButton>
+        <div style={{ display: "flex", gap: 8 }}>
+          <SecondaryButton onClick={function () { setShowSyncCheck(true); }} dark={dark}>🔍 정산 연동 점검</SecondaryButton>
+          <PrimaryButton onClick={function () { setShowForm(true); }} style={{ flexShrink: 0 }}>+ 촬영 정산 추가</PrimaryButton>
+        </div>
+        {showSyncCheck && <SyncCheckModal allProjects={allProjects} onLinkIds={onLinkIds} onClose={function () { setShowSyncCheck(false); }} dark={dark} />}
       </div>
       <div style={{ marginBottom: 14 }}>
         <MonthStrip year={year} month={month} setYear={setYear} setMonth={setMonth} t={t} dark={dark} />
@@ -1576,9 +1724,27 @@ export default function ProjectApp({ currentUser, onLogout }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expenses, paymentInfo, recurringExpenses, allProjects]);
 
-  var removeProject = useCallback(function (id) {
+  var removeProject = useCallback(async function (id) {
+    var target = allProjects.find(function (p) { return p.id === id; });
+    if (target) await syncLinkedModelsToSettlement(target, target, true);
     setAllProjects(function (prev) {
       var next = prev.filter(function (p) { return p.id !== id; });
+      persistLocal(next, expenses, paymentInfo, recurringExpenses); pushH(next, expenses, paymentInfo, recurringExpenses); setUnsaved(true); return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expenses, paymentInfo, recurringExpenses, allProjects]);
+
+  // 점검 결과로 새로 연결된 entryId를 촬영건 모델 행에 기록
+  var assignLinkIds = useCallback(function (list) {
+    setAllProjects(function (prev) {
+      var next = prev.map(function (p) {
+        var mine = list.filter(function (a) { return a.projectId === p.id; });
+        if (!mine.length) return p;
+        return Object.assign({}, p, { models: (p.models || []).map(function (m) {
+          var a = mine.find(function (x) { return x.rowId === m.id; });
+          return a ? Object.assign({}, m, { linkedEntryId: a.entryId }) : m;
+        }) });
+      });
       persistLocal(next, expenses, paymentInfo, recurringExpenses); pushH(next, expenses, paymentInfo, recurringExpenses); setUnsaved(true); return next;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1692,7 +1858,7 @@ export default function ProjectApp({ currentUser, onLogout }) {
         )}
         <main style={{ flex: 1, minWidth: 0 }}>
           {tab === "dashboard" && <DashboardTab year={year} setYear={setYear} allProjects={allProjects} expenses={expenses} recurringExpenses={recurringExpenses} dark={dark} />}
-          {tab === "projects" && <ProjectsTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} expenses={expenses} recurringExpenses={recurringExpenses} affiliatedModels={affiliatedModels} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} onAdd={addProject} onUpdate={updateProject} onRemove={removeProject} dark={dark} />}
+          {tab === "projects" && <ProjectsTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} expenses={expenses} recurringExpenses={recurringExpenses} affiliatedModels={affiliatedModels} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} onAdd={addProject} onUpdate={updateProject} onRemove={removeProject} onLinkIds={assignLinkIds} dark={dark} />}
           {tab === "calendar" && <CalendarTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} affiliatedModels={affiliatedModels} onUpdateProject={updateProject} onAddProject={addProject} onRemoveProject={removeProject} dark={dark} />}
           {tab === "expenses" && <ExpensesTab year={year} month={month} setYear={setYear} setMonth={setMonth} expenses={expenses} recurringExpenses={recurringExpenses} allProjects={allProjects} onChange={changeExpenses} onChangeRecurring={changeRecurringExpenses} dark={dark} />}
           {tab === "payments" && <PaymentsTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} dark={dark} />}
