@@ -3,10 +3,36 @@
 // 여러 칸(A1, A2, A3 ...)에 나눠 저장하고 읽을 때 다시 합친다.
 //   A1 = "CHUNKS:<개수>", A2.. = "~" + 조각   (예전 형식: A1 = JSON 통째로 → 그대로 읽힘)
 const CHUNK = 40000;
-const MAX_ROWS = 1000;
+
+// 탭 정보(존재 여부·행 수) 확인, 없으면 만들고 행이 모자라면 늘린다
+async function ensureRows(sheets, spreadsheetId, tab, rowsNeeded) {
+  const meta = await sheets.spreadsheets.get({ spreadsheetId, fields: "sheets.properties" });
+  const found = (meta.data.sheets || []).map(function (s) { return s.properties; }).find(function (p) { return p.title === tab; });
+  if (!found) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: { requests: [{ addSheet: { properties: { title: tab, gridProperties: { rowCount: Math.max(100, rowsNeeded + 10), columnCount: 5 } } } }] },
+    });
+    return;
+  }
+  const rowCount = (found.gridProperties && found.gridProperties.rowCount) || 0;
+  if (rowCount < rowsNeeded) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: { requests: [{ appendDimension: { sheetId: found.sheetId, dimension: "ROWS", length: rowsNeeded - rowCount + 10 } }] },
+    });
+  }
+}
 
 async function readJson(sheets, spreadsheetId, tab) {
-  const result = await sheets.spreadsheets.values.get({ spreadsheetId, range: `${tab}!A1:A${MAX_ROWS}` });
+  let result;
+  try {
+    // A:A = 탭의 행 수와 관계없이 A열 전체 (A1:A1000 처럼 고정 범위를 쓰면 행이 적은 탭에서 오류)
+    result = await sheets.spreadsheets.values.get({ spreadsheetId, range: `'${tab}'!A:A` });
+  } catch (e) {
+    if (/Unable to parse range/i.test(e.message || "")) return null; // 탭이 아직 없음
+    throw e;
+  }
   const vals = (result.data.values || []).map(function (r) { return (r && r[0]) || ""; });
   if (!vals.length || !vals[0]) return null;
   if (vals[0].indexOf("CHUNKS:") === 0) {
@@ -23,11 +49,11 @@ async function writeJson(sheets, spreadsheetId, tab, data) {
   const json = JSON.stringify(data);
   const rows = [];
   for (let i = 0; i < json.length; i += CHUNK) rows.push(["~" + json.slice(i, i + CHUNK)]);
-  if (rows.length + 1 > MAX_ROWS) throw new Error("데이터가 너무 큽니다");
   const values = [["CHUNKS:" + rows.length]].concat(rows);
+  await ensureRows(sheets, spreadsheetId, tab, values.length);
   // 헤더(조각 개수)와 조각을 한 번의 요청으로 기록 → 이전 조각이 뒤에 남아 있어도 개수만큼만 읽으므로 안전
   await sheets.spreadsheets.values.update({
-    spreadsheetId, range: `${tab}!A1:A${values.length}`, valueInputOption: "RAW", requestBody: { values },
+    spreadsheetId, range: `'${tab}'!A1:A${values.length}`, valueInputOption: "RAW", requestBody: { values },
   });
 }
 
