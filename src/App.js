@@ -102,12 +102,12 @@ function fmtRegNo(val) {
   return d.length <= 6 ? d : d.slice(0, 6) + "-" + d.slice(6);
 }
 
+// 실패 시 예외를 던진다 (실패를 "빈 데이터"로 착각해 덮어쓰는 사고 방지)
 async function loadSheets() {
-  try {
-    var r = await fetch("/api/sheets");
-    var j = await r.json();
-    return j.data || null;
-  } catch(e) { return null; }
+  var r = await fetch("/api/sheets");
+  if (!r.ok) throw new Error("sheets load " + r.status);
+  var j = await r.json();
+  return j.data || null;
 }
 
 
@@ -667,23 +667,24 @@ function payCalc(handPay, taxType) {
 }
 
 async function fetchCalendarEvents() {
-  try {
-    var r = await fetch("/api/calendar-sheets");
-    var j = await r.json();
-    var events = j && j.data && j.data.events;
-    return Array.isArray(events) ? events : [];
-  } catch (e) { return []; }
+  var r = await fetch("/api/calendar-sheets");
+  if (!r.ok) throw new Error("calendar load " + r.status);
+  var j = await r.json();
+  var events = j && j.data && j.data.events;
+  return Array.isArray(events) ? events : [];
 }
 
-async function saveCalendarEvents(events) {
-  try {
-    await fetch("/api/calendar-sheets", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ data: { events: events } }),
-    });
-    return true;
-  } catch (e) { return false; }
+// 일정 저장은 항상 "서버 최신본을 읽고 → 이번 변경만 적용 → 저장" (다른 화면에서 추가한 일정이 지워지지 않도록)
+async function mutateCalendarEvents(fn) {
+  var latest = await fetchCalendarEvents();
+  var next = fn(latest);
+  var w = await fetch("/api/calendar-sheets", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ data: { events: next } }),
+  });
+  if (!w.ok) throw new Error("calendar save " + w.status);
+  return next;
 }
 
 function SettlementSidePanel({ dark, modelMeta, data, addEntry, updateEntry, removeEntry, defaultModel, defaultDate, defaultBrand }) {
@@ -1001,26 +1002,24 @@ function BookingCalendarTab({ modelMeta, data, addEntry, updateEntry, removeEntr
 
   useEffect(function () {
     fetchBookedProjects().then(setProjects);
-    fetchCalendarEvents().then(setCalEvents);
+    fetchCalendarEvents().then(setCalEvents).catch(function () { alert("⚠️ 캘린더 일정을 불러오지 못했습니다. 새로고침(F5) 해주세요."); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  var commitCal = function (fn) {
+    setCalEvents(function (prev) { return fn(prev); });
+    mutateCalendarEvents(fn).then(setCalEvents).catch(function () { alert("⚠️ 일정 저장에 실패했습니다. 새로고침 후 다시 시도해주세요."); });
+  };
   var handleSaveEvent = function (ev) {
-    var next = calEvents.filter(function (e) { return e.id !== ev.id; }).concat([ev]);
-    setCalEvents(next);
-    saveCalendarEvents(next);
+    commitCal(function (list) { return list.filter(function (e) { return e.id !== ev.id; }).concat([ev]); });
     setEditingEvent(null);
   };
   var handleDeleteEvent = function (id) {
-    var next = calEvents.filter(function (e) { return e.id !== id; });
-    setCalEvents(next);
-    saveCalendarEvents(next);
+    commitCal(function (list) { return list.filter(function (e) { return e.id !== id; }); });
     setEditingEvent(null);
   };
   var handleImportEvent = function (ev) {
-    var next = calEvents.concat([ev]);
-    setCalEvents(next);
-    saveCalendarEvents(next);
+    commitCal(function (list) { return list.filter(function (e) { return e.id !== ev.id; }).concat([ev]); });
     setShowPasteImport(false);
     setYear(Number(ev.date.slice(0, 4)));
     setMonth(Number(ev.date.slice(5, 7)));
@@ -1609,6 +1608,9 @@ function ModelFormModal({ existing, onSave, onClose, dark }) {
 
 // ── 메인 앱 ───────────────────────────────────────────────────────────────────
 export default function App({ currentUser, onLogout }) {
+  var serverBaseRef = useRef(null);
+  var metaBaseRef = useRef(null);
+  var [loadError, setLoadError] = useState(false);
   var [modelMeta, setModelMeta] = useState(function() {
     try { var s = localStorage.getItem(MODEL_META_KEY); return fixFullNames(s ? JSON.parse(s) : DEFAULT_MODELS); } catch(e) { return DEFAULT_MODELS; }
   });
@@ -1640,14 +1642,15 @@ export default function App({ currentUser, onLogout }) {
 
   useEffect(function() {
     loadSheets().then(function(saved) {
+      serverBaseRef.current = (saved && saved.data) || {};
+      metaBaseRef.current = (saved && saved.modelMeta) || null;
       if (saved && saved.data) {
-        serverBaseRef.current = saved.data;
         setData(saved.data);
         historyRef.current = [{ data: saved.data, modelMeta: (saved.modelMeta || DEFAULT_MODELS) }];
       }
       if (saved && saved.modelMeta) setModelMeta(fixFullNames(saved.modelMeta));
       setLoading(false);
-    }).catch(function() { setLoading(false); });
+    }).catch(function() { setLoadError(true); setLoading(false); });
   }, []);
 
   useEffect(function() { localStorage.setItem("darkMode", dark); }, [dark]);
@@ -1677,18 +1680,29 @@ export default function App({ currentUser, onLogout }) {
     saveData(snap.data); saveMeta(snap.modelMeta); setUnsaved(true);
   }, []);
 
-  var serverBaseRef = useRef(null);
   var handleSave = useCallback(async function() {
     setSaveStatus("saving");
-    // 다른 화면(촬영관리 연동, 다른 PC/탭)에서 바뀐 내용을 덮어쓰지 않도록 최신본과 병합 후 저장
-    var latest = await loadSheets();
-    var merged = data;
-    if (latest && latest.data && serverBaseRef.current) merged = mergeSettlementData(serverBaseRef.current, data, latest.data);
-    var ok = await saveSheets({ data: merged, modelMeta: modelMeta });
+    // 다른 화면(촬영관리 연동, 다른 PC/탭)에서 바뀐 내용을 덮어쓰지 않도록 최신본과 병합 후 저장.
+    // 최신본을 못 읽으면 저장하지 않는다 (예전엔 이 경우 화면 상태로 서버 전체를 덮어씀)
+    var latest;
+    try { latest = await loadSheets(); }
+    catch (e) { setSaveStatus("error"); setTimeout(function() { setSaveStatus("idle"); }, 2500); return; }
+    var remoteData = (latest && latest.data) || {};
+    var merged = mergeSettlementData(serverBaseRef.current || {}, data, remoteData);
+    var remoteMeta = latest && latest.modelMeta;
+    var mergedMeta = modelMeta;
+    if (remoteMeta) {
+      if (!metaBaseRef.current) mergedMeta = Object.assign({}, modelMeta, remoteMeta); // 기준본이 없으면 서버 값 우선
+      else if (sameJson(modelMeta, metaBaseRef.current)) mergedMeta = remoteMeta;         // 이 화면에서 안 바꿨으면 서버 값
+    }
+    var ok = await saveSheets({ data: merged, modelMeta: mergedMeta });
     setSaveStatus(ok ? "saved" : "error");
     if (ok) {
       serverBaseRef.current = merged;
+      metaBaseRef.current = mergedMeta;
       if (!sameJson(merged, data)) setData(merged);
+      if (!sameJson(mergedMeta, modelMeta)) setModelMeta(mergedMeta);
+      setLoadError(false);
       setUnsaved(false);
     }
     setTimeout(function() { setSaveStatus("idle"); }, 2500);
@@ -1715,7 +1729,8 @@ export default function App({ currentUser, onLogout }) {
         if (unsavedRef.current || !saved || !saved.data) return;
         serverBaseRef.current = saved.data;
         setData(saved.data);
-      });
+        if (saved.modelMeta) { metaBaseRef.current = saved.modelMeta; setModelMeta(fixFullNames(saved.modelMeta)); }
+      }).catch(function() {});
     };
     var onBeforeUnload = function(e) { if (unsavedRef.current) { e.preventDefault(); e.returnValue = ""; } };
     window.addEventListener("focus", onFocus);
@@ -1926,6 +1941,7 @@ export default function App({ currentUser, onLogout }) {
         <main style={{ flex:1, minWidth:0 }}>
           {tab === "overview" && <Overview data={data} modelMeta={modelMeta} dark={dark} setTab={setTab} />}
           {tab === "tax" && <TaxSummary data={data} modelMeta={modelMeta} onUpdateRegNo={updateRegNo} dark={dark} />}
+          {loadError && <div style={{ background: "#fef2f2", border: "1.5px solid #ef4444", color: "#991b1b", borderRadius: 10, padding: "10px 14px", marginBottom: 12, fontSize: 13, fontWeight: 700 }}>⚠️ 서버 데이터를 불러오지 못해 이 기기의 사본을 표시 중입니다. 새로고침(F5) 후 작업해주세요. (저장 시 서버 내용은 지워지지 않고 병합됩니다)</div>}
           {tab === "calendar" && <BookingCalendarTab modelMeta={modelMeta} data={data} addEntry={addEntry} updateEntry={updateEntry} removeEntry={removeEntry} dark={dark} />}
           {tab === "checklist" && <TaskChecklistTab dark={dark} />}
           {Object.keys(modelMeta).includes(tab) && <ModelDetail model={tab} meta={modelMeta[tab]} data={data} addEntry={addEntry} removeEntry={removeEntry} updateEntry={updateEntry} onUpdateAF={updateAF} dark={dark} />}

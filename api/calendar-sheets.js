@@ -1,4 +1,5 @@
 const { google } = require("googleapis");
+const { readJson, writeJson } = require("./_store");
 
 const auth = new google.auth.GoogleAuth({
   credentials: {
@@ -40,23 +41,14 @@ module.exports = async function handler(req, res) {
     await ensureTab(sheets);
 
     if (req.method === "GET") {
-      const result = await sheets.spreadsheets.values.get({
-        spreadsheetId: SHEET_ID,
-        range: `${TAB}!A1`,
-      });
-      const raw = result.data.values?.[0]?.[0];
-      const data = raw ? JSON.parse(raw) : { events: [] };
+      const loaded = await readJson(sheets, SHEET_ID, "CalendarData");
+      const data = loaded !== null ? loaded : { events: [] };
       return res.status(200).json({ data });
     }
 
     if (req.method === "POST") {
       const { data } = req.body;
-      await sheets.spreadsheets.values.update({
-        spreadsheetId: SHEET_ID,
-        range: `${TAB}!A1`,
-        valueInputOption: "RAW",
-        requestBody: { values: [[JSON.stringify(data)]] },
-      });
+      await writeJson(sheets, SHEET_ID, "CalendarData", data);
       return res.status(200).json({ ok: true });
     }
   } catch (e) {

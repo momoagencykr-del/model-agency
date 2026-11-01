@@ -28,12 +28,12 @@ function weeksInMonth(year, month) {
   return weeks;
 }
 
+// 실패 시 예외 (실패를 빈 메모로 착각해 전체 메모를 덮어쓰는 사고 방지)
 async function loadWork() {
-  try {
-    var r = await fetch("/api/work-sheets");
-    var j = await r.json();
-    return j.data || null;
-  } catch (e) { return null; }
+  var r = await fetch("/api/work-sheets");
+  if (!r.ok) throw new Error("work load " + r.status);
+  var j = await r.json();
+  return j.data || null;
 }
 async function saveWork(payload) {
   try {
@@ -87,6 +87,7 @@ export default function TaskChecklistTab({ dark }) {
   };
 
   var [loading, setLoading] = useState(true);
+  var [loadFailed, setLoadFailed] = useState(false);
   var [notes, setNotes] = useState({});
   var [year, setYear] = useState(TODAY.getFullYear());
   var [month, setMonth] = useState(TODAY.getMonth() + 1);
@@ -102,7 +103,7 @@ export default function TaskChecklistTab({ dark }) {
       setNotes(migrateToNotes(saved));
       setLoading(false);
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    });
+    }).catch(function () { setLoadFailed(true); setLoading(false); });
   }, []);
 
   // 월이 바뀌면 선택된 주차를 그 달의 "이번 주"(있으면) 또는 1주차로 리셋
@@ -114,9 +115,20 @@ export default function TaskChecklistTab({ dark }) {
 
   // 저장 전 서버에서 다시 읽어와 병합하던 방식은 지연·경쟁 상태(레이스)를 일으켜서 제거.
   // 이 화면이 들고 있는 notes가 항상 최신 전체 상태이므로 그대로 바로 저장한다.
+  // 저장 시 서버 최신본을 읽고, 이 화면에서 고친 주차만 반영 (다른 기기에서 쓴 주차 메모 보존)
+  var dirtyRef = useRef({});
   var persist = useCallback(async function (nextNotes) {
     setSaveStatus("saving");
-    var ok = await saveWork({ checklistWeeklyNotes: nextNotes });
+    var ok = false;
+    try {
+      var latest = await loadWork();
+      var merged = Object.assign({}, migrateToNotes(latest));
+      Object.keys(dirtyRef.current).forEach(function (k) {
+        if (nextNotes[k]) merged[k] = nextNotes[k]; else delete merged[k];
+      });
+      ok = await saveWork({ checklistWeeklyNotes: merged });
+      if (ok) dirtyRef.current = {};
+    } catch (e) { ok = false; }
     setSaveStatus(ok ? "saved" : "error");
     setTimeout(function () { setSaveStatus("idle"); }, 2000);
   }, []);
@@ -130,6 +142,7 @@ export default function TaskChecklistTab({ dark }) {
       var next = Object.assign({}, prev);
       var plain = html.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, "").trim();
       if (plain) { next[periodKey] = html; } else { delete next[periodKey]; }
+      dirtyRef.current[periodKey] = true;
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(function () { persist(next); }, 700);
       return next;
@@ -142,6 +155,9 @@ export default function TaskChecklistTab({ dark }) {
 
   if (loading) {
     return <div style={{ padding: 30, textAlign: "center", color: t.sub }}>업무 체크리스트 불러오는 중...</div>;
+  }
+  if (loadFailed) {
+    return <div style={{ padding: 30, textAlign: "center", color: "#ef4444", fontWeight: 700 }}>⚠️ 업무 체크리스트를 불러오지 못했습니다. 기존 메모 보호를 위해 편집을 막았습니다. 새로고침(F5) 해주세요.</div>;
   }
 
   var weekTabs = weeks.map(function (mon, i) {

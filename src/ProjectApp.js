@@ -137,12 +137,51 @@ function dueDateLabel(mKey) {
 }
 
 // ── Google Sheets 연동 (기존 정산 시스템과 완전히 분리된 별도 탭 사용) ──────
+// 실패 시 예외를 던진다 (실패를 "빈 데이터"로 착각해 덮어쓰는 사고 방지)
 async function loadProjectSheets() {
-  try {
-    var r = await fetch("/api/project-sheets");
-    var j = await r.json();
-    return j.data || null;
-  } catch (e) { return null; }
+  var r = await fetch("/api/project-sheets");
+  if (!r.ok) throw new Error("project-sheets load " + r.status);
+  var j = await r.json();
+  return j.data || null;
+}
+
+// ── 동시 편집 보호: 3-way 병합 (base=마지막 서버 동기화본, local=이 화면, remote=현재 서버) ──
+function sameJ(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+function mergeById(b, l, r) {
+  var idx = function (arr) { var m = {}; (arr || []).forEach(function (e) { if (e && e.id !== undefined) m[String(e.id)] = e; }); return m; };
+  var bm = idx(b), lm = idx(l), rm = idx(r), ids = [], out = [];
+  (l || []).concat(r || []).forEach(function (e) { if (e && e.id !== undefined && ids.indexOf(String(e.id)) === -1) ids.push(String(e.id)); });
+  ids.forEach(function (id) {
+    var inL = id in lm, inR = id in rm, inB = id in bm;
+    if (inL && inR) out.push(sameJ(lm[id], bm[id]) ? rm[id] : lm[id]);
+    else if (inL) { if (!inB || !sameJ(lm[id], bm[id])) out.push(lm[id]); }
+    else if (inR) { if (!inB) out.push(rm[id]); }
+  });
+  return out;
+}
+function mergeMap(b, l, r) {
+  b = b || {}; l = l || {}; r = r || {};
+  var out = {};
+  Object.keys(Object.assign({}, l, r)).forEach(function (k) {
+    var inL = k in l, inR = k in r, inB = k in b;
+    if (inL && inR) out[k] = sameJ(l[k], b[k]) ? r[k] : l[k];
+    else if (inL) { if (!inB || !sameJ(l[k], b[k])) out[k] = l[k]; }
+    else if (inR) { if (!inB) out[k] = r[k]; }
+  });
+  return out;
+}
+function mergeProjectState(base, local, remote) {
+  base = base || { projects: [], expenses: {}, paymentInfo: {}, recurringExpenses: [] };
+  var allHaveId = function (arr) { return (arr || []).every(function (e) { return e && e.id !== undefined; }); };
+  var rec = (allHaveId(base.recurringExpenses) && allHaveId(local.recurringExpenses) && allHaveId(remote.recurringExpenses))
+    ? mergeById(base.recurringExpenses, local.recurringExpenses, remote.recurringExpenses)
+    : (sameJ(local.recurringExpenses, base.recurringExpenses) ? remote.recurringExpenses : local.recurringExpenses);
+  return {
+    projects: mergeById(base.projects, local.projects, remote.projects),
+    expenses: mergeMap(base.expenses, local.expenses, remote.expenses),
+    paymentInfo: mergeMap(base.paymentInfo, local.paymentInfo, remote.paymentInfo),
+    recurringExpenses: rec || [],
+  };
 }
 
 async function saveProjectSheets(payload) {
@@ -223,9 +262,12 @@ async function syncLinkedModelsToSettlement(project, prevProject, removing) {
 
   try {
     var r = await fetch("/api/sheets");
+    if (!r.ok) throw new Error("정산 데이터 불러오기 실패 " + r.status);
     var j = await r.json();
-    var settlement = (j && j.data) || {};
-    var modelMeta = settlement.modelMeta || {};
+    var settlement = j && j.data;
+    // 불러오기 실패/비정상 응답이면 절대 저장하지 않는다 (빈 데이터로 정산관리 전체를 덮어쓰던 위험 차단)
+    if (!settlement || !settlement.modelMeta) throw new Error("정산 데이터가 비어 있어 연동을 중단합니다");
+    var modelMeta = settlement.modelMeta;
     if (!settlement.data) settlement.data = {};
     var data = settlement.data;
 
@@ -247,12 +289,16 @@ async function syncLinkedModelsToSettlement(project, prevProject, removing) {
       });
     }
 
-    await fetch("/api/sheets", {
+    var w = await fetch("/api/sheets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ data: settlement }),
     });
-  } catch (e) { console.error("정산관리 연동 실패", e); }
+    if (!w.ok) throw new Error("정산 데이터 저장 실패 " + w.status);
+  } catch (e) {
+    console.error("정산관리 연동 실패", e);
+    alert("⚠️ 모델 정산관리 연동에 실패했습니다. 촬영 정보는 저장되지만 정산관리에는 반영되지 않았을 수 있습니다.\n잠시 후 '🔍 정산 연동 점검'으로 확인해주세요.");
+  }
 }
 
 // 전체 점검: 촬영관리의 소속모델 연동건과 정산관리 데이터를 대조해 문제를 찾고, 수정본을 만든다
@@ -318,8 +364,9 @@ function SyncCheckModal({ allProjects, onLinkIds, onClose, dark }) {
   var [state, setState] = useState({ loading: true });
   var run = function () {
     setState({ loading: true });
-    fetch("/api/sheets").then(function (r) { return r.json(); }).then(function (j) {
-      var res = analyzeSettlementLinks(allProjects, (j && j.data) || {});
+    fetch("/api/sheets").then(function (r) { if (!r.ok) throw new Error("load"); return r.json(); }).then(function (j) {
+      if (!j || !j.data || !j.data.modelMeta) throw new Error("empty");
+      var res = analyzeSettlementLinks(allProjects, j.data);
       setState({ loading: false, res: res });
     }).catch(function () { setState({ loading: false, error: true }); });
   };
@@ -327,7 +374,8 @@ function SyncCheckModal({ allProjects, onLinkIds, onClose, dark }) {
   var apply = async function () {
     setState(function (s) { return Object.assign({}, s, { applying: true }); });
     try {
-      await fetch("/api/sheets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ data: state.res.settlement }) });
+      var w = await fetch("/api/sheets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ data: state.res.settlement }) });
+      if (!w.ok) throw new Error("save");
       if (state.res.linkAssign.length) onLinkIds(state.res.linkAssign);
       setState({ loading: false, done: true });
     } catch (e) { alert("저장 실패"); setState(function (s) { return Object.assign({}, s, { applying: false }); }); }
@@ -1630,6 +1678,8 @@ export default function ProjectApp({ currentUser, onLogout }) {
   var [dark, setDark] = useState(function () {
     try { return localStorage.getItem("darkMode") === "true"; } catch (e) { return false; }
   });
+  var serverBaseRef = useRef(null);
+  var [loadError, setLoadError] = useState(false);
   var [tab, setTab] = useState("calendar");
   var [year, setYear] = useState(NOW_YEAR);
   var [month, setMonth] = useState(NOW_MONTH_NUM);
@@ -1648,25 +1698,30 @@ export default function ProjectApp({ currentUser, onLogout }) {
   }, []);
 
   useEffect(function () {
-    loadProjectSheets().then(function (saved) {
-      var norm;
-      if (saved) {
-        norm = normalizeLoaded(saved);
-      } else {
-        norm = { projects: [], expenses: {}, paymentInfo: {}, recurringExpenses: [] };
-        try {
-          var local = localStorage.getItem(LOCAL_KEY);
-          if (local) norm = normalizeLoaded(JSON.parse(local));
-        } catch (e) {}
-      }
+    var applyLoaded = function (norm) {
       setAllProjects(norm.projects);
       setExpenses(norm.expenses);
       setPaymentInfo(norm.paymentInfo);
       setRecurringExpenses(norm.recurringExpenses);
       historyRef.current = [{ projects: norm.projects, expenses: norm.expenses, paymentInfo: norm.paymentInfo, recurringExpenses: norm.recurringExpenses }];
       historyIdx.current = 0;
+    };
+    var localNorm = function () {
+      try { var local = localStorage.getItem(LOCAL_KEY); if (local) return normalizeLoaded(JSON.parse(local)); } catch (e) {}
+      return normalizeLoaded(null);
+    };
+    loadProjectSheets().then(function (saved) {
+      var serverNorm = normalizeLoaded(saved);
+      serverBaseRef.current = serverNorm; // 서버와 맞춘 기준본
+      applyLoaded(saved ? serverNorm : localNorm());
       setLoading(false);
-    }).catch(function () { setLoading(false); });
+    }).catch(function () {
+      // 서버를 못 읽었을 때: 화면엔 이 기기의 마지막 사본을 보여주되, 저장 시 서버 최신본과 병합(덮어쓰기 금지)
+      serverBaseRef.current = null;
+      setLoadError(true);
+      applyLoaded(localNorm());
+      setLoading(false);
+    });
   }, []);
 
   useEffect(function () { localStorage.setItem("darkMode", dark); }, [dark]);
@@ -1777,9 +1832,24 @@ export default function ProjectApp({ currentUser, onLogout }) {
 
   var handleSave = useCallback(async function () {
     setSaveStatus("saving");
-    var ok = await saveProjectSheets({ projects: allProjects, expenses: expenses, paymentInfo: paymentInfo, recurringExpenses: recurringExpenses });
+    var local = { projects: allProjects, expenses: expenses, paymentInfo: paymentInfo, recurringExpenses: recurringExpenses };
+    var latest;
+    try { latest = await loadProjectSheets(); }
+    catch (e) { setSaveStatus("error"); setTimeout(function () { setSaveStatus("idle"); }, 2500); return; }
+    // 다른 PC/탭에서 바뀐 내용을 지우지 않도록 서버 최신본과 항목 단위로 병합 후 저장
+    var merged = mergeProjectState(serverBaseRef.current, local, normalizeLoaded(latest));
+    var ok = await saveProjectSheets(merged);
     setSaveStatus(ok ? "saved" : "error");
-    if (ok) setUnsaved(false);
+    if (ok) {
+      serverBaseRef.current = merged;
+      setLoadError(false);
+      setUnsaved(false);
+      if (!sameJ(merged, local)) {
+        setAllProjects(merged.projects); setExpenses(merged.expenses);
+        setPaymentInfo(merged.paymentInfo); setRecurringExpenses(merged.recurringExpenses);
+        persistLocal(merged.projects, merged.expenses, merged.paymentInfo, merged.recurringExpenses);
+      }
+    }
     setTimeout(function () { setSaveStatus("idle"); }, 2500);
   }, [allProjects, expenses, paymentInfo, recurringExpenses]);
 
@@ -1859,6 +1929,7 @@ export default function ProjectApp({ currentUser, onLogout }) {
         <main style={{ flex: 1, minWidth: 0 }}>
           {tab === "dashboard" && <DashboardTab year={year} setYear={setYear} allProjects={allProjects} expenses={expenses} recurringExpenses={recurringExpenses} dark={dark} />}
           {tab === "projects" && <ProjectsTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} expenses={expenses} recurringExpenses={recurringExpenses} affiliatedModels={affiliatedModels} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} onAdd={addProject} onUpdate={updateProject} onRemove={removeProject} onLinkIds={assignLinkIds} dark={dark} />}
+          {loadError && <div style={{ background: "#fef2f2", border: "1.5px solid #ef4444", color: "#991b1b", borderRadius: 10, padding: "10px 14px", marginBottom: 12, fontSize: 13, fontWeight: 700 }}>⚠️ 서버 데이터를 불러오지 못해 이 기기에 저장된 사본을 표시 중입니다. 새로고침(F5) 후 작업해주세요. (저장 시 서버 내용은 지워지지 않고 병합됩니다)</div>}
           {tab === "calendar" && <CalendarTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} affiliatedModels={affiliatedModels} onUpdateProject={updateProject} onAddProject={addProject} onRemoveProject={removeProject} dark={dark} />}
           {tab === "expenses" && <ExpensesTab year={year} month={month} setYear={setYear} setMonth={setMonth} expenses={expenses} recurringExpenses={recurringExpenses} allProjects={allProjects} onChange={changeExpenses} onChangeRecurring={changeRecurringExpenses} dark={dark} />}
           {tab === "payments" && <PaymentsTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} dark={dark} />}
