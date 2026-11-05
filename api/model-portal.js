@@ -29,6 +29,45 @@ function flatProjects(saved) {
 }
 function str(v, max) { return String(v == null ? "" : v).slice(0, max); }
 
+
+// 해당 월 미리 채움 목록 (정산 등록건 + 촬영관리 + 캘린더). income(업체입금)은 서버 내부에서만 사용
+async function buildPrefill(sheets, settlement, model, m, ym, monthLabel) {
+  const items = [];
+  const md = (settlement.data && settlement.data[model] && settlement.data[model][monthLabel]) || {};
+  const registeredIds = {};
+  const registeredDates = {};
+  ["agency", "self"].forEach(function (type) {
+    (md[type] || []).forEach(function (e) {
+      registeredIds[String(e.id)] = true;
+      if (e.settleDate) registeredDates[e.settleDate] = true;
+      const af = type === "agency" ? m.agencyAF : m.modelAF;
+      items.push({ key: "s:" + type + ":" + e.id, source: "registered", date: e.settleDate || "", brand: e.brand || "", type: type,
+        income: Number(e.income) || 0, final: (e.actualPaid !== undefined && e.actualPaid !== null && e.actualPaid !== "") ? Number(e.actualPaid) || 0 : calcFinal(e.income, af, e.otherDeduct) });
+    });
+  });
+  const projects = flatProjects(await readJson(sheets, SHEET_ID, "ProjectData"));
+  projects.forEach(function (p) {
+    if (!p.date || p.date.slice(0, 7) !== ym) return;
+    (p.models || []).forEach(function (pm) {
+      const mine = (pm.useAffiliated && pm.linkedModel === model) || pm.name === m.nameKr;
+      if (!mine) return;
+      if (pm.linkedEntryId !== undefined && registeredIds[String(pm.linkedEntryId)]) return; // 이미 정산 등록됨
+      const inc = (pm.reportedPrice !== "" && pm.reportedPrice != null) ? Number(pm.reportedPrice) || 0 : Number(pm.agencyPrice) || 0;
+      items.push({ key: "p:" + p.id + ":" + pm.id, source: "project", date: p.date, brand: p.brand || "", type: "agency", income: inc, final: calcFinal(inc, m.agencyAF, 0) });
+    });
+  });
+  const cal = (await readJson(sheets, SHEET_ID, "CalendarData")) || {};
+  (cal.events || []).forEach(function (ev) {
+    if (!ev.date || ev.date.slice(0, 7) !== ym) return;
+    const t = (ev.title || "");
+    const mine = (m.nameKr && t.indexOf(m.nameKr) !== -1) || (m.nameEn && t.toLowerCase().indexOf(String(m.nameEn).toLowerCase()) !== -1);
+    if (!mine || registeredDates[ev.date]) return;
+    items.push({ key: "c:" + ev.id, source: "schedule", date: ev.date, brand: t, type: "self", income: 0, final: 0 });
+  });
+  items.sort(function (a, b) { return (a.date || "").localeCompare(b.date || ""); });
+  return items;
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   try {
@@ -54,53 +93,31 @@ module.exports = async function handler(req, res) {
     const subs = Array.isArray(subStore.submissions) ? subStore.submissions : [];
 
     if (req.method === "GET") {
-      const items = [];
-      const md = (settlement.data && settlement.data[model] && settlement.data[model][monthLabel]) || {};
-      const registeredIds = {};
-      const registeredDates = {};
-      ["agency", "self"].forEach(function (type) {
-        (md[type] || []).forEach(function (e) {
-          registeredIds[String(e.id)] = true;
-          if (e.settleDate) registeredDates[e.settleDate] = true;
-          const af = type === "agency" ? m.agencyAF : m.modelAF;
-          items.push({ key: "s:" + type + ":" + e.id, source: "registered", date: e.settleDate || "", brand: e.brand || "", type: type,
-            income: Number(e.income) || 0, final: (e.actualPaid !== undefined && e.actualPaid !== null && e.actualPaid !== "") ? Number(e.actualPaid) || 0 : calcFinal(e.income, af, e.otherDeduct) });
-        });
-      });
-      const projects = flatProjects(await readJson(sheets, SHEET_ID, "ProjectData"));
-      projects.forEach(function (p) {
-        if (!p.date || p.date.slice(0, 7) !== ym) return;
-        (p.models || []).forEach(function (pm) {
-          const mine = (pm.useAffiliated && pm.linkedModel === model) || pm.name === m.nameKr;
-          if (!mine) return;
-          if (pm.linkedEntryId !== undefined && registeredIds[String(pm.linkedEntryId)]) return; // 이미 정산 등록됨
-          const inc = (pm.reportedPrice !== "" && pm.reportedPrice != null) ? Number(pm.reportedPrice) || 0 : Number(pm.agencyPrice) || 0;
-          items.push({ key: "p:" + p.id + ":" + pm.id, source: "project", date: p.date, brand: p.brand || "", type: "agency", income: inc, final: calcFinal(inc, m.agencyAF, 0) });
-        });
-      });
-      const cal = (await readJson(sheets, SHEET_ID, "CalendarData")) || {};
-      (cal.events || []).forEach(function (ev) {
-        if (!ev.date || ev.date.slice(0, 7) !== ym) return;
-        const t = (ev.title || "");
-        const mine = (m.nameKr && t.indexOf(m.nameKr) !== -1) || (m.nameEn && t.toLowerCase().indexOf(String(m.nameEn).toLowerCase()) !== -1);
-        if (!mine || registeredDates[ev.date]) return;
-        items.push({ key: "c:" + ev.id, source: "schedule", date: ev.date, brand: t, type: "self", income: 0, final: 0 });
-      });
-      items.sort(function (a, b) { return (a.date || "").localeCompare(b.date || ""); });
+      const items = await buildPrefill(sheets, settlement, model, m, ym, monthLabel);
       const mySubs = subs.filter(function (s) { return s.model === model; }).slice(-15).reverse().map(function (s) {
         return { id: s.id, month: s.month, status: s.status, submittedAt: s.submittedAt, reviewNote: s.reviewNote || "", count: (s.items || []).length };
       });
-      return res.status(200).json({ model: { nameKr: m.nameKr, nameEn: m.nameEn, fullName: m.fullName }, af: { agency: m.agencyAF, self: m.modelAF }, taxRate: TAX, year: year, month: ym, items: items, submissions: mySubs });
+      const pub = items.map(function (it) { return { key: it.key, source: it.source, date: it.date, brand: it.brand, type: it.type, final: it.final }; });
+      return res.status(200).json({ model: { nameKr: m.nameKr, nameEn: m.nameEn, fullName: m.fullName }, af: { agency: m.agencyAF, self: m.modelAF }, taxRate: TAX, year: year, month: ym, items: pub, submissions: mySubs });
     }
 
     if (req.method === "POST") {
       const body = req.body || {};
       const raw = Array.isArray(body.items) ? body.items.slice(0, 40) : [];
+      // 모델 화면에는 업체입금(고객사 금액)을 보여주지 않으므로, '맞음'이거나 금액을 비워둔 '수정'은 서버 기록 금액을 그대로 사용
+      const prefill = await buildPrefill(sheets, settlement, model, m, ym, monthLabel);
+      const known = {};
+      prefill.forEach(function (p) { known[p.key] = p; });
       const items = raw.map(function (it) {
         const action = ["confirm", "edit", "absent", "new"].indexOf(it.action) !== -1 ? it.action : "new";
         const date = /^\d{4}-\d{2}-\d{2}$/.test(it.date || "") ? it.date : "";
-        const income = Math.max(0, Math.min(1e9, Math.round(Number(it.income) || 0)));
-        return { key: str(it.key, 80), source: str(it.source, 20), action: action, date: date, brand: str(it.brand, 100), type: it.type === "agency" ? "agency" : "self", income: income, note: str(it.note, 300) };
+        const entered = Math.max(0, Math.min(1e9, Math.round(Number(it.income) || 0)));
+        const base = known[str(it.key, 80)];
+        let income = entered, amountByModel = entered > 0;
+        if (base && (action === "confirm" || (action === "edit" && !entered))) { income = base.income; amountByModel = false; }
+        const out = { key: str(it.key, 80), source: base ? base.source : (it.source === "new" ? "new" : "new"), action: action, date: date || (base ? base.date : ""), brand: str(it.brand, 100) || (base ? base.brand : ""), type: it.type === "agency" ? "agency" : "self", income: income, amountByModel: amountByModel, note: str(it.note, 300) };
+        if (action === "confirm" && base) { out.date = base.date; out.brand = base.brand; out.type = base.type; }
+        return out;
       }).filter(function (it) { return it.action === "absent" || it.brand || it.income; });
       if (!items.length) return res.status(400).json({ error: "no items" });
       const pendingMine = subs.filter(function (s) { return s.model === model && s.status === "pending"; }).length;

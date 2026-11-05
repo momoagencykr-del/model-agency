@@ -6,7 +6,7 @@ var L = {
     title: "촬영 내역 제출", hello: "님, 안녕하세요", intro: "이번 달 촬영 내역을 확인해주세요. 맞으면 ✅, 다르면 ✏️ 수정, 안 한 촬영이면 ❌ 를 눌러주세요. 목록에 없는 촬영은 아래 [+ 촬영 추가]로 입력해주세요.",
     month: "월", registered: "정산 등록됨", project: "촬영 예정/진행", schedule: "일정 (금액 입력 필요)", added: "새로 추가",
     ok: "맞음", edit: "수정", absent: "안 함", gross: "업체 입금", net: "받을 금액(세후)", estimate: "예상",
-    agency: "에이전시 촬영", self: "직접 촬영", date: "촬영일", brand: "브랜드/업체", amount: "업체 입금액 (원)", note: "메모", type: "구분",
+    agency: "에이전시 촬영", self: "직접 촬영", date: "촬영일", brand: "브랜드/업체", amount: "고객사로부터 받는 금액 (원)", amountEdit: "금액이 다를 때만 입력 (비우면 기존 금액 유지)", totalOnly: "이번 달 받을 금액 합계 (세후)", note: "메모", type: "구분",
     add: "+ 촬영 추가", remove: "삭제", totalG: "업체 입금 합계", totalN: "받을 금액 합계", comment: "전달할 말 (선택)",
     submit: "제출하기", submitting: "제출 중...", done: "제출 완료! 확인 후 승인되면 정산에 반영됩니다.", again: "다시 보기",
     history: "제출 내역", pending: "확인 중", approved: "승인됨", rejected: "반려됨", none: "이 달에 등록된 촬영이 없습니다. 촬영이 있었다면 [+ 촬영 추가]로 입력해주세요.",
@@ -16,7 +16,7 @@ var L = {
     title: "Submit your shoots", hello: ", hello", intro: "Please check your shoots for this month. Tap ✅ if correct, ✏️ to fix, or ❌ if it didn't happen. Add any missing shoot with [+ Add shoot] below.",
     month: "", registered: "Registered", project: "Booked shoot", schedule: "Schedule (enter amount)", added: "Added by you",
     ok: "Correct", edit: "Edit", absent: "Didn't happen", gross: "Client fee", net: "You receive (after tax)", estimate: "est.",
-    agency: "Agency booking", self: "Direct booking", date: "Shoot date", brand: "Brand / client", amount: "Client fee (KRW)", note: "Note", type: "Type",
+    agency: "Agency booking", self: "Direct booking", date: "Shoot date", brand: "Brand / client", amount: "Amount from client (KRW)", amountEdit: "Enter only if the amount is different (leave blank to keep)", totalOnly: "Total you receive this month (after tax)", note: "Note", type: "Type",
     add: "+ Add shoot", remove: "Remove", totalG: "Total client fee", totalN: "Total you receive", comment: "Message to us (optional)",
     submit: "Submit", submitting: "Submitting...", done: "Submitted! It will be added to your settlement after we review it.", again: "Back",
     history: "Your submissions", pending: "In review", approved: "Approved", rejected: "Returned", none: "No shoots registered for this month. If you had any, add them with [+ Add shoot].",
@@ -26,7 +26,7 @@ var L = {
     title: "Отправка съёмок", hello: ", здравствуйте", intro: "Проверьте съёмки за месяц. Нажмите ✅ если всё верно, ✏️ чтобы исправить, ❌ если съёмки не было. Недостающие съёмки добавьте кнопкой [+ Добавить съёмку].",
     month: "", registered: "Зарегистрировано", project: "Запланированная съёмка", schedule: "Расписание (укажите сумму)", added: "Добавлено вами",
     ok: "Верно", edit: "Исправить", absent: "Не было", gross: "Оплата клиента", net: "Вы получите (после налога)", estimate: "прибл.",
-    agency: "Через агентство", self: "Напрямую", date: "Дата съёмки", brand: "Бренд / клиент", amount: "Оплата клиента (KRW)", note: "Заметка", type: "Тип",
+    agency: "Через агентство", self: "Напрямую", date: "Дата съёмки", brand: "Бренд / клиент", amount: "Сумма от клиента (KRW)", amountEdit: "Укажите, только если сумма другая (пусто — без изменений)", totalOnly: "Итого к получению за месяц (после налога)", note: "Заметка", type: "Тип",
     add: "+ Добавить съёмку", remove: "Удалить", totalG: "Итого оплата клиента", totalN: "Итого вы получите", comment: "Сообщение (необязательно)",
     submit: "Отправить", submitting: "Отправка...", done: "Отправлено! После проверки съёмки будут добавлены в расчёт.", again: "Назад",
     history: "Ваши отправки", pending: "На проверке", approved: "Одобрено", rejected: "Возвращено", none: "За этот месяц съёмок нет. Если были — добавьте их кнопкой [+ Добавить съёмку].",
@@ -64,7 +64,7 @@ export default function ModelPortal({ token }) {
       if (!j) return;
       setInfo(j);
       setRows(j.items.map(function (it) {
-        return Object.assign({}, it, { action: it.source === "schedule" ? "" : "confirm", note: "", editing: false, orig: { date: it.date, brand: it.brand, type: it.type, income: it.income } });
+        return Object.assign({}, it, { income: "", action: it.source === "schedule" ? "" : "confirm", note: "", editing: false, orig: { date: it.date, brand: it.brand, type: it.type } });
       }));
       setComment("");
       setStatus("ready");
@@ -89,13 +89,14 @@ export default function ModelPortal({ token }) {
   var removeRow = function (key) { setRows(function (prev) { return prev.filter(function (r) { return r.key !== key; }); }); };
 
   var active = rows.filter(function (r) { return r.action === "confirm" || r.action === "edit" || r.action === "new"; });
-  var totalG = active.reduce(function (s, r) { return s + (Number(r.income) || 0); }, 0);
-  var totalN = active.reduce(function (s, r) { return s + calcNet(r.income, r.type); }, 0);
+  // 금액을 새로 입력한 건은 입력 금액 기준, 아니면 서버 기록 기준 세후 금액
+  var rowNet = function (r) { return Number(r.income) > 0 ? calcNet(r.income, r.type) : (Number(r.final) || 0); };
+  var totalN = active.reduce(function (s, r) { return s + rowNet(r); }, 0);
 
   var submit = function () {
     var list = rows.filter(function (r) { return r.action; });
     if (!list.length) { setMsg(tx.nothing); return; }
-    var missing = list.find(function (r) { return r.action !== "absent" && !(Number(r.income) > 0); });
+    var missing = list.find(function (r) { return r.action !== "absent" && !(Number(r.income) > 0) && (r.source === "new" || r.source === "schedule"); });
     if (missing) { setMsg(tx.needAmount + " — " + (missing.brand || missing.date)); return; }
     setBusy(true); setMsg("");
     fetch("/api/model-portal", {
@@ -176,10 +177,6 @@ export default function ModelPortal({ token }) {
                   {!showForm && (
                     <>
                       <div style={{ fontSize: 16, fontWeight: 800, margin: "8px 0 6px", textDecoration: dim ? "line-through" : "none" }}>{r.brand || "-"}</div>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.sub }}>
-                        <span>{tx.gross} <b style={{ color: C.text }}>{Number(r.income) > 0 ? won(r.income) : "-"}</b></span>
-                        <span>{tx.net} <b style={{ color: C.ok }}>{Number(r.income) > 0 ? won(calcNet(r.income, r.type)) : "-"}</b></span>
-                      </div>
                     </>
                   )}
                   {showForm && (
@@ -191,8 +188,7 @@ export default function ModelPortal({ token }) {
                           <option value="self">{tx.self}</option><option value="agency">{tx.agency}</option>
                         </select>
                       </label>
-                      <label style={{ fontSize: 12, color: C.sub }}>{tx.amount}<input type="number" inputMode="numeric" value={r.income} onChange={function (e) { upd(r.key, { income: e.target.value }); }} placeholder="0" style={input} /></label>
-                      {Number(r.income) > 0 && <div style={{ fontSize: 13, color: C.ok, fontWeight: 800 }}>{tx.net}: {won(calcNet(r.income, r.type))} <span style={{ color: C.sub, fontWeight: 600 }}>({tx.estimate})</span></div>}
+                      <label style={{ fontSize: 12, color: C.sub }}>{tx.amount}<input type="number" inputMode="numeric" value={r.income} onChange={function (e) { upd(r.key, { income: e.target.value }); }} placeholder={(r.source === "registered" || r.source === "project") ? tx.amountEdit : "0"} style={input} /></label>
                       <label style={{ fontSize: 12, color: C.sub }}>{tx.note}<input value={r.note} onChange={function (e) { upd(r.key, { note: e.target.value }); }} style={input} /></label>
                     </div>
                   )}
@@ -202,9 +198,9 @@ export default function ModelPortal({ token }) {
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginTop: 12 }}>
                       {[["confirm", "✅ " + tx.ok, C.ok], ["edit", "✏️ " + tx.edit, C.pri], ["absent", "❌ " + tx.absent, C.bad]].map(function (b) {
                         var on = r.action === b[0];
-                        var disabled = b[0] === "confirm" && !(Number(r.orig.income) > 0) && r.source === "schedule";
+                        var disabled = b[0] === "confirm" && r.source === "schedule";
                         return <button key={b[0]} disabled={disabled} onClick={function () {
-                          if (b[0] === "confirm") upd(r.key, Object.assign({ action: "confirm", editing: false }, r.orig));
+                          if (b[0] === "confirm") upd(r.key, Object.assign({ action: "confirm", editing: false, income: "" }, r.orig));
                           else upd(r.key, { action: b[0], editing: b[0] === "edit" });
                         }} style={{ padding: "10px 4px", borderRadius: 10, border: on ? "none" : "1px solid " + C.line, background: on ? b[2] : "#fff", color: on ? "#fff" : (disabled ? "#d1d5db" : C.text), fontWeight: 800, fontSize: 13 }}>{b[1]}</button>;
                       })}
@@ -238,9 +234,9 @@ export default function ModelPortal({ token }) {
 
             <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, background: "#fff", borderTop: "1px solid " + C.line, padding: "10px 14px calc(10px + env(safe-area-inset-bottom))" }}>
               <div style={{ maxWidth: 560, margin: "0 auto" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 8 }}>
-                  <span style={{ color: C.sub }}>{tx.totalG} <b style={{ color: C.text }}>{won(totalG)}</b></span>
-                  <span style={{ color: C.sub }}>{tx.totalN} <b style={{ color: C.ok }}>{won(totalN)}</b></span>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontSize: 13, marginBottom: 8 }}>
+                  <span style={{ color: C.sub, fontWeight: 700 }}>{tx.totalOnly}</span>
+                  <b style={{ color: C.ok, fontSize: 18 }}>{won(totalN)}</b>
                 </div>
                 {msg && <div style={{ color: C.bad, fontSize: 13, fontWeight: 700, marginBottom: 6 }}>{msg}</div>}
                 <button onClick={submit} disabled={busy} style={{ width: "100%", padding: 14, borderRadius: 12, border: "none", background: C.pri, color: "#fff", fontWeight: 900, fontSize: 16, opacity: busy ? 0.7 : 1 }}>{busy ? tx.submitting : tx.submit}</button>
