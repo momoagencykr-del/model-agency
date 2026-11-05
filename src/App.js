@@ -1606,11 +1606,202 @@ function ModelFormModal({ existing, onSave, onClose, dark }) {
   );
 }
 
+
+// ── 모델 제출 승인함 (admin 전용) ───────────────────────────────────────────
+function makeToken() {
+  var a = new Uint8Array(18);
+  (window.crypto || window.msCrypto).getRandomValues(a);
+  return Array.from(a).map(function (b) { return ("0" + b.toString(16)).slice(-2); }).join("");
+}
+function portalLink(token) { return window.location.origin + "/#/submit/" + token; }
+
+function SubmissionsTab({ data, modelMeta, setModelMetaFn, addEntry, updateEntry, removeEntry, dark }) {
+  var t = T(dark);
+  var [subs, setSubs] = useState(null);
+  var [err, setErr] = useState("");
+  var [filter, setFilter] = useState("pending");
+  var [edits, setEdits] = useState({});   // subId -> { itemIdx -> patch }
+  var [picks, setPicks] = useState({});   // subId -> { itemIdx -> bool }
+  var [copied, setCopied] = useState("");
+
+  var load = function () {
+    setErr("");
+    fetch("/api/submissions").then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
+      .then(function (j) { setSubs(j.submissions || []); }).catch(function () { setErr("제출 목록을 불러오지 못했습니다."); });
+  };
+  useEffect(function () { load(); }, []);
+
+  // 링크 관리
+  var issue = function (model) {
+    setModelMetaFn(model, makeToken());
+  };
+  var copyMsg = function (model) {
+    var m = modelMeta[model];
+    var link = portalLink(m.submitToken);
+    var text = "[MoMo Agency] " + (m.nameEn || m.nameKr) + ", please check and submit your shoots for this month here 👇\n" +
+      "이번 달 촬영 내역을 아래 링크에서 확인·제출해주세요.\n" + link;
+    var done = function () { setCopied(model); setTimeout(function () { setCopied(""); }, 2000); };
+    if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, function () { window.prompt("복사해서 카톡에 붙여넣으세요", text); });
+    else window.prompt("복사해서 카톡에 붙여넣으세요", text);
+  };
+
+  var calcNet = function (model, type, inc) {
+    var m = modelMeta[model] || {};
+    return calc(inc, type === "agency" ? m.agencyAF : m.modelAF, 0).final;
+  };
+  var itemOf = function (sub, i) { return Object.assign({}, sub.items[i], (edits[sub.id] || {})[i] || {}); };
+  var setEdit = function (subId, i, patch) {
+    setEdits(function (p) { var o = Object.assign({}, p); o[subId] = Object.assign({}, o[subId] || {}); o[subId][i] = Object.assign({}, (o[subId] || {})[i] || {}, patch); return o; });
+  };
+  var defaultPick = function (it) {
+    if (it.action === "absent") return false;
+    if (it.source === "registered" && it.action === "confirm") return false; // 이미 정산에 있음
+    return true;
+  };
+  var isPicked = function (sub, i) { var p = (picks[sub.id] || {})[i]; return p === undefined ? defaultPick(sub.items[i]) : p; };
+  var togglePick = function (subId, i, v) { setPicks(function (p) { var o = Object.assign({}, p); o[subId] = Object.assign({}, o[subId] || {}); o[subId][i] = v; return o; }); };
+
+  var saveStatus = function (sub, status, note, decisions) {
+    return fetch("/api/submissions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: sub.id, status: status, reviewNote: note, decisions: decisions }) })
+      .then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
+      .then(function (j) { setSubs(function (prev) { return prev.map(function (x) { return x.id === sub.id ? j.submission : x; }); }); });
+  };
+
+  var approve = function (sub) {
+    var monthLabel = Number(sub.month.slice(5, 7)) + "월";
+    var decisions = [];
+    sub.items.forEach(function (_, i) {
+      var it = itemOf(sub, i);
+      var picked = isPicked(sub, i);
+      decisions.push({ i: i, applied: picked });
+      if (!picked) return;
+      var note = "모델 제출 승인" + (it.note ? " · " + it.note : "");
+      if (it.source === "registered") {
+        var parts = String(it.key).split(":"); // s:type:id
+        var origType = parts[1], id = isNaN(Number(parts[2])) ? parts[2] : Number(parts[2]);
+        if (it.action === "absent") { removeEntry(sub.model, monthLabel, origType, id); return; }
+        if (origType !== it.type) {
+          removeEntry(sub.model, monthLabel, origType, id);
+          addEntry(sub.model, monthLabel, it.type, { brand: it.brand, income: it.income, otherDeduct: 0, note: note, paid: false, settleDate: it.date, id: Date.now() + i });
+        } else {
+          updateEntry(sub.model, monthLabel, origType, id, { brand: it.brand, income: it.income, settleDate: it.date, note: note });
+        }
+        return;
+      }
+      if (it.action === "absent") return;
+      addEntry(sub.model, monthLabel, it.type, { brand: it.brand, income: it.income, otherDeduct: 0, note: note, paid: false, settleDate: it.date, id: Date.now() + i });
+    });
+    saveStatus(sub, "approved", "", decisions).catch(function () { alert("승인 상태 저장 실패 — 정산 반영은 완료됐습니다. 새로고침 후 확인해주세요."); });
+  };
+  var reject = function (sub) {
+    var reason = window.prompt("반려 사유 (모델 화면에 표시됩니다)", "");
+    if (reason === null) return;
+    saveStatus(sub, "rejected", reason, []).catch(function () { alert("반려 저장 실패"); });
+  };
+
+  var srcLabel = { registered: "정산 등록건", project: "촬영관리", schedule: "캘린더 일정", new: "모델 추가" };
+  var actLabel = { confirm: ["✅ 맞음", COLOR.success], edit: ["✏️ 수정", COLOR.primary], absent: ["❌ 안 함", COLOR.danger], new: ["➕ 추가", "#0891b2"] };
+  var list = (subs || []).filter(function (s) { return filter === "all" ? true : s.status === filter; }).slice().reverse();
+  var pendingCount = (subs || []).filter(function (s) { return s.status === "pending"; }).length;
+  var inp = { padding: "5px 7px", borderRadius: 6, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 12, boxSizing: "border-box" };
+
+  return (
+    <div>
+      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 16, marginBottom: 14 }}>
+        <div style={{ fontSize: FONT.lg, fontWeight: 900, color: t.text, marginBottom: 4 }}>🔗 모델별 제출 링크</div>
+        <div style={{ fontSize: FONT.xs, color: t.sub, marginBottom: 12 }}>"카톡 메시지 복사" → 모델 카톡에 붙여넣기. 링크가 유출되면 "재발급"하면 이전 링크는 즉시 막힙니다. 링크 생성·재발급 후 자동저장(3초)이 끝나야 링크가 작동합니다.</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 8 }}>
+          {Object.keys(modelMeta).map(function (model) {
+            var m = modelMeta[model];
+            return (
+              <div key={model} style={{ border: "1px solid " + t.border, borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                <div>
+                  <div style={{ fontWeight: 800, color: t.text, fontSize: FONT.base }}>{m.nameKr}</div>
+                  <div style={{ fontSize: 10, color: m.submitToken ? COLOR.success : t.sub }}>{m.submitToken ? "링크 발급됨" : "링크 없음"}</div>
+                </div>
+                <div style={{ display: "flex", gap: 4 }}>
+                  {m.submitToken && <button onClick={function () { copyMsg(model); }} style={{ padding: "6px 9px", borderRadius: 7, border: "none", background: "#FEE500", color: "#191919", fontWeight: 800, fontSize: 11, cursor: "pointer" }}>{copied === model ? "복사됨 ✓" : "카톡 메시지 복사"}</button>}
+                  <button onClick={function () { if (!m.submitToken || window.confirm(m.nameKr + " 링크를 재발급할까요? 이전 링크는 더 이상 열리지 않습니다.")) issue(model); }} style={{ padding: "6px 9px", borderRadius: 7, border: "1px solid " + t.border, background: "transparent", color: t.sub, fontWeight: 700, fontSize: 11, cursor: "pointer" }}>{m.submitToken ? "재발급" : "링크 생성"}</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+        <div style={{ fontSize: FONT.lg, fontWeight: 900, color: t.text }}>📥 모델 제출 승인함 {pendingCount > 0 && <span style={{ fontSize: FONT.sm, color: COLOR.danger }}>· 대기 {pendingCount}건</span>}</div>
+        <div style={{ display: "flex", gap: 4 }}>
+          {[["pending", "대기"], ["approved", "승인"], ["rejected", "반려"], ["all", "전체"]].map(function (f) {
+            return <button key={f[0]} onClick={function () { setFilter(f[0]); }} style={{ padding: "6px 11px", borderRadius: 8, border: filter === f[0] ? "none" : "1px solid " + t.border, background: filter === f[0] ? COLOR.primary : "transparent", color: filter === f[0] ? "#fff" : t.sub, fontWeight: 700, fontSize: FONT.xs, cursor: "pointer" }}>{f[1]}</button>;
+          })}
+          <button onClick={load} style={{ padding: "6px 11px", borderRadius: 8, border: "1px solid " + t.border, background: "transparent", color: t.sub, fontWeight: 700, fontSize: FONT.xs, cursor: "pointer" }}>↻ 새로고침</button>
+        </div>
+      </div>
+      {err && <div style={{ color: COLOR.danger, fontWeight: 700, marginBottom: 10 }}>{err}</div>}
+      {subs && list.length === 0 && <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 12, padding: 24, textAlign: "center", color: t.sub }}>해당 상태의 제출 건이 없습니다.</div>}
+
+      {list.map(function (sub) {
+        var m = modelMeta[sub.model] || { nameKr: sub.model };
+        var pending = sub.status === "pending";
+        var totals = sub.items.reduce(function (acc, _, i) { var it = itemOf(sub, i); if (it.action !== "absent") { acc.g += Number(it.income) || 0; acc.n += calcNet(sub.model, it.type, it.income); } return acc; }, { g: 0, n: 0 });
+        return (
+          <div key={sub.id} style={{ background: t.card, border: "1.5px solid " + (pending ? "#f59e0b" : t.border), borderRadius: 14, padding: 14, marginBottom: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+              <div style={{ fontSize: FONT.md, fontWeight: 900, color: t.text }}>{m.nameKr} · {sub.month} <span style={{ fontSize: FONT.xs, color: t.sub, fontWeight: 600 }}>제출 {new Date(sub.submittedAt).toLocaleString("ko-KR")}</span></div>
+              <span style={{ fontSize: FONT.xs, fontWeight: 800, padding: "3px 9px", borderRadius: 6, background: pending ? "#fef3c7" : sub.status === "approved" ? "#d1fae5" : "#fee2e2", color: pending ? "#92400e" : sub.status === "approved" ? "#065f46" : "#991b1b" }}>{pending ? "승인 대기" : sub.status === "approved" ? "승인됨" : "반려됨"}</span>
+            </div>
+            {sub.comment && <div style={{ fontSize: FONT.sm, color: t.text, background: t.card2, borderRadius: 8, padding: "8px 10px", marginBottom: 8 }}>💬 {sub.comment}</div>}
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: FONT.sm, minWidth: 760 }}>
+                <thead><tr style={{ color: t.sub }}>
+                  {["반영", "모델 응답", "출처", "촬영일", "브랜드", "구분", "업체입금", "받을 금액(세후)", "메모"].map(function (h) { return <th key={h} style={{ textAlign: "left", padding: "6px", fontWeight: 800, whiteSpace: "nowrap", borderBottom: "1px solid " + t.border }}>{h}</th>; })}
+                </tr></thead>
+                <tbody>
+                  {sub.items.map(function (_, i) {
+                    var it = itemOf(sub, i);
+                    var a = actLabel[it.action] || ["-", t.sub];
+                    var dec = (sub.decisions || []).find(function (d) { return d.i === i; });
+                    var editable = pending && it.action !== "absent";
+                    return (
+                      <tr key={i} style={{ borderBottom: "1px solid " + t.border, opacity: it.action === "absent" && !isPicked(sub, i) ? 0.6 : 1 }}>
+                        <td style={{ padding: 6 }}>{pending ? <input type="checkbox" checked={isPicked(sub, i)} onChange={function (e) { togglePick(sub.id, i, e.target.checked); }} title={it.action === "absent" ? (it.source === "registered" ? "체크하면 정산에서 삭제" : "반영할 내용 없음") : (it.source === "registered" && it.action === "confirm" ? "이미 정산에 있음" : "정산에 반영")} /> : (dec && dec.applied ? "✔" : "")}</td>
+                        <td style={{ padding: 6, color: a[1], fontWeight: 800, whiteSpace: "nowrap" }}>{a[0]}</td>
+                        <td style={{ padding: 6, color: t.sub, whiteSpace: "nowrap", fontSize: FONT.xs }}>{srcLabel[it.source] || it.source}</td>
+                        <td style={{ padding: 6 }}>{editable ? <input type="date" value={it.date} onChange={function (e) { setEdit(sub.id, i, { date: e.target.value }); }} style={Object.assign({}, inp, { width: 130 })} /> : it.date}</td>
+                        <td style={{ padding: 6 }}>{editable ? <input value={it.brand} onChange={function (e) { setEdit(sub.id, i, { brand: e.target.value }); }} style={Object.assign({}, inp, { width: 150 })} /> : it.brand}</td>
+                        <td style={{ padding: 6 }}>{editable ? <select value={it.type} onChange={function (e) { setEdit(sub.id, i, { type: e.target.value }); }} style={inp}><option value="self">직접</option><option value="agency">에이전시</option></select> : (it.type === "agency" ? "에이전시" : "직접")}</td>
+                        <td style={{ padding: 6 }}>{editable ? <input type="number" value={it.income} onChange={function (e) { setEdit(sub.id, i, { income: Number(e.target.value) || 0 }); }} style={Object.assign({}, inp, { width: 110 })} /> : fmt(it.income)}</td>
+                        <td style={{ padding: 6, color: COLOR.success, fontWeight: 800, whiteSpace: "nowrap" }}>{it.action === "absent" ? "-" : fmt(calcNet(sub.model, it.type, it.income))}</td>
+                        <td style={{ padding: 6, color: t.sub, fontSize: FONT.xs }}>{it.note}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
+              <div style={{ fontSize: FONT.sm, color: t.sub }}>업체입금 <b style={{ color: t.text }}>{fmt(totals.g)}</b> · 받을 금액 <b style={{ color: COLOR.success }}>{fmt(totals.n)}</b>{sub.reviewNote ? " · 반려사유: " + sub.reviewNote : ""}</div>
+              {pending && (
+                <div style={{ display: "flex", gap: 6 }}>
+                  <DangerButton onClick={function () { reject(sub); }} outline small>반려</DangerButton>
+                  <PrimaryButton onClick={function () { if (window.confirm("체크한 항목을 " + m.nameKr + " " + Number(sub.month.slice(5, 7)) + "월 정산에 반영할까요?")) approve(sub); }} small>✓ 승인 (체크 항목 정산 반영)</PrimaryButton>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── 메인 앱 ───────────────────────────────────────────────────────────────────
 export default function App({ currentUser, onLogout }) {
   var serverBaseRef = useRef(null);
   var metaBaseRef = useRef(null);
   var [loadError, setLoadError] = useState(false);
+  var isAdmin = !!(currentUser && currentUser.role === "admin");
   var [modelMeta, setModelMeta] = useState(function() {
     try { var s = localStorage.getItem(MODEL_META_KEY); return fixFullNames(s ? JSON.parse(s) : DEFAULT_MODELS); } catch(e) { return DEFAULT_MODELS; }
   });
@@ -1797,6 +1988,14 @@ export default function App({ currentUser, onLogout }) {
     });
   }, [data]);
 
+  var setSubmitToken = useCallback(function(model, token) {
+    setModelMeta(function(prev) {
+      var m = Object.assign({}, prev, { [model]: Object.assign({}, prev[model], { submitToken: token }) });
+      saveMeta(m); pushH(data, m); return m;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+
   var updateAF = useCallback(function(model, key, value) {
     setModelMeta(function(prev) {
       var m = Object.assign({}, prev, { [model]: Object.assign({}, prev[model], { [key]: value }) });
@@ -1847,7 +2046,7 @@ export default function App({ currentUser, onLogout }) {
 
   var NavContent = (
     <div style={{ padding:8 }}>
-      {[["overview","연간 요약","📊"],["tax","세무 요약","📋"],["calendar","촬영 캘린더","📅"],["checklist","업무 체크리스트","📝"]].map(function(item) {
+      {[["overview","연간 요약","📊"],["tax","세무 요약","📋"],["calendar","촬영 캘린더","📅"],["checklist","업무 체크리스트","📝"]].concat(isAdmin ? [["submissions","모델 제출 승인","📥"]] : []).map(function(item) {
         return (
           <button key={item[0]} onClick={function(){ setTab(item[0]); setMobileNavOpen(false); }} style={{ width:"100%", display:"flex", alignItems:"center", gap:8, padding:"7px 10px", borderRadius:9, border:"none", cursor:"pointer", background:tab===item[0]?"#4f46e5":"transparent", color:tab===item[0]?"#fff":t.sub, fontWeight:700, fontSize: FONT.base, marginBottom:2, textAlign:"left" }}>
             <span>{item[2]}</span>{item[1]}
@@ -1944,13 +2143,14 @@ export default function App({ currentUser, onLogout }) {
           {loadError && <div style={{ background: "#fef2f2", border: "1.5px solid #ef4444", color: "#991b1b", borderRadius: 10, padding: "10px 14px", marginBottom: 12, fontSize: 13, fontWeight: 700 }}>⚠️ 서버 데이터를 불러오지 못해 이 기기의 사본을 표시 중입니다. 새로고침(F5) 후 작업해주세요. (저장 시 서버 내용은 지워지지 않고 병합됩니다)</div>}
           {tab === "calendar" && <BookingCalendarTab modelMeta={modelMeta} data={data} addEntry={addEntry} updateEntry={updateEntry} removeEntry={removeEntry} dark={dark} />}
           {tab === "checklist" && <TaskChecklistTab dark={dark} />}
+          {tab === "submissions" && isAdmin && <SubmissionsTab data={data} modelMeta={modelMeta} setModelMetaFn={setSubmitToken} addEntry={addEntry} updateEntry={updateEntry} removeEntry={removeEntry} dark={dark} />}
           {Object.keys(modelMeta).includes(tab) && <ModelDetail model={tab} meta={modelMeta[tab]} data={data} addEntry={addEntry} removeEntry={removeEntry} updateEntry={updateEntry} onUpdateAF={updateAF} dark={dark} />}
         </main>
       </div>
 
       {isMobile && (
         <div style={{ position:"fixed", bottom:0, left:0, right:0, background:t.card, borderTop:"1px solid "+t.border, display:"flex", zIndex:50, boxShadow:"0 -2px 10px rgba(0,0,0,0.1)" }}>
-          {[["overview","연간요약","📊"],["tax","세무요약","📋"],["calendar","캘린더","📅"],["checklist","체크리스트","📝"]].concat(Object.keys(modelMeta).slice(0,2).map(function(m){ return [m, modelMeta[m].nameKr, modelMeta[m].nameEn[0]]; })).map(function(item) {
+          {[["overview","연간요약","📊"],["tax","세무요약","📋"],["calendar","캘린더","📅"],["checklist","체크리스트","📝"]].concat(isAdmin ? [["submissions","제출승인","📥"]] : []).concat(Object.keys(modelMeta).slice(0,2).map(function(m){ return [m, modelMeta[m].nameKr, modelMeta[m].nameEn[0]]; })).map(function(item) {
             return (
               <button key={item[0]} onClick={function(){ setTab(item[0]); }} style={{ flex:1, padding:"8px 4px 10px", border:"none", background:"transparent", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
                 <span style={{ fontSize:tab===item[0]?20:16 }}>{item[2]}</span>

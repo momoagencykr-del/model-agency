@@ -1,18 +1,18 @@
 import { useState, useEffect } from "react";
 import App from "./App";
 import ProjectApp from "./ProjectApp";
+import ModelPortal from "./ModelPortal";
 
-// ── 계정 정보 ────────────────────────────────────────────────────────────
-// admin: 두 시스템(모델 정산관리 + 촬영 프로젝트 관리) 전체 접근 가능
-// JJ: 모델 정산관리 시스템만 접근 가능 (촬영 프로젝트 관리 접근 불가)
-var USERS = {
-  admin: { password: "ahahdpdlwjstl1!", name: "운영자", role: "admin" },
-  JJ: { password: "wjdwjd1!", name: "모델정산관리자", role: "settlement" },
-};
-var AUTH_KEY = "momoAgencyAuth_v1";
+// ── 계정 ─────────────────────────────────────────────────────────────────
+// 비밀번호 확인은 서버(/api/login)에서만 한다. 로그인 성공 시 받은 토큰을 세션에 보관하고,
+// 모든 /api 요청에 자동으로 첨부한다 (index.js 의 fetch 래퍼).
+// admin: 두 시스템 전체 / JJ: 모델 정산관리만
+export var AUTH_KEY = "momoAgencyAuth_v2";
 
 function getRouteFromHash() {
-  return window.location.hash === "#projects" ? "projects" : "settlement";
+  var h = window.location.hash || "";
+  if (h.indexOf("#/submit/") === 0) return "portal";
+  return h === "#projects" ? "projects" : "settlement";
 }
 
 function LoginScreen({ onLogin }) {
@@ -23,15 +23,19 @@ function LoginScreen({ onLogin }) {
   var errState = useState("");
   var err = errState[0], setErr = errState[1];
 
-  var submit = function () {
-    var u = USERS[id];
-    if (!u || u.password !== pw) {
-      setErr("아이디 또는 비밀번호가 올바르지 않습니다.");
-      return;
-    }
-    var session = { id: id, name: u.name, role: u.role };
-    try { sessionStorage.setItem(AUTH_KEY, JSON.stringify(session)); } catch (e) {}
-    onLogin(session);
+  var busyState = useState(false);
+  var busy = busyState[0], setBusy = busyState[1];
+  var submit = async function () {
+    if (busy) return;
+    setBusy(true); setErr("");
+    try {
+      var r = await fetch("/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id, pw: pw }) });
+      var j = await r.json();
+      if (!r.ok) { setErr(j.error || "로그인 실패"); setBusy(false); return; }
+      var session = Object.assign({}, j.user, { token: j.token });
+      try { sessionStorage.setItem(AUTH_KEY, JSON.stringify(session)); } catch (e) {}
+      onLogin(session);
+    } catch (e) { setErr("서버에 연결할 수 없습니다."); setBusy(false); }
   };
 
   return (
@@ -59,7 +63,7 @@ function LoginScreen({ onLogin }) {
         />
         {err && <p style={{ color: "#ef4444", fontSize: 12, marginBottom: 12, textAlign: "center" }}>{err}</p>}
         <button onClick={submit} style={{ width: "100%", background: "linear-gradient(135deg,#4f46e5,#7c3aed)", color: "#fff", border: "none", borderRadius: 8, padding: "11px 0", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
-          로그인
+          {busy ? "확인 중..." : "로그인"}
         </button>
       </div>
     </div>
@@ -106,7 +110,10 @@ export default function Root() {
     setUser(null);
   };
 
-  if (!user) {
+  // 모델 제출 페이지: 로그인 없이 개인 링크로 접근
+  if (route === "portal") return <ModelPortal token={decodeURIComponent((window.location.hash || "").slice("#/submit/".length))} />;
+
+  if (!user || !user.token) {
     return <LoginScreen onLogin={setUser} />;
   }
 

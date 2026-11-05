@@ -1,5 +1,6 @@
 const { google } = require("googleapis");
 const { readJson, writeJson } = require("./_store");
+const { requireAuth } = require("./_auth");
 
 const auth = new google.auth.GoogleAuth({
   credentials: {
@@ -30,11 +31,12 @@ async function ensureTab(sheets) {
 }
 
 module.exports = async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
   if (req.method === "OPTIONS") return res.status(200).end();
+  // 읽기·쓰기 모두 로그인 필요 (쓰기 권한은 역할별)
+  if (!requireAuth(req, res, req.method === "POST" ? ["admin","settlement"] : ["admin","settlement"])) return;
 
   try {
     const sheets = await getSheets();
