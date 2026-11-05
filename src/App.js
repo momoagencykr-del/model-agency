@@ -5,6 +5,15 @@ import TaskChecklistTab from "./TaskChecklist";
 import { T, RADIUS, FONT, COLOR, PrimaryButton, SecondaryButton, DangerButton } from "./theme";
 
 // 외국인 모델은 영문 풀네임, 한국인 모델은 한글 이름으로 — 문서/정산서에 표기할 이름
+// 퇴사 모델은 삭제하지 않고 목록 맨 아래로 (기존 순서 유지)
+function sortedModelKeys(meta) {
+  var keys = Object.keys(meta || {});
+  return keys.filter(function (k) { return !meta[k].retired; }).concat(keys.filter(function (k) { return meta[k].retired; }));
+}
+function RetiredBadge() {
+  return <span style={{ fontSize: 9, fontWeight: 800, padding: "1px 5px", borderRadius: 4, background: "#64748b", color: "#fff", marginRight: 4, flexShrink: 0 }}>퇴사</span>;
+}
+
 function displayName(meta) {
   if (!meta) return "";
   return meta.nationality === "한국" ? meta.nameKr : (meta.fullName || meta.nameKr);
@@ -279,7 +288,7 @@ function Overview({ data, modelMeta, dark, setTab }) {
       <AgencyMonthChart data={data} modelMeta={modelMeta} dark={dark} />
       <h3 style={{ fontSize: FONT.base, fontWeight:800, color:t.sub, marginBottom:10, textTransform:"uppercase", letterSpacing:1 }}>모델별 수익 현황</h3>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))", gap:10 }}>
-        {Object.keys(modelMeta).map(function(m) {
+        {sortedModelKeys(modelMeta).map(function(m) {
           return <ModelMiniBar key={m} modelKey={m} data={data} meta={modelMeta[m]} dark={dark} onClick={function(){ setTab(m); }} />;
         })}
       </div>
@@ -712,7 +721,7 @@ function SettlementSidePanel({ dark, modelMeta, data, addEntry, updateEntry, rem
         <div style={{ flex: 1 }}>
           <label style={labelStyle}>모델</label>
           <select value={selModel} onChange={function (e) { setSelModel(e.target.value); }} style={inputStyle}>
-            {modelKeys.map(function (k) { return <option key={k} value={k}>{modelMeta[k].nameKr}</option>; })}
+            {sortedModelKeys(modelMeta).map(function (k) { return <option key={k} value={k}>{(modelMeta[k].retired ? "[퇴사] " : "") + modelMeta[k].nameKr}</option>; })}
           </select>
         </div>
         <div style={{ flex: 1 }}>
@@ -1368,7 +1377,7 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo, dark }) {
   };
 
   // ① 소속모델 (모델 정산관리 데이터)
-  Object.keys(modelMeta).forEach(function (model) {
+  sortedModelKeys(modelMeta).forEach(function (model) {
     var meta = modelMeta[model];
     monthIdxs.forEach(function (idx) {
       var md = (data && data[model] && data[model][MONTHS[idx]]) || { agency: [], self: [] };
@@ -1376,7 +1385,7 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo, dark }) {
       md.agency.forEach(function (e) { var c = calc(e.income, meta.agencyAF, e.otherDeduct); tax += c.tax; final += finalAmt(e, meta.agencyAF); });
       md.self.forEach(function (e) { var c = calc(e.income, meta.modelAF, e.otherDeduct); tax += c.tax; final += finalAmt(e, meta.modelAF); });
       if (final + tax > 0) {
-        var pr = getPerson("m|" + model, { src: "소속", name: displayName(meta), regNo: meta.regNo || "", model: model, nat: meta.nationality || "" });
+        var pr = getPerson("m|" + model, { src: "소속", name: displayName(meta), regNo: meta.regNo || "", model: model, nat: meta.nationality || "", retired: !!meta.retired });
         addAmt(pr, idx, final + tax, tax, final);
       }
     });
@@ -1495,7 +1504,7 @@ function TaxSummary({ data, modelMeta, onUpdateRegNo, dark }) {
                   <tr key={pr.key} style={{ borderBottom: "1px solid " + t.border }}>
                     <td style={{ padding: "9px 10px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 5, background: sc[0], color: sc[1], whiteSpace: "nowrap" }}>{pr.src}</span>
+                        <span style={{ fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 5, background: sc[0], color: sc[1], whiteSpace: "nowrap" }}>{pr.src}</span>{pr.retired && <RetiredBadge />}
                         <span style={{ fontWeight: 800, color: t.text, fontSize: 12 }}>{pr.name}</span>
                       </div>
                     </td>
@@ -1580,6 +1589,13 @@ function ModelFormModal({ existing, onSave, onClose, dark }) {
               </div>
             );
           })}
+          {existing && (
+            <label style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 12px", borderRadius:8, border:"1px solid "+(form.retired ? "#64748b" : t.border), background: form.retired ? (dark ? "#1e293b" : "#f1f5f9") : "transparent", cursor:"pointer" }}>
+              <input type="checkbox" checked={!!form.retired} onChange={function(e){ set("retired", e.target.checked); }} />
+              <span style={{ fontSize: FONT.sm, fontWeight:800, color:t.text }}>퇴사 처리</span>
+              <span style={{ fontSize: FONT.xs, color:t.sub }}>— 삭제되지 않고 목록 맨 아래에 '퇴사' 표시로 보관됩니다</span>
+            </label>
+          )}
           {[["에이전시 촬영 AF","agencyAF","#4f46e5"],["모델 직접 촬영 AF","modelAF","#7c3aed"]].map(function(item) {
             return (
               <div key={item[1]}>
@@ -1711,12 +1727,12 @@ function SubmissionsTab({ data, modelMeta, setModelMetaFn, addEntry, updateEntry
         <div style={{ fontSize: FONT.lg, fontWeight: 900, color: t.text, marginBottom: 4 }}>🔗 모델별 제출 링크</div>
         <div style={{ fontSize: FONT.xs, color: t.sub, marginBottom: 12 }}>"카톡 메시지 복사" → 모델 카톡에 붙여넣기. 링크가 유출되면 "재발급"하면 이전 링크는 즉시 막힙니다. 링크 생성·재발급 후 자동저장(3초)이 끝나야 링크가 작동합니다.</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 8 }}>
-          {Object.keys(modelMeta).map(function (model) {
+          {sortedModelKeys(modelMeta).map(function (model) {
             var m = modelMeta[model];
             return (
-              <div key={model} style={{ border: "1px solid " + t.border, borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <div key={model} style={{ border: "1px solid " + t.border, borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, opacity: m.retired ? 0.6 : 1 }}>
                 <div>
-                  <div style={{ fontWeight: 800, color: t.text, fontSize: FONT.base }}>{m.nameKr}</div>
+                  <div style={{ fontWeight: 800, color: t.text, fontSize: FONT.base, display: "flex", alignItems: "center" }}>{m.retired && <RetiredBadge />}{m.nameKr}</div>
                   <div style={{ fontSize: 10, color: m.submitToken ? COLOR.success : t.sub }}>{m.submitToken ? "링크 발급됨" : "링크 없음"}</div>
                 </div>
                 <div style={{ display: "flex", gap: 4 }}>
@@ -2055,15 +2071,15 @@ export default function App({ currentUser, onLogout }) {
       })}
       <div style={{ margin:"8px 0", borderTop:"1px solid "+t.border, paddingTop:8 }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", paddingLeft:10, paddingRight:6, marginBottom:6 }}>
-          <span style={{ fontSize:10, fontWeight:700, color:t.sub, textTransform:"uppercase" }}>모델 {Object.keys(modelMeta).length}명</span>
+          <span style={{ fontSize:10, fontWeight:700, color:t.sub, textTransform:"uppercase" }}>모델 {sortedModelKeys(modelMeta).filter(function(k){ return !modelMeta[k].retired; }).length}명{sortedModelKeys(modelMeta).some(function(k){ return modelMeta[k].retired; }) ? " · 퇴사 " + sortedModelKeys(modelMeta).filter(function(k){ return modelMeta[k].retired; }).length : ""}</span>
           <button onClick={function(){ setShowModelForm(true); }} style={{ width:22, height:22, borderRadius:6, border:"none", background: COLOR.primary, color:"#fff", cursor:"pointer", fontSize: FONT.md, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:900 }}>+</button>
         </div>
-        {Object.keys(modelMeta).map(function(m) {
+        {sortedModelKeys(modelMeta).map(function(m) {
           return (
-            <div key={m} style={{ display:"flex", alignItems:"center", gap:3, marginBottom:2 }}>
+            <div key={m} style={{ display:"flex", alignItems:"center", gap:3, marginBottom:2, opacity: modelMeta[m].retired && tab !== m ? 0.55 : 1 }}>
               <button onClick={function(){ setTab(m); setMobileNavOpen(false); }} style={{ flex:1, display:"flex", alignItems:"center", gap:7, padding:"6px 8px", borderRadius:8, border:"none", cursor:"pointer", background:tab===m?"#4f46e5":"transparent", color:tab===m?"#fff":t.sub, fontWeight:700, fontSize: FONT.sm, textAlign:"left" }}>
                 <span style={{ width:20, height:20, borderRadius:5, background:tab===m?"rgba(255,255,255,0.2)":(dark?"#0f172a":"#f1f5f9"), display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, flexShrink:0, fontWeight:900 }}>{modelMeta[m].nameEn[0]}</span>
-                {modelMeta[m].nameKr}
+                {modelMeta[m].retired && <RetiredBadge />}{modelMeta[m].nameKr}
               </button>
               {tab === m && (
                 <div style={{ display:"flex", gap:2 }}>
@@ -2150,7 +2166,7 @@ export default function App({ currentUser, onLogout }) {
 
       {isMobile && (
         <div style={{ position:"fixed", bottom:0, left:0, right:0, background:t.card, borderTop:"1px solid "+t.border, display:"flex", zIndex:50, boxShadow:"0 -2px 10px rgba(0,0,0,0.1)" }}>
-          {[["overview","연간요약","📊"],["tax","세무요약","📋"],["calendar","캘린더","📅"],["checklist","체크리스트","📝"]].concat(isAdmin ? [["submissions","제출승인","📥"]] : []).concat(Object.keys(modelMeta).slice(0,2).map(function(m){ return [m, modelMeta[m].nameKr, modelMeta[m].nameEn[0]]; })).map(function(item) {
+          {[["overview","연간요약","📊"],["tax","세무요약","📋"],["calendar","캘린더","📅"],["checklist","체크리스트","📝"]].concat(isAdmin ? [["submissions","제출승인","📥"]] : []).concat(sortedModelKeys(modelMeta).filter(function(k){ return !modelMeta[k].retired; }).slice(0,2).map(function(m){ return [m, modelMeta[m].nameKr, modelMeta[m].nameEn[0]]; })).map(function(item) {
             return (
               <button key={item[0]} onClick={function(){ setTab(item[0]); }} style={{ flex:1, padding:"8px 4px 10px", border:"none", background:"transparent", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
                 <span style={{ fontSize:tab===item[0]?20:16 }}>{item[2]}</span>

@@ -3,9 +3,9 @@ import { useState, useEffect } from "react";
 // ── 모델 전용 촬영내역 제출 화면 (카톡 링크로 접속, 로그인 없음) ────────────────
 var L = {
   ko: {
-    title: "촬영 내역 제출", hello: "님, 안녕하세요", intro: "이번 달 촬영 내역을 확인해주세요. 맞으면 ✅, 다르면 ✏️ 수정, 안 한 촬영이면 ❌ 를 눌러주세요. 목록에 없는 촬영은 아래 [+ 촬영 추가]로 입력해주세요.",
+    title: "촬영 내역 제출", hello: "님, 안녕하세요", intro: "이번 달 촬영 내역을 확인해주세요. 맞으면 ✅, 다르면 ✏️ 수정, 취소된 촬영이면 ❌ 취소를 눌러주세요. 목록에 없는 촬영은 아래 [+ 촬영 추가]로 입력해주세요.",
     month: "월", registered: "정산 등록됨", project: "촬영 예정/진행", schedule: "일정 (금액 입력 필요)", added: "새로 추가",
-    ok: "맞음", edit: "수정", absent: "안 함", gross: "업체 입금", net: "받을 금액(세후)", estimate: "예상",
+    ok: "맞음", edit: "수정", absent: "취소", gross: "업체 입금", net: "받을 금액(세후)", estimate: "예상",
     agency: "에이전시 촬영", self: "직접 촬영", date: "촬영일", brand: "브랜드/업체", amount: "고객사로부터 받는 금액 (원)", amountEdit: "금액이 다를 때만 입력 (비우면 기존 금액 유지)", totalOnly: "이번 달 받을 금액 합계 (세후)", note: "메모", type: "구분",
     add: "+ 촬영 추가", remove: "삭제", totalG: "업체 입금 합계", totalN: "받을 금액 합계", comment: "전달할 말 (선택)",
     submit: "제출하기", submitting: "제출 중...", done: "제출 완료! 확인 후 승인되면 정산에 반영됩니다.", again: "다시 보기",
@@ -13,9 +13,9 @@ var L = {
     needAmount: "금액을 입력해주세요", nothing: "제출할 내용이 없습니다", invalid: "링크가 올바르지 않습니다. 담당자에게 새 링크를 요청해주세요.", loading: "불러오는 중...", err: "오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
   },
   en: {
-    title: "Submit your shoots", hello: ", hello", intro: "Please check your shoots for this month. Tap ✅ if correct, ✏️ to fix, or ❌ if it didn't happen. Add any missing shoot with [+ Add shoot] below.",
+    title: "Submit your shoots", hello: ", hello", intro: "Please check your shoots for this month. Tap ✅ if correct, ✏️ to fix, or ❌ Cancel if the shoot was cancelled. Add any missing shoot with [+ Add shoot] below.",
     month: "", registered: "Registered", project: "Booked shoot", schedule: "Schedule (enter amount)", added: "Added by you",
-    ok: "Correct", edit: "Edit", absent: "Didn't happen", gross: "Client fee", net: "You receive (after tax)", estimate: "est.",
+    ok: "Correct", edit: "Edit", absent: "Cancel", gross: "Client fee", net: "You receive (after tax)", estimate: "est.",
     agency: "Agency booking", self: "Direct booking", date: "Shoot date", brand: "Brand / client", amount: "Amount from client (KRW)", amountEdit: "Enter only if the amount is different (leave blank to keep)", totalOnly: "Total you receive this month (after tax)", note: "Note", type: "Type",
     add: "+ Add shoot", remove: "Remove", totalG: "Total client fee", totalN: "Total you receive", comment: "Message to us (optional)",
     submit: "Submit", submitting: "Submitting...", done: "Submitted! It will be added to your settlement after we review it.", again: "Back",
@@ -23,9 +23,9 @@ var L = {
     needAmount: "Please enter the amount", nothing: "Nothing to submit", invalid: "This link is not valid. Please ask us for a new link.", loading: "Loading...", err: "Something went wrong. Please try again.",
   },
   ru: {
-    title: "Отправка съёмок", hello: ", здравствуйте", intro: "Проверьте съёмки за месяц. Нажмите ✅ если всё верно, ✏️ чтобы исправить, ❌ если съёмки не было. Недостающие съёмки добавьте кнопкой [+ Добавить съёмку].",
+    title: "Отправка съёмок", hello: ", здравствуйте", intro: "Проверьте съёмки за месяц. Нажмите ✅ если всё верно, ✏️ чтобы исправить, ❌ Отменить, если съёмка отменена. Недостающие съёмки добавьте кнопкой [+ Добавить съёмку].",
     month: "", registered: "Зарегистрировано", project: "Запланированная съёмка", schedule: "Расписание (укажите сумму)", added: "Добавлено вами",
-    ok: "Верно", edit: "Исправить", absent: "Не было", gross: "Оплата клиента", net: "Вы получите (после налога)", estimate: "прибл.",
+    ok: "Верно", edit: "Исправить", absent: "Отменить", gross: "Оплата клиента", net: "Вы получите (после налога)", estimate: "прибл.",
     agency: "Через агентство", self: "Напрямую", date: "Дата съёмки", brand: "Бренд / клиент", amount: "Сумма от клиента (KRW)", amountEdit: "Укажите, только если сумма другая (пусто — без изменений)", totalOnly: "Итого к получению за месяц (после налога)", note: "Заметка", type: "Тип",
     add: "+ Добавить съёмку", remove: "Удалить", totalG: "Итого оплата клиента", totalN: "Итого вы получите", comment: "Сообщение (необязательно)",
     submit: "Отправить", submitting: "Отправка...", done: "Отправлено! После проверки съёмки будут добавлены в расчёт.", again: "Назад",
@@ -33,9 +33,9 @@ var L = {
     needAmount: "Укажите сумму", nothing: "Нечего отправлять", invalid: "Ссылка недействительна. Попросите у нас новую ссылку.", loading: "Загрузка...", err: "Произошла ошибка. Попробуйте позже.",
   },
   fr: {
-    title: "Déclarer vos shootings", hello: ", bonjour", intro: "Vérifiez vos shootings du mois. Appuyez sur ✅ si c'est correct, ✏️ pour corriger, ou ❌ si le shooting n'a pas eu lieu. Ajoutez un shooting manquant avec [+ Ajouter un shooting] ci-dessous.",
+    title: "Déclarer vos shootings", hello: ", bonjour", intro: "Vérifiez vos shootings du mois. Appuyez sur ✅ si c'est correct, ✏️ pour corriger, ou ❌ Annuler si le shooting a été annulé. Ajoutez un shooting manquant avec [+ Ajouter un shooting] ci-dessous.",
     month: "", registered: "Enregistré", project: "Shooting réservé", schedule: "Planning (montant à saisir)", added: "Ajouté par vous",
-    ok: "Correct", edit: "Modifier", absent: "N'a pas eu lieu", gross: "Montant client", net: "Vous recevez (après impôt)", estimate: "est.",
+    ok: "Correct", edit: "Modifier", absent: "Annuler", gross: "Montant client", net: "Vous recevez (après impôt)", estimate: "est.",
     agency: "Via l'agence", self: "En direct", date: "Date du shooting", brand: "Marque / client", amount: "Montant reçu du client (KRW)", amountEdit: "À remplir seulement si le montant est différent (vide = inchangé)", totalOnly: "Total à recevoir ce mois-ci (après impôt)", note: "Note", type: "Type",
     add: "+ Ajouter un shooting", remove: "Supprimer", totalG: "Total client", totalN: "Total à recevoir", comment: "Message pour nous (facultatif)",
     submit: "Envoyer", submitting: "Envoi...", done: "Envoyé ! Ce sera ajouté à votre règlement après vérification.", again: "Retour",
@@ -43,9 +43,9 @@ var L = {
     needAmount: "Veuillez saisir le montant", nothing: "Rien à envoyer", invalid: "Ce lien n'est pas valide. Demandez-nous un nouveau lien.", loading: "Chargement...", err: "Une erreur s'est produite. Réessayez plus tard.",
   },
   pt: {
-    title: "Enviar seus trabalhos", hello: ", olá", intro: "Confira seus trabalhos deste mês. Toque em ✅ se estiver correto, ✏️ para corrigir, ou ❌ se não aconteceu. Adicione trabalhos que faltam com [+ Adicionar trabalho] abaixo.",
+    title: "Enviar seus trabalhos", hello: ", olá", intro: "Confira seus trabalhos deste mês. Toque em ✅ se estiver correto, ✏️ para corrigir, ou ❌ Cancelar se o trabalho foi cancelado. Adicione trabalhos que faltam com [+ Adicionar trabalho] abaixo.",
     month: "", registered: "Registrado", project: "Trabalho agendado", schedule: "Agenda (informe o valor)", added: "Adicionado por você",
-    ok: "Correto", edit: "Editar", absent: "Não aconteceu", gross: "Valor do cliente", net: "Você recebe (após imposto)", estimate: "aprox.",
+    ok: "Correto", edit: "Editar", absent: "Cancelar", gross: "Valor do cliente", net: "Você recebe (após imposto)", estimate: "aprox.",
     agency: "Pela agência", self: "Direto", date: "Data do trabalho", brand: "Marca / cliente", amount: "Valor recebido do cliente (KRW)", amountEdit: "Preencha só se o valor for diferente (vazio = mantém)", totalOnly: "Total a receber neste mês (após imposto)", note: "Observação", type: "Tipo",
     add: "+ Adicionar trabalho", remove: "Remover", totalG: "Total do cliente", totalN: "Total a receber", comment: "Mensagem para nós (opcional)",
     submit: "Enviar", submitting: "Enviando...", done: "Enviado! Será incluído no seu acerto depois da nossa revisão.", again: "Voltar",
@@ -53,9 +53,9 @@ var L = {
     needAmount: "Informe o valor", nothing: "Nada para enviar", invalid: "Este link não é válido. Peça um novo link para nós.", loading: "Carregando...", err: "Ocorreu um erro. Tente novamente mais tarde.",
   },
   es: {
-    title: "Enviar tus trabajos", hello: ", hola", intro: "Revisa tus trabajos de este mes. Toca ✅ si es correcto, ✏️ para corregir, o ❌ si no se realizó. Agrega los que falten con [+ Agregar trabajo] abajo.",
+    title: "Enviar tus trabajos", hello: ", hola", intro: "Revisa tus trabajos de este mes. Toca ✅ si es correcto, ✏️ para corregir, o ❌ Cancelar si el trabajo se canceló. Agrega los que falten con [+ Agregar trabajo] abajo.",
     month: "", registered: "Registrado", project: "Trabajo reservado", schedule: "Agenda (indica el monto)", added: "Agregado por ti",
-    ok: "Correcto", edit: "Editar", absent: "No se realizó", gross: "Monto del cliente", net: "Recibes (después de impuestos)", estimate: "aprox.",
+    ok: "Correcto", edit: "Editar", absent: "Cancelar", gross: "Monto del cliente", net: "Recibes (después de impuestos)", estimate: "aprox.",
     agency: "Por la agencia", self: "Directo", date: "Fecha del trabajo", brand: "Marca / cliente", amount: "Monto recibido del cliente (KRW)", amountEdit: "Completa solo si el monto es distinto (vacío = se mantiene)", totalOnly: "Total a recibir este mes (después de impuestos)", note: "Nota", type: "Tipo",
     add: "+ Agregar trabajo", remove: "Eliminar", totalG: "Total del cliente", totalN: "Total a recibir", comment: "Mensaje para nosotros (opcional)",
     submit: "Enviar", submitting: "Enviando...", done: "¡Enviado! Se agregará a tu liquidación después de revisarlo.", again: "Volver",
@@ -224,12 +224,7 @@ export default function ModelPortal({ token }) {
                     <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
                       <label style={{ fontSize: 12, color: C.sub }}>{tx.date}<input type="date" value={r.date} onChange={function (e) { upd(r.key, { date: e.target.value }); }} style={input} /></label>
                       <label style={{ fontSize: 12, color: C.sub }}>{tx.brand}<input value={r.brand} onChange={function (e) { upd(r.key, { brand: e.target.value }); }} style={input} /></label>
-                      <label style={{ fontSize: 12, color: C.sub }}>{tx.type}
-                        <select value={r.type} onChange={function (e) { upd(r.key, { type: e.target.value }); }} style={input}>
-                          <option value="self">{tx.self}</option><option value="agency">{tx.agency}</option>
-                        </select>
-                      </label>
-                      <label style={{ fontSize: 12, color: C.sub }}>{tx.amount}<input type="number" inputMode="numeric" value={r.income} onChange={function (e) { upd(r.key, { income: e.target.value }); }} placeholder={(r.source === "registered" || r.source === "project") ? tx.amountEdit : "0"} style={input} /></label>
+                      <label style={{ fontSize: 12, color: C.sub }}>{tx.amount}<input type="text" inputMode="numeric" value={r.income === "" || r.income == null ? "" : Number(r.income).toLocaleString("en-US")} onChange={function (e) { var d = e.target.value.replace(/[^0-9]/g, "").slice(0, 10); upd(r.key, { income: d === "" ? "" : Number(d) }); }} placeholder={(r.source === "registered" || r.source === "project") ? tx.amountEdit : "0"} style={input} /></label>
                       <label style={{ fontSize: 12, color: C.sub }}>{tx.note}<input value={r.note} onChange={function (e) { upd(r.key, { note: e.target.value }); }} style={input} /></label>
                     </div>
                   )}

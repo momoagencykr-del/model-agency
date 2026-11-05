@@ -115,7 +115,7 @@ module.exports = async function handler(req, res) {
         const base = known[str(it.key, 80)];
         let income = entered, amountByModel = entered > 0;
         if (base && (action === "confirm" || (action === "edit" && !entered))) { income = base.income; amountByModel = false; }
-        const out = { key: str(it.key, 80), source: base ? base.source : (it.source === "new" ? "new" : "new"), action: action, date: date || (base ? base.date : ""), brand: str(it.brand, 100) || (base ? base.brand : ""), type: it.type === "agency" ? "agency" : "self", income: income, amountByModel: amountByModel, note: str(it.note, 300) };
+        const out = { key: str(it.key, 80), source: base ? base.source : (it.source === "new" ? "new" : "new"), action: action, date: date || (base ? base.date : ""), brand: str(it.brand, 100) || (base ? base.brand : ""), type: base ? base.type : "self", income: income, amountByModel: amountByModel, note: str(it.note, 300) };
         if (action === "confirm" && base) { out.date = base.date; out.brand = base.brand; out.type = base.type; }
         return out;
       }).filter(function (it) { return it.action === "absent" || it.brand || it.income; });

@@ -636,8 +636,8 @@ function ProjectFormModal({ existing, defaultDate, affiliatedModels, paymentInfo
                     updateModelRowMulti(m.id, patch);
                   }} style={Object.assign({}, inputStyle(t), { flex: 1 })}>
                     <option value="">소속모델 선택...</option>
-                    {Object.keys(affiliatedModels || {}).map(function (key) {
-                      return <option key={key} value={key}>{affiliatedModels[key].nameKr}</option>;
+                    {(function () { var am = affiliatedModels || {}; var ks = Object.keys(am); return ks.filter(function (k) { return !am[k].retired; }).concat(ks.filter(function (k) { return am[k].retired; })); })().map(function (key) {
+                      return <option key={key} value={key}>{(affiliatedModels[key].retired ? "[퇴사] " : "") + affiliatedModels[key].nameKr}</option>;
                     })}
                   </select>
                 ) : (
