@@ -32,15 +32,57 @@ var L = {
     history: "Ваши отправки", pending: "На проверке", approved: "Одобрено", rejected: "Возвращено", none: "За этот месяц съёмок нет. Если были — добавьте их кнопкой [+ Добавить съёмку].",
     needAmount: "Укажите сумму", nothing: "Нечего отправлять", invalid: "Ссылка недействительна. Попросите у нас новую ссылку.", loading: "Загрузка...", err: "Произошла ошибка. Попробуйте позже.",
   },
+  fr: {
+    title: "Déclarer vos shootings", hello: ", bonjour", intro: "Vérifiez vos shootings du mois. Appuyez sur ✅ si c'est correct, ✏️ pour corriger, ou ❌ si le shooting n'a pas eu lieu. Ajoutez un shooting manquant avec [+ Ajouter un shooting] ci-dessous.",
+    month: "", registered: "Enregistré", project: "Shooting réservé", schedule: "Planning (montant à saisir)", added: "Ajouté par vous",
+    ok: "Correct", edit: "Modifier", absent: "N'a pas eu lieu", gross: "Montant client", net: "Vous recevez (après impôt)", estimate: "est.",
+    agency: "Via l'agence", self: "En direct", date: "Date du shooting", brand: "Marque / client", amount: "Montant reçu du client (KRW)", amountEdit: "À remplir seulement si le montant est différent (vide = inchangé)", totalOnly: "Total à recevoir ce mois-ci (après impôt)", note: "Note", type: "Type",
+    add: "+ Ajouter un shooting", remove: "Supprimer", totalG: "Total client", totalN: "Total à recevoir", comment: "Message pour nous (facultatif)",
+    submit: "Envoyer", submitting: "Envoi...", done: "Envoyé ! Ce sera ajouté à votre règlement après vérification.", again: "Retour",
+    history: "Vos envois", pending: "En vérification", approved: "Approuvé", rejected: "Renvoyé", none: "Aucun shooting enregistré ce mois-ci. Si vous en avez eu, ajoutez-les avec [+ Ajouter un shooting].",
+    needAmount: "Veuillez saisir le montant", nothing: "Rien à envoyer", invalid: "Ce lien n'est pas valide. Demandez-nous un nouveau lien.", loading: "Chargement...", err: "Une erreur s'est produite. Réessayez plus tard.",
+  },
+  pt: {
+    title: "Enviar seus trabalhos", hello: ", olá", intro: "Confira seus trabalhos deste mês. Toque em ✅ se estiver correto, ✏️ para corrigir, ou ❌ se não aconteceu. Adicione trabalhos que faltam com [+ Adicionar trabalho] abaixo.",
+    month: "", registered: "Registrado", project: "Trabalho agendado", schedule: "Agenda (informe o valor)", added: "Adicionado por você",
+    ok: "Correto", edit: "Editar", absent: "Não aconteceu", gross: "Valor do cliente", net: "Você recebe (após imposto)", estimate: "aprox.",
+    agency: "Pela agência", self: "Direto", date: "Data do trabalho", brand: "Marca / cliente", amount: "Valor recebido do cliente (KRW)", amountEdit: "Preencha só se o valor for diferente (vazio = mantém)", totalOnly: "Total a receber neste mês (após imposto)", note: "Observação", type: "Tipo",
+    add: "+ Adicionar trabalho", remove: "Remover", totalG: "Total do cliente", totalN: "Total a receber", comment: "Mensagem para nós (opcional)",
+    submit: "Enviar", submitting: "Enviando...", done: "Enviado! Será incluído no seu acerto depois da nossa revisão.", again: "Voltar",
+    history: "Seus envios", pending: "Em revisão", approved: "Aprovado", rejected: "Devolvido", none: "Nenhum trabalho registrado neste mês. Se você teve algum, adicione com [+ Adicionar trabalho].",
+    needAmount: "Informe o valor", nothing: "Nada para enviar", invalid: "Este link não é válido. Peça um novo link para nós.", loading: "Carregando...", err: "Ocorreu um erro. Tente novamente mais tarde.",
+  },
+  es: {
+    title: "Enviar tus trabajos", hello: ", hola", intro: "Revisa tus trabajos de este mes. Toca ✅ si es correcto, ✏️ para corregir, o ❌ si no se realizó. Agrega los que falten con [+ Agregar trabajo] abajo.",
+    month: "", registered: "Registrado", project: "Trabajo reservado", schedule: "Agenda (indica el monto)", added: "Agregado por ti",
+    ok: "Correcto", edit: "Editar", absent: "No se realizó", gross: "Monto del cliente", net: "Recibes (después de impuestos)", estimate: "aprox.",
+    agency: "Por la agencia", self: "Directo", date: "Fecha del trabajo", brand: "Marca / cliente", amount: "Monto recibido del cliente (KRW)", amountEdit: "Completa solo si el monto es distinto (vacío = se mantiene)", totalOnly: "Total a recibir este mes (después de impuestos)", note: "Nota", type: "Tipo",
+    add: "+ Agregar trabajo", remove: "Eliminar", totalG: "Total del cliente", totalN: "Total a recibir", comment: "Mensaje para nosotros (opcional)",
+    submit: "Enviar", submitting: "Enviando...", done: "¡Enviado! Se agregará a tu liquidación después de revisarlo.", again: "Volver",
+    history: "Tus envíos", pending: "En revisión", approved: "Aprobado", rejected: "Devuelto", none: "No hay trabajos registrados este mes. Si tuviste alguno, agrégalo con [+ Agregar trabajo].",
+    needAmount: "Indica el monto", nothing: "Nada que enviar", invalid: "Este enlace no es válido. Pídenos un enlace nuevo.", loading: "Cargando...", err: "Ocurrió un error. Inténtalo más tarde.",
+  },
 };
-var MONTH_EN = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-var MONTH_RU = ["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
+var LANGS = [["en", "English"], ["ko", "한국어"], ["ru", "Русский"], ["fr", "Français"], ["pt", "Português"], ["es", "Español"]];
+var MONTHS_BY_LANG = {
+  en: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],
+  ru: ["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"],
+  fr: ["Janv","Févr","Mars","Avr","Mai","Juin","Juil","Août","Sept","Oct","Nov","Déc"],
+  pt: ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"],
+  es: ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"],
+};
+// 처음 접속 시 휴대폰 언어로 자동 선택 (지원하지 않는 언어면 영어)
+function detectLang() {
+  try { var saved = localStorage.getItem("momoPortalLang"); if (saved && L[saved]) return saved; } catch (e) {}
+  var nav = ((navigator.languages && navigator.languages[0]) || navigator.language || "en").slice(0, 2).toLowerCase();
+  return L[nav] ? nav : "en";
+}
 
 function won(n) { return "₩" + Math.round(Number(n) || 0).toLocaleString(); }
 function pad2(n) { return n < 10 ? "0" + n : "" + n; }
 
 export default function ModelPortal({ token }) {
-  var langState = useState(function () { try { return localStorage.getItem("momoPortalLang") || "en"; } catch (e) { return "en"; } });
+  var langState = useState(detectLang);
   var lang = langState[0], setLangRaw = langState[1];
   var setLang = function (l) { setLangRaw(l); try { localStorage.setItem("momoPortalLang", l); } catch (e) {} };
   var tx = L[lang];
@@ -111,7 +153,7 @@ export default function ModelPortal({ token }) {
 
   var C = { bg: "#f6f7fb", card: "#fff", line: "#e5e7eb", text: "#111827", sub: "#6b7280", pri: "#4f46e5", ok: "#059669", bad: "#dc2626", warn: "#d97706" };
   var input = { width: "100%", padding: "11px 12px", borderRadius: 10, border: "1px solid " + C.line, fontSize: 16, boxSizing: "border-box", background: "#fff", color: C.text };
-  var monthName = function (i) { return lang === "ko" ? (i + 1) + tx.month : lang === "ru" ? MONTH_RU[i] : MONTH_EN[i]; };
+  var monthName = function (i) { return lang === "ko" ? (i + 1) + "월" : (MONTHS_BY_LANG[lang] || MONTHS_BY_LANG.en)[i]; };
   var srcLabel = { registered: tx.registered, project: tx.project, schedule: tx.schedule, new: tx.added };
   var srcColor = { registered: "#4f46e5", project: "#0891b2", schedule: "#d97706", new: "#059669" };
 
@@ -122,11 +164,10 @@ export default function ModelPortal({ token }) {
           <img src={process.env.PUBLIC_URL + "/badge-icon.png"} alt="" style={{ width: 28, height: 28, borderRadius: 7 }} />
           <div style={{ fontWeight: 900, fontSize: 15 }}>MoMo Agency</div>
         </div>
-        <div style={{ display: "flex", gap: 4 }}>
-          {["ko", "en", "ru"].map(function (l) {
-            return <button key={l} onClick={function () { setLang(l); }} style={{ padding: "5px 9px", borderRadius: 7, border: "none", fontWeight: 800, fontSize: 12, background: lang === l ? "#fff" : "rgba(255,255,255,0.15)", color: lang === l ? "#111827" : "#fff" }}>{l.toUpperCase()}</button>;
-          })}
-        </div>
+        <select value={lang} onChange={function (e) { setLang(e.target.value); }} aria-label="Language"
+          style={{ padding: "7px 10px", borderRadius: 8, border: "none", fontWeight: 800, fontSize: 14, background: "#fff", color: "#111827" }}>
+          {LANGS.map(function (l) { return <option key={l[0]} value={l[0]}>🌐 {l[1]}</option>; })}
+        </select>
       </div>
       <div style={{ marginTop: 12, fontSize: 19, fontWeight: 900 }}>{tx.title}</div>
       {info && <div style={{ fontSize: 13, opacity: 0.8, marginTop: 2 }}>{(lang === "ko" ? info.model.nameKr : (info.model.nameEn || info.model.nameKr)) + tx.hello}</div>}
