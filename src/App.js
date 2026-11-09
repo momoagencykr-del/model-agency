@@ -445,6 +445,7 @@ function EntryTable({ entries, af, onRemove, onUpdate, dark, monthLabel }) {
               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                 <div style={{ width:8, height:8, borderRadius:"50%", background: isPaid ? "#10b981" : COLOR.primary, flexShrink:0 }} />
                 <span style={{ fontWeight:800, color:t.text, fontSize:13 }}>{e.brand || "브랜드 미입력"}</span>
+                {e.portal && <span title="모델이 입력 링크로 직접 입력한 건" style={{ fontSize: FONT.xs, color:"#b45309", background:dark?"#3b2a05":"#fef3c7", padding:"1px 7px", borderRadius:10, fontWeight:800 }}>📱 모델입력</span>}
                 {e.settleDate && <span style={{ fontSize: FONT.xs, color: COLOR.primary, background:dark?"#1a1a3e":"#eef2ff", padding:"1px 7px", borderRadius:10, fontWeight:700 }}>📅 {e.settleDate}</span>}
                 {e.note && <span style={{ fontSize: FONT.xs, color:t.sub, background:dark?"#1e293b":"#e2e8f0", padding:"1px 7px", borderRadius:10 }}>📝 {e.note}</span>}
               </div>
@@ -1654,8 +1655,8 @@ function SubmissionsTab({ data, modelMeta, setModelMetaFn, addEntry, updateEntry
   var copyMsg = function (model) {
     var m = modelMeta[model];
     var link = portalLink(m.submitToken);
-    var text = "[MoMo Agency] " + (m.nameEn || m.nameKr) + ", please check and submit your shoots for this month here 👇\n" +
-      "이번 달 촬영 내역을 아래 링크에서 확인·제출해주세요.\n" + link;
+    var text = "[MoMo Agency] " + (m.nameEn || m.nameKr) + ", please add your direct shoots on the calendar and press [Save] 👇\n" +
+      "직접 진행한 촬영을 아래 링크의 달력에 입력하고 [저장]을 눌러주세요.\n" + link;
     var done = function () { setCopied(model); setTimeout(function () { setCopied(""); }, 2000); };
     if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, function () { window.prompt("복사해서 카톡에 붙여넣으세요", text); });
     else window.prompt("복사해서 카톡에 붙여넣으세요", text);
@@ -1745,8 +1746,51 @@ function SubmissionsTab({ data, modelMeta, setModelMetaFn, addEntry, updateEntry
         </div>
       </div>
 
+      {(function () {
+        // 모델이 입력 링크로 직접 저장한 건 (정산에 즉시 반영됨) — 최근 순
+        var recent = [];
+        Object.keys(data || {}).forEach(function (model) {
+          Object.keys(data[model] || {}).forEach(function (mo) {
+            ((data[model][mo] && data[model][mo].self) || []).forEach(function (e) {
+              if (e.portal) recent.push({ model: model, mo: mo, e: e, at: e.updatedAt || e.submittedAt || "" });
+            });
+          });
+        });
+        recent.sort(function (a, b) { return b.at.localeCompare(a.at); });
+        var shown = recent.slice(0, 30);
+        return (
+          <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 16, marginBottom: 14 }}>
+            <div style={{ fontSize: FONT.lg, fontWeight: 900, color: t.text, marginBottom: 4 }}>📱 최근 모델 직접 입력 <span style={{ fontSize: FONT.sm, color: t.sub, fontWeight: 600 }}>· 저장 즉시 정산 반영 · 총 {recent.length}건</span></div>
+            <div style={{ fontSize: FONT.xs, color: t.sub, marginBottom: 10 }}>모델이 링크에서 [저장]하면 해당 모델·해당 월 정산내역(모델 직접 촬영)에 바로 들어갑니다. 정산내역에서는 '📱 모델입력' 표시로 구분되며, 금액 확인 후 필요하면 정산 화면에서 수정하세요. 입금완료 처리한 건은 모델이 더 이상 수정할 수 없습니다.</div>
+            {shown.length === 0 ? <div style={{ color: t.sub, fontSize: FONT.sm, padding: "10px 0" }}>아직 모델이 직접 입력한 건이 없습니다.</div> : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: FONT.sm, minWidth: 620 }}>
+                  <thead><tr style={{ color: t.sub }}>{["입력 시각", "모델", "촬영일", "브랜드", "고객사 금액", "메모", "입금"].map(function (h) { return <th key={h} style={{ textAlign: "left", padding: "6px 8px", fontWeight: 800, borderBottom: "1px solid " + t.border, whiteSpace: "nowrap" }}>{h}</th>; })}</tr></thead>
+                  <tbody>
+                    {shown.map(function (r) {
+                      var m = modelMeta[r.model];
+                      return (
+                        <tr key={r.model + r.e.id} style={{ borderBottom: "1px solid " + t.border }}>
+                          <td style={{ padding: "6px 8px", color: t.sub, whiteSpace: "nowrap" }}>{r.at ? new Date(r.at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "-"}</td>
+                          <td style={{ padding: "6px 8px", color: t.text, fontWeight: 800, whiteSpace: "nowrap" }}>{m ? m.nameKr : r.model}</td>
+                          <td style={{ padding: "6px 8px", color: t.text, whiteSpace: "nowrap" }}>{r.e.settleDate || r.mo}</td>
+                          <td style={{ padding: "6px 8px", color: t.text }}>{r.e.brand}</td>
+                          <td style={{ padding: "6px 8px", color: t.text, fontWeight: 800, whiteSpace: "nowrap" }}>{fmt(r.e.income)}</td>
+                          <td style={{ padding: "6px 8px", color: t.sub }}>{r.e.portalNote || ""}</td>
+                          <td style={{ padding: "6px 8px", whiteSpace: "nowrap", color: r.e.paid ? COLOR.success : t.sub, fontWeight: 700 }}>{r.e.paid ? "입금완료" : "대기"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-        <div style={{ fontSize: FONT.lg, fontWeight: 900, color: t.text }}>📥 모델 제출 승인함 {pendingCount > 0 && <span style={{ fontSize: FONT.sm, color: COLOR.danger }}>· 대기 {pendingCount}건</span>}</div>
+        <div style={{ fontSize: FONT.lg, fontWeight: 900, color: t.text }}>📥 이전 방식 제출함 (승인 필요) {pendingCount > 0 && <span style={{ fontSize: FONT.sm, color: COLOR.danger }}>· 대기 {pendingCount}건</span>}</div>
         <div style={{ display: "flex", gap: 4 }}>
           {[["pending", "대기"], ["approved", "승인"], ["rejected", "반려"], ["all", "전체"]].map(function (f) {
             return <button key={f[0]} onClick={function () { setFilter(f[0]); }} style={{ padding: "6px 11px", borderRadius: 8, border: filter === f[0] ? "none" : "1px solid " + t.border, background: filter === f[0] ? COLOR.primary : "transparent", color: filter === f[0] ? "#fff" : t.sub, fontWeight: 700, fontSize: FONT.xs, cursor: "pointer" }}>{f[1]}</button>;
@@ -2062,7 +2106,7 @@ export default function App({ currentUser, onLogout }) {
 
   var NavContent = (
     <div style={{ padding:8 }}>
-      {[["overview","연간 요약","📊"],["tax","세무 요약","📋"],["calendar","촬영 캘린더","📅"],["checklist","업무 체크리스트","📝"]].concat(isAdmin ? [["submissions","모델 제출 승인","📥"]] : []).map(function(item) {
+      {[["overview","연간 요약","📊"],["tax","세무 요약","📋"],["calendar","촬영 캘린더","📅"],["checklist","업무 체크리스트","📝"]].concat(isAdmin ? [["submissions","모델 입력 링크","📱"]] : []).map(function(item) {
         return (
           <button key={item[0]} onClick={function(){ setTab(item[0]); setMobileNavOpen(false); }} style={{ width:"100%", display:"flex", alignItems:"center", gap:8, padding:"7px 10px", borderRadius:9, border:"none", cursor:"pointer", background:tab===item[0]?"#4f46e5":"transparent", color:tab===item[0]?"#fff":t.sub, fontWeight:700, fontSize: FONT.base, marginBottom:2, textAlign:"left" }}>
             <span>{item[2]}</span>{item[1]}
@@ -2166,7 +2210,7 @@ export default function App({ currentUser, onLogout }) {
 
       {isMobile && (
         <div style={{ position:"fixed", bottom:0, left:0, right:0, background:t.card, borderTop:"1px solid "+t.border, display:"flex", zIndex:50, boxShadow:"0 -2px 10px rgba(0,0,0,0.1)" }}>
-          {[["overview","연간요약","📊"],["tax","세무요약","📋"],["calendar","캘린더","📅"],["checklist","체크리스트","📝"]].concat(isAdmin ? [["submissions","제출승인","📥"]] : []).concat(sortedModelKeys(modelMeta).filter(function(k){ return !modelMeta[k].retired; }).slice(0,2).map(function(m){ return [m, modelMeta[m].nameKr, modelMeta[m].nameEn[0]]; })).map(function(item) {
+          {[["overview","연간요약","📊"],["tax","세무요약","📋"],["calendar","캘린더","📅"],["checklist","체크리스트","📝"]].concat(isAdmin ? [["submissions","모델입력","📱"]] : []).concat(sortedModelKeys(modelMeta).filter(function(k){ return !modelMeta[k].retired; }).slice(0,2).map(function(m){ return [m, modelMeta[m].nameKr, modelMeta[m].nameEn[0]]; })).map(function(item) {
             return (
               <button key={item[0]} onClick={function(){ setTab(item[0]); }} style={{ flex:1, padding:"8px 4px 10px", border:"none", background:"transparent", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
                 <span style={{ fontSize:tab===item[0]?20:16 }}>{item[2]}</span>
