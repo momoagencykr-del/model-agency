@@ -448,6 +448,9 @@ function EntryTable({ entries, af, onRemove, onUpdate, dark, monthLabel }) {
                 {e.portal && <span title="모델이 입력 링크로 직접 입력한 건" style={{ fontSize: FONT.xs, color:"#b45309", background:dark?"#3b2a05":"#fef3c7", padding:"1px 7px", borderRadius:10, fontWeight:800 }}>📱 모델입력</span>}
                 {e.settleDate && <span style={{ fontSize: FONT.xs, color: COLOR.primary, background:dark?"#1a1a3e":"#eef2ff", padding:"1px 7px", borderRadius:10, fontWeight:700 }}>📅 {e.settleDate}</span>}
                 {e.note && <span style={{ fontSize: FONT.xs, color:t.sub, background:dark?"#1e293b":"#e2e8f0", padding:"1px 7px", borderRadius:10 }}>📝 {e.note}</span>}
+                {e.payerName && <span title="입금자명" style={{ fontSize: FONT.xs, color:t.text, background:dark?"#1e293b":"#e2e8f0", padding:"1px 7px", borderRadius:10 }}>💳 입금자 {e.payerName}</span>}
+                {e.expectedPayDate && <span title="예상 입금일" style={{ fontSize: FONT.xs, color:"#b45309", background:dark?"#3b2a05":"#fef3c7", padding:"1px 7px", borderRadius:10, fontWeight:700 }}>⏰ 입금예정 {e.expectedPayDate}</span>}
+                {e.clientContact && <span title="담당자 연락처 / 이메일" style={{ fontSize: FONT.xs, color:t.sub, background:dark?"#1e293b":"#e2e8f0", padding:"1px 7px", borderRadius:10 }}>☎ {e.clientContact}</span>}
               </div>
               <div style={{ display:"flex", gap:4, alignItems:"center" }}>
                 <button onClick={function(){ onUpdate(e.id, { paid: !isPaid }); }} style={{ background: isPaid ? "#10b981" : "transparent", border:"1px solid " + (isPaid ? "#10b981" : t.border), color: isPaid ? "#fff" : t.sub, cursor:"pointer", fontSize: FONT.xs, padding:"4px 10px", fontWeight:800, borderRadius:7 }}>{isPaid ? "✓ 입금완료" : "입금대기"}</button>
@@ -1764,8 +1767,8 @@ function SubmissionsTab({ data, modelMeta, setModelMetaFn, addEntry, updateEntry
             <div style={{ fontSize: FONT.xs, color: t.sub, marginBottom: 10 }}>모델이 링크에서 [저장]하면 해당 모델·해당 월 정산내역(모델 직접 촬영)에 바로 들어갑니다. 정산내역에서는 '📱 모델입력' 표시로 구분되며, 금액 확인 후 필요하면 정산 화면에서 수정하세요. 입금완료 처리한 건은 모델이 더 이상 수정할 수 없습니다.</div>
             {shown.length === 0 ? <div style={{ color: t.sub, fontSize: FONT.sm, padding: "10px 0" }}>아직 모델이 직접 입력한 건이 없습니다.</div> : (
               <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: FONT.sm, minWidth: 620 }}>
-                  <thead><tr style={{ color: t.sub }}>{["입력 시각", "모델", "촬영일", "브랜드", "고객사 금액", "메모", "입금"].map(function (h) { return <th key={h} style={{ textAlign: "left", padding: "6px 8px", fontWeight: 800, borderBottom: "1px solid " + t.border, whiteSpace: "nowrap" }}>{h}</th>; })}</tr></thead>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: FONT.sm, minWidth: 920 }}>
+                  <thead><tr style={{ color: t.sub }}>{["입력 시각", "모델", "촬영일", "브랜드", "고객사 금액", "입금자명", "예상 입금일", "담당자 연락처", "메모", "입금"].map(function (h) { return <th key={h} style={{ textAlign: "left", padding: "6px 8px", fontWeight: 800, borderBottom: "1px solid " + t.border, whiteSpace: "nowrap" }}>{h}</th>; })}</tr></thead>
                   <tbody>
                     {shown.map(function (r) {
                       var m = modelMeta[r.model];
@@ -1776,6 +1779,9 @@ function SubmissionsTab({ data, modelMeta, setModelMetaFn, addEntry, updateEntry
                           <td style={{ padding: "6px 8px", color: t.text, whiteSpace: "nowrap" }}>{r.e.settleDate || r.mo}</td>
                           <td style={{ padding: "6px 8px", color: t.text }}>{r.e.brand}</td>
                           <td style={{ padding: "6px 8px", color: t.text, fontWeight: 800, whiteSpace: "nowrap" }}>{fmt(r.e.income)}</td>
+                          <td style={{ padding: "6px 8px", color: t.text, whiteSpace: "nowrap" }}>{r.e.payerName || ""}</td>
+                          <td style={{ padding: "6px 8px", color: t.text, whiteSpace: "nowrap" }}>{r.e.expectedPayDate || ""}</td>
+                          <td style={{ padding: "6px 8px", color: t.text }}>{r.e.clientContact || ""}</td>
                           <td style={{ padding: "6px 8px", color: t.sub }}>{r.e.portalNote || ""}</td>
                           <td style={{ padding: "6px 8px", whiteSpace: "nowrap", color: r.e.paid ? COLOR.success : t.sub, fontWeight: 700 }}>{r.e.paid ? "입금완료" : "대기"}</td>
                         </tr>

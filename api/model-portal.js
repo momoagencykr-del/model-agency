@@ -21,8 +21,12 @@ function portalEntries(md) {
   return ((md && md.self) || []).filter(function (e) { return e && e.portal; });
 }
 function publicEntry(e) {
-  return { id: e.id, date: e.settleDate || "", brand: e.brand || "", income: Number(e.income) || 0, note: e.portalNote || "", paid: !!e.paid };
+  return {
+    id: e.id, date: e.settleDate || "", brand: e.brand || "", income: Number(e.income) || 0, note: e.portalNote || "", paid: !!e.paid,
+    payerName: e.payerName || "", expectedPayDate: e.expectedPayDate || "", clientContact: e.clientContact || "",
+  };
 }
+function isoDate(v) { return /^\d{4}-\d{2}-\d{2}$/.test(v || "") ? String(v) : ""; }
 
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
@@ -64,6 +68,9 @@ module.exports = async function handler(req, res) {
           brand: str(it.brand, 100).trim(),
           income: Math.max(0, Math.min(1e9, Math.round(Number(it.income) || 0))),
           note: str(it.note, 300),
+          payerName: str(it.payerName, 60).trim(),          // 입금자명
+          expectedPayDate: isoDate(it.expectedPayDate),     // 예상 입금일
+          clientContact: str(it.clientContact, 120).trim(), // 담당자 연락처 또는 이메일
         };
       });
       if (clean.some(function (e) { return !e.date || !e.brand || !e.income; })) return res.status(400).json({ error: "date, brand and amount are required" });
@@ -89,12 +96,13 @@ module.exports = async function handler(req, res) {
           keepIds[String(old.id)] = true;
           if (old.paid) return; // 입금 완료된 건은 모델이 바꿀 수 없음
           old.brand = c.brand; old.income = c.income; old.settleDate = c.date; old.portalNote = c.note;
+          old.payerName = c.payerName; old.expectedPayDate = c.expectedPayDate; old.clientContact = c.clientContact;
           old.note = "모델 입력" + (c.note ? " · " + c.note : "");
           old.updatedAt = now;
         } else {
           const id = Date.now() * 100 + (seq++);
           keepIds[String(id)] = true;
-          upserts.push({ id: id, brand: c.brand, income: c.income, otherDeduct: 0, note: "모델 입력" + (c.note ? " · " + c.note : ""), portalNote: c.note, paid: false, settleDate: c.date, portal: true, submittedAt: now });
+          upserts.push({ id: id, brand: c.brand, income: c.income, otherDeduct: 0, note: "모델 입력" + (c.note ? " · " + c.note : ""), portalNote: c.note, payerName: c.payerName, expectedPayDate: c.expectedPayDate, clientContact: c.clientContact, paid: false, settleDate: c.date, portal: true, submittedAt: now });
         }
       });
       // 모델이 지운 건 제거 (입금 완료 건은 유지)

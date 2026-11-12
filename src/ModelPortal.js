@@ -7,7 +7,7 @@ var L = {
     hint: "날짜를 눌러 촬영을 추가하세요. 저장하면 바로 정산에 반영됩니다.", saveCh: "변경사항 저장", logTitle: "님의 촬영 기록",
     title: "촬영 입력", hello: "님, 안녕하세요", intro: "촬영한 날짜를 눌러 [+ 촬영 추가]로 입력하고, 마지막에 [저장]을 눌러주세요. 저장하면 바로 정산에 반영됩니다.",
     totalCount: "이번 달 촬영", countUnit: "건", totalAmount: "고객사로부터 받는 금액 합계", add: "+ 촬영 추가",
-    date: "촬영일", brand: "브랜드 / 고객사", amount: "고객사로부터 받는 금액 (원)", note: "메모 (선택)",
+    date: "촬영일", brand: "브랜드 / 고객사", amount: "고객사로부터 받는 금액 (원)", note: "메모 (선택)", payer: "입금자명 (선택)", payDate: "예상 입금일 (선택)", contact: "담당자 연락처 또는 이메일 (선택)", payOn: "입금 예정",
     save: "저장", saving: "저장 중...", saved: "저장되었습니다. 정산에 반영됐어요.", unsaved: "저장하지 않은 변경사항이 있습니다",
     del: "삭제", ok: "확인", close: "닫기", paid: "입금 완료 · 수정 불가", list: "이번 달 입력 내역", none: "아직 입력한 촬영이 없습니다. 달력에서 날짜를 눌러 추가하세요.",
     need: "브랜드와 금액을 입력해주세요", invalid: "링크가 올바르지 않습니다. 담당자에게 새 링크를 요청해주세요.", loading: "불러오는 중...", err: "오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
@@ -17,7 +17,7 @@ var L = {
     hint: "Tap a day to add a shoot. Saved shoots go straight into your settlement.", saveCh: "Save changes", logTitle: "'s shoots",
     title: "Your shoots", hello: ", hello", intro: "Tap the day you had a shoot, add it with [+ Add shoot], then press [Save]. Saved shoots go straight into your settlement.",
     totalCount: "Shoots this month", countUnit: "", totalAmount: "Total received from clients", add: "+ Add shoot",
-    date: "Shoot date", brand: "Brand / client", amount: "Amount from client (KRW)", note: "Note (optional)",
+    date: "Shoot date", brand: "Brand / client", amount: "Amount from client (KRW)", note: "Note (optional)", payer: "Payer name (optional)", payDate: "Expected payment date (optional)", contact: "Client contact phone or email (optional)", payOn: "Payment due",
     save: "Save", saving: "Saving...", saved: "Saved. Added to your settlement.", unsaved: "You have unsaved changes",
     del: "Delete", ok: "OK", close: "Close", paid: "Paid · cannot be changed", list: "This month's shoots", none: "No shoots yet. Tap a day on the calendar to add one.",
     need: "Please enter the brand and amount", invalid: "This link is not valid. Please ask us for a new link.", loading: "Loading...", err: "Something went wrong. Please try again.",
@@ -27,7 +27,7 @@ var L = {
     hint: "Нажмите на день, чтобы добавить съёмку. После сохранения она сразу попадает в расчёт.", saveCh: "Сохранить изменения", logTitle: " — ваши съёмки",
     title: "Ваши съёмки", hello: ", здравствуйте", intro: "Нажмите на день съёмки, добавьте её кнопкой [+ Добавить съёмку] и нажмите [Сохранить]. Сохранённые съёмки сразу попадают в расчёт.",
     totalCount: "Съёмок за месяц", countUnit: "", totalAmount: "Итого получено от клиентов", add: "+ Добавить съёмку",
-    date: "Дата съёмки", brand: "Бренд / клиент", amount: "Сумма от клиента (KRW)", note: "Заметка (необязательно)",
+    date: "Дата съёмки", brand: "Бренд / клиент", amount: "Сумма от клиента (KRW)", note: "Заметка (необязательно)", payer: "Имя плательщика (необязательно)", payDate: "Ожидаемая дата оплаты (необязательно)", contact: "Телефон или email контактного лица (необязательно)", payOn: "Оплата",
     save: "Сохранить", saving: "Сохранение...", saved: "Сохранено. Добавлено в расчёт.", unsaved: "Есть несохранённые изменения",
     del: "Удалить", ok: "Готово", close: "Закрыть", paid: "Оплачено · изменить нельзя", list: "Съёмки за месяц", none: "Съёмок пока нет. Нажмите на день в календаре, чтобы добавить.",
     need: "Укажите бренд и сумму", invalid: "Ссылка недействительна. Попросите у нас новую ссылку.", loading: "Загрузка...", err: "Произошла ошибка. Попробуйте позже.",
@@ -37,7 +37,7 @@ var L = {
     hint: "Touchez un jour pour ajouter un shooting. Une fois enregistré, il est ajouté à votre règlement.", saveCh: "Enregistrer", logTitle: " — vos shootings",
     title: "Vos shootings", hello: ", bonjour", intro: "Touchez le jour du shooting, ajoutez-le avec [+ Ajouter un shooting], puis appuyez sur [Enregistrer]. Les shootings enregistrés sont ajoutés directement à votre règlement.",
     totalCount: "Shootings ce mois-ci", countUnit: "", totalAmount: "Total reçu des clients", add: "+ Ajouter un shooting",
-    date: "Date du shooting", brand: "Marque / client", amount: "Montant reçu du client (KRW)", note: "Note (facultatif)",
+    date: "Date du shooting", brand: "Marque / client", amount: "Montant reçu du client (KRW)", note: "Note (facultatif)", payer: "Nom du payeur (facultatif)", payDate: "Date de paiement prévue (facultatif)", contact: "Téléphone ou e-mail du contact (facultatif)", payOn: "Paiement prévu",
     save: "Enregistrer", saving: "Enregistrement...", saved: "Enregistré. Ajouté à votre règlement.", unsaved: "Modifications non enregistrées",
     del: "Supprimer", ok: "OK", close: "Fermer", paid: "Payé · non modifiable", list: "Shootings du mois", none: "Aucun shooting pour l'instant. Touchez un jour du calendrier pour en ajouter.",
     need: "Veuillez saisir la marque et le montant", invalid: "Ce lien n'est pas valide. Demandez-nous un nouveau lien.", loading: "Chargement...", err: "Une erreur s'est produite. Réessayez plus tard.",
@@ -47,7 +47,7 @@ var L = {
     hint: "Toque em um dia para adicionar um trabalho. Ao salvar, ele entra direto no seu acerto.", saveCh: "Salvar alterações", logTitle: " — seus trabalhos",
     title: "Seus trabalhos", hello: ", olá", intro: "Toque no dia do trabalho, adicione com [+ Adicionar trabalho] e depois toque em [Salvar]. Os trabalhos salvos entram direto no seu acerto.",
     totalCount: "Trabalhos no mês", countUnit: "", totalAmount: "Total recebido dos clientes", add: "+ Adicionar trabalho",
-    date: "Data do trabalho", brand: "Marca / cliente", amount: "Valor recebido do cliente (KRW)", note: "Observação (opcional)",
+    date: "Data do trabalho", brand: "Marca / cliente", amount: "Valor recebido do cliente (KRW)", note: "Observação (opcional)", payer: "Nome do pagador (opcional)", payDate: "Data prevista de pagamento (opcional)", contact: "Telefone ou e-mail do contato (opcional)", payOn: "Pagamento previsto",
     save: "Salvar", saving: "Salvando...", saved: "Salvo. Incluído no seu acerto.", unsaved: "Há alterações não salvas",
     del: "Excluir", ok: "OK", close: "Fechar", paid: "Pago · não pode ser alterado", list: "Trabalhos do mês", none: "Nenhum trabalho ainda. Toque em um dia do calendário para adicionar.",
     need: "Informe a marca e o valor", invalid: "Este link não é válido. Peça um novo link para nós.", loading: "Carregando...", err: "Ocorreu um erro. Tente novamente mais tarde.",
@@ -57,7 +57,7 @@ var L = {
     hint: "Toca un día para agregar un trabajo. Al guardar, se agrega directamente a tu liquidación.", saveCh: "Guardar cambios", logTitle: " — tus trabajos",
     title: "Tus trabajos", hello: ", hola", intro: "Toca el día del trabajo, agrégalo con [+ Agregar trabajo] y luego pulsa [Guardar]. Los trabajos guardados se agregan directamente a tu liquidación.",
     totalCount: "Trabajos este mes", countUnit: "", totalAmount: "Total recibido de clientes", add: "+ Agregar trabajo",
-    date: "Fecha del trabajo", brand: "Marca / cliente", amount: "Monto recibido del cliente (KRW)", note: "Nota (opcional)",
+    date: "Fecha del trabajo", brand: "Marca / cliente", amount: "Monto recibido del cliente (KRW)", note: "Nota (opcional)", payer: "Nombre del pagador (opcional)", payDate: "Fecha de pago prevista (opcional)", contact: "Teléfono o correo del contacto (opcional)", payOn: "Pago previsto",
     save: "Guardar", saving: "Guardando...", saved: "Guardado. Agregado a tu liquidación.", unsaved: "Hay cambios sin guardar",
     del: "Eliminar", ok: "OK", close: "Cerrar", paid: "Pagado · no se puede cambiar", list: "Trabajos del mes", none: "Aún no hay trabajos. Toca un día del calendario para agregar uno.",
     need: "Indica la marca y el monto", invalid: "Este enlace no es válido. Pídenos un enlace nuevo.", loading: "Cargando...", err: "Ocurrió un error. Inténtalo más tarde.",
@@ -136,7 +136,7 @@ export default function ModelPortal({ token }) {
     setBusy(true); setMsg({ text: "", ok: false });
     fetch("/api/model-portal", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ t: token, month: ym, entries: entries.map(function (e) { return { id: e.id, date: e.date, brand: e.brand, income: e.income, note: e.note }; }) }),
+      body: JSON.stringify({ t: token, month: ym, entries: entries.map(function (e) { return { id: e.id, date: e.date, brand: e.brand, income: e.income, note: e.note, payerName: e.payerName || "", expectedPayDate: e.expectedPayDate || "", clientContact: e.clientContact || "" }; }) }),
     }).then(function (r) { if (!r.ok) throw new Error("save"); return r.json(); })
       .then(function (j) { setEntries(j.entries); setSavedEntries(j.entries); setBusy(false); setMsg({ text: tx.saved, ok: true }); })
       .catch(function () { setBusy(false); setMsg({ text: tx.err, ok: false }); });
@@ -144,8 +144,8 @@ export default function ModelPortal({ token }) {
 
   // 날짜 패널: 추가/수정/삭제 (로컬 반영 → [저장]으로 서버 반영)
   var openDay = function (d) { setDay(d); setDraft(null); };
-  var startAdd = function () { setDraft({ id: null, tmp: "n" + Date.now(), date: day, brand: "", income: "", note: "" }); };
-  var startAddFor = function (ds) { return function () { setDraft({ id: null, tmp: "n" + Date.now(), date: ds, brand: "", income: "", note: "" }); }; };
+  var startAdd = function () { setDraft({ id: null, tmp: "n" + Date.now(), date: day, brand: "", income: "", note: "", payerName: "", expectedPayDate: "", clientContact: "" }); };
+  var startAddFor = function (ds) { return function () { setDraft({ id: null, tmp: "n" + Date.now(), date: ds, brand: "", income: "", note: "", payerName: "", expectedPayDate: "", clientContact: "" }); }; };
   var startEdit = function (e) { if (!e.paid) setDraft(Object.assign({}, e)); };
   var commitDraft = function () {
     if (!draft.brand.trim() || !(Number(draft.income) > 0)) { setMsg({ text: tx.need, ok: false }); return; }
@@ -153,7 +153,7 @@ export default function ModelPortal({ token }) {
     setEntries(function (prev) {
       var key = draft.id !== null ? "id" : "tmp";
       var exists = prev.some(function (e) { return e[key] !== undefined && e[key] === draft[key]; });
-      var row = { id: draft.id, tmp: draft.tmp, date: draft.date, brand: draft.brand.trim(), income: Number(draft.income), note: draft.note, paid: false };
+      var row = { id: draft.id, tmp: draft.tmp, date: draft.date, brand: draft.brand.trim(), income: Number(draft.income), note: draft.note, payerName: (draft.payerName || "").trim(), expectedPayDate: draft.expectedPayDate || "", clientContact: (draft.clientContact || "").trim(), paid: false };
       var next = exists ? prev.map(function (e) { return e[key] === draft[key] ? row : e; }) : prev.concat([row]);
       return next.sort(function (a, b) { return a.date.localeCompare(b.date); });
     });
@@ -255,6 +255,14 @@ export default function ModelPortal({ token }) {
   var isExisting = draft && (draft.id !== null || entries.some(function (x) { return x.tmp && x.tmp === draft.tmp; }));
   var arrowBtn = { width: 34, height: 34, borderRadius: 17, border: "none", background: C.fill, color: C.tint, fontSize: 22, fontWeight: 500, lineHeight: "32px", padding: 0, cursor: "pointer", fontFamily: FF };
   var closeSheet = function () { setDay(null); setDraft(null); setMsg({ text: "", ok: false }); };
+  var subLine = function (e) {
+    if (e.paid) return "✓ " + tx.paid;
+    var parts = [];
+    if (e.expectedPayDate) parts.push(tx.payOn + " " + Number(e.expectedPayDate.slice(5, 7)) + "/" + Number(e.expectedPayDate.slice(8, 10)));
+    if (e.payerName) parts.push(e.payerName);
+    if (e.note) parts.push(e.note);
+    return parts.join(" · ");
+  };
   var wdColor = function (wi) { return wi === 0 ? C.tint : wi === 6 ? C.sat : C.sub; };
 
   return shell(
@@ -334,7 +342,7 @@ export default function ModelPortal({ token }) {
                       <span style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 10, padding: "12px 14px 12px 0", boxShadow: ei ? "inset 0 0.5px 0 " + C.sep : "none" }}>
                         <span style={{ flex: 1, minWidth: 0 }}>
                           <span style={{ display: "block", fontSize: 17, fontWeight: 500, color: C.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", letterSpacing: "-0.01em" }}>{e.brand}</span>
-                          {(e.note || e.paid) && <span style={{ display: "block", fontSize: 13, color: e.paid ? C.ok : C.sub, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.paid ? "✓ " + tx.paid : e.note}</span>}
+                          {subLine(e) && <span style={{ display: "block", fontSize: 13, color: e.paid ? C.ok : C.sub, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{subLine(e)}</span>}
                         </span>
                         <span style={Object.assign({ fontSize: 17, fontWeight: 600, color: C.ink, whiteSpace: "nowrap" }, NUM)}>{won(e.income)}</span>
                         <span aria-hidden="true" style={{ fontSize: 20, color: C.faint, lineHeight: 1, visibility: e.paid ? "hidden" : "visible" }}>›</span>
@@ -368,7 +376,7 @@ export default function ModelPortal({ token }) {
                       style={{ width: "100%", textAlign: "left", border: "none", background: C.bg, padding: "13px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, fontFamily: FF, cursor: e.paid ? "default" : "pointer", boxShadow: ei ? "inset 0 0.5px 0 " + C.sep : "none" }}>
                       <span style={{ minWidth: 0 }}>
                         <span style={{ display: "block", fontSize: 17, fontWeight: 500, color: C.ink }}>{e.brand}</span>
-                        {(e.paid || e.note) && <span style={{ display: "block", fontSize: 13, color: e.paid ? C.ok : C.sub, marginTop: 2 }}>{e.paid ? "✓ " + tx.paid : e.note}</span>}
+                        {subLine(e) && <span style={{ display: "block", fontSize: 13, color: e.paid ? C.ok : C.sub, marginTop: 2 }}>{subLine(e)}</span>}
                       </span>
                       <span style={Object.assign({ fontSize: 17, fontWeight: 600, color: C.ink, whiteSpace: "nowrap" }, NUM)}>{won(e.income)}</span>
                     </button>
@@ -386,6 +394,9 @@ export default function ModelPortal({ token }) {
                     onChange={function (e) { var dg = e.target.value.replace(/[^0-9]/g, "").slice(0, 10); setDraft(Object.assign({}, draft, { income: dg === "" ? "" : Number(dg) })); }} placeholder="0" style={Object.assign({}, input, NUM, { fontWeight: 600, fontSize: 20 })} />
                 </label>
                 <label><span style={fieldLabel}>{tx.date}</span><input type="date" value={draft.date} min={ym + "-01"} max={ym + "-" + pad2(days)} onChange={function (e) { setDraft(Object.assign({}, draft, { date: e.target.value })); }} style={input} /></label>
+                <label><span style={fieldLabel}>{tx.payer}</span><input value={draft.payerName || ""} autoComplete="off" onChange={function (e) { setDraft(Object.assign({}, draft, { payerName: e.target.value })); }} style={input} /></label>
+                <label><span style={fieldLabel}>{tx.payDate}</span><input type="date" value={draft.expectedPayDate || ""} onChange={function (e) { setDraft(Object.assign({}, draft, { expectedPayDate: e.target.value })); }} style={input} /></label>
+                <label><span style={fieldLabel}>{tx.contact}</span><input value={draft.clientContact || ""} autoComplete="off" placeholder="010-0000-0000 / name@company.com" onChange={function (e) { setDraft(Object.assign({}, draft, { clientContact: e.target.value })); }} style={input} /></label>
                 <label><span style={fieldLabel}>{tx.note}</span><input value={draft.note} onChange={function (e) { setDraft(Object.assign({}, draft, { note: e.target.value })); }} style={input} /></label>
                 {msg.text && !msg.ok && <div role="alert" style={{ background: C.badSoft, color: C.bad, borderRadius: 10, padding: "10px 12px", fontSize: 14, fontWeight: 500 }}>{msg.text}</div>}
                 <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
