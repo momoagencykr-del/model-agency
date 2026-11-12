@@ -164,10 +164,19 @@ export default function ModelPortal({ token }) {
     setDraft(null);
   };
 
-  // ── 디자인 토큰: MoMo 로고의 러스트 컬러 하나만 포인트로, 나머지는 잉크·종이 톤으로 조용하게 ──
-  var C = { paper: "#FAF9F6", card: "#FFFFFF", ink: "#221E1B", sub: "#857C75", faint: "#B9B1AA", line: "#ECE7E1", rust: "#B5462A", rustSoft: "#F6E7E1", sat: "#3E5F8A", bad: "#B42318" };
-  var FF = "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Segoe UI', sans-serif";
-  var input = { width: "100%", padding: "12px 13px", borderRadius: 10, border: "1px solid " + C.line, fontSize: 16, boxSizing: "border-box", background: "#fff", color: C.ink, marginTop: 6, fontFamily: FF, outline: "none" };
+  // ── 디자인 토큰 (Apple 스타일) ──────────────────────────────────────────────
+  // 회색 그룹 배경 + 흰 카드, 테두리 대신 얇은 구분선, 포인트 색은 MoMo 러스트 하나만.
+  var C = {
+    bg: "#F2F2F7", card: "#FFFFFF", ink: "#1C1C1E", sub: "#6E6E73", faint: "#AEAEB2",
+    sep: "rgba(60,60,67,0.13)", fill: "rgba(118,118,128,0.12)",
+    tint: "#B5462A", tintSoft: "#FBEDE8", sat: "#2F6DB5",
+    ok: "#2E7D4F", okSoft: "#E6F2EA", bad: "#C62828", badSoft: "#FDECEC",
+  };
+  var FF = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Apple SD Gothic Neo', 'Pretendard Variable', Pretendard, 'Segoe UI', 'Malgun Gothic', sans-serif";
+  var NUM = { fontVariantNumeric: "tabular-nums" };
+  var card = { background: C.card, borderRadius: 14, overflow: "hidden" };
+  var fieldLabel = { display: "block", fontSize: 13, color: C.sub, fontWeight: 500, margin: "0 4px 6px" };
+  var input = { width: "100%", height: 46, padding: "0 14px", borderRadius: 11, border: "none", fontSize: 17, boxSizing: "border-box", background: C.fill, color: C.ink, fontFamily: FF };
   var loc = LOCALE[lang] || "en-US";
   var totalCount = entries.length;
   var totalAmount = entries.reduce(function (s, e) { return s + (Number(e.income) || 0); }, 0);
@@ -181,20 +190,59 @@ export default function ModelPortal({ token }) {
   };
   var name = info ? (lang === "ko" ? info.model.nameKr : (info.model.nameEn || info.model.nameKr)) : "";
 
+  // 누르는 순간 반응(:active), 시트 등장, 접근성 설정은 인라인 스타일로 안 되므로 여기에 모아둔다.
+  var css =
+    ".mp button{-webkit-tap-highlight-color:transparent;touch-action:manipulation}" +
+    ".mp-press{transition:transform 120ms ease-out,background-color 120ms ease-out,opacity 120ms ease-out}" +
+    ".mp-press:active:not(:disabled){transform:scale(0.97)}" +
+    ".mp-row{transition:background-color 120ms ease-out}" +
+    ".mp-row:active:not(:disabled){background-color:#E5E5EA !important}" +
+    ".mp-cell:active{background-color:#F2F2F7 !important}" +
+    ".mp input:focus{outline:none;box-shadow:0 0 0 2px " + C.tint + " inset;background:#fff !important}" +
+    ".mp button:focus-visible,.mp select:focus-visible{outline:2px solid " + C.tint + ";outline-offset:2px}" +
+    "@keyframes mpScrim{from{opacity:0}to{opacity:1}}" +
+    "@keyframes mpSheet{from{transform:translateY(100%)}to{transform:translateY(0)}}" +
+    "@keyframes mpRise{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}" +
+    ".mp-scrim{animation:mpScrim 240ms ease-out both}" +
+    ".mp-sheet{animation:mpSheet 380ms cubic-bezier(0.32,0.72,0,1) both}" +
+    ".mp-bar{animation:mpRise 260ms cubic-bezier(0.32,0.72,0,1) both}" +
+    ".mp-glass{background:rgba(242,242,247,0.78);-webkit-backdrop-filter:blur(20px) saturate(180%);backdrop-filter:blur(20px) saturate(180%)}" +
+    "@media (prefers-reduced-motion:reduce){.mp-sheet,.mp-bar{animation:mpScrim 200ms ease-out both}.mp-press:active:not(:disabled){transform:none}}" +
+    "@media (prefers-reduced-transparency:reduce){.mp-glass{background:#F2F2F7;-webkit-backdrop-filter:none;backdrop-filter:none}}";
+
   var head = (
-    <header style={{ padding: "18px 18px 6px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <img src={process.env.PUBLIC_URL + "/badge-icon.png"} alt="MoMo Agency" style={{ width: 26, height: 26, borderRadius: 6 }} />
-        <span style={{ fontWeight: 800, fontSize: 14, letterSpacing: -0.2, color: C.ink }}>MoMo Agency</span>
+    <header className="mp-glass" style={{ position: "sticky", top: 0, zIndex: 30, boxShadow: "0 0.5px 0 " + C.sep }}>
+      <div style={{ maxWidth: 560, margin: "0 auto", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <img src={process.env.PUBLIC_URL + "/badge-icon.png"} alt="MoMo Agency" style={{ width: 28, height: 28, borderRadius: 7 }} />
+          <span style={{ fontWeight: 600, fontSize: 15, letterSpacing: "-0.01em", color: C.ink }}>MoMo Agency</span>
+        </div>
+        <select value={lang} onChange={function (e) { setLang(e.target.value); }} aria-label="Language"
+          style={{ height: 32, padding: "0 10px", borderRadius: 16, border: "none", fontWeight: 600, fontSize: 14, background: C.fill, color: C.ink, fontFamily: FF, maxWidth: 140 }}>
+          {LANGS.map(function (l) { return <option key={l[0]} value={l[0]}>{l[1]}</option>; })}
+        </select>
       </div>
-      <select value={lang} onChange={function (e) { setLang(e.target.value); }} aria-label="Language"
-        style={{ padding: "6px 8px", borderRadius: 8, border: "1px solid " + C.line, fontWeight: 700, fontSize: 13, background: "#fff", color: C.ink, fontFamily: FF, maxWidth: 130 }}>
-        {LANGS.map(function (l) { return <option key={l[0]} value={l[0]}>{l[1]}</option>; })}
-      </select>
     </header>
   );
 
-  if (status === "invalid") return <div style={{ minHeight: "100vh", background: C.paper, fontFamily: FF }}>{head}<div style={{ padding: "40px 24px", color: C.bad, fontWeight: 700, lineHeight: 1.6 }}>{tx.invalid}</div></div>;
+  var shell = function (body) {
+    return (
+      <div className="mp" style={{ minHeight: "100vh", background: C.bg, fontFamily: FF, color: C.ink, WebkitTextSizeAdjust: "100%", WebkitFontSmoothing: "antialiased" }}>
+        <style>{css}</style>
+        {head}
+        {body}
+      </div>
+    );
+  };
+
+  if (status === "invalid") return shell(
+    <div style={{ maxWidth: 560, margin: "0 auto", padding: "32px 16px" }}>
+      <div style={{ background: C.card, borderRadius: 14, padding: "22px 20px", fontSize: 16, lineHeight: 1.55, color: C.ink }}>
+        <div style={{ width: 36, height: 36, borderRadius: 18, background: C.badSoft, color: C.bad, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 18, marginBottom: 12 }}>!</div>
+        {tx.invalid}
+      </div>
+    </div>
+  );
 
   var first = new Date(y, mo - 1, 1).getDay();
   var days = new Date(y, mo, 0).getDate();
@@ -205,93 +253,92 @@ export default function ModelPortal({ token }) {
   var today = now.getFullYear() + "-" + pad2(now.getMonth() + 1) + "-" + pad2(now.getDate());
   var dayEntries = day ? entries.filter(function (e) { return e.date === day; }) : [];
   var isExisting = draft && (draft.id !== null || entries.some(function (x) { return x.tmp && x.tmp === draft.tmp; }));
-  var arrowBtn = { width: 36, height: 36, borderRadius: 18, border: "1px solid " + C.line, background: "#fff", color: C.ink, fontSize: 18, lineHeight: "34px", padding: 0, cursor: "pointer" };
+  var arrowBtn = { width: 34, height: 34, borderRadius: 17, border: "none", background: C.fill, color: C.tint, fontSize: 22, fontWeight: 500, lineHeight: "32px", padding: 0, cursor: "pointer", fontFamily: FF };
+  var closeSheet = function () { setDay(null); setDraft(null); setMsg({ text: "", ok: false }); };
+  var wdColor = function (wi) { return wi === 0 ? C.tint : wi === 6 ? C.sat : C.sub; };
 
-  return (
-    <div style={{ minHeight: "100vh", background: C.paper, fontFamily: FF, color: C.ink, WebkitTextSizeAdjust: "100%" }}>
-      {head}
-      <main style={{ maxWidth: 560, margin: "0 auto", padding: "8px 14px 120px" }}>
+  return shell(
+    <>
+      <main style={{ maxWidth: 560, margin: "0 auto", padding: "4px 16px 132px" }}>
         {name && (
-          <div style={{ margin: "6px 4px 14px" }}>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, letterSpacing: -0.5 }}>{(lang === "ko" || lang === "en") ? name + tx.logTitle : tx.title}</h1>
-            {!(lang === "ko" || lang === "en") && <div style={{ fontSize: 14, color: C.sub, marginTop: 2 }}>{name}</div>}
+          <div style={{ margin: "14px 4px 18px" }}>
+            <h1 style={{ margin: 0, fontSize: 30, fontWeight: 700, letterSpacing: "-0.022em", lineHeight: 1.15 }}>{(lang === "ko" || lang === "en") ? name + tx.logTitle : tx.title}</h1>
+            {!(lang === "ko" || lang === "en") && <div style={{ fontSize: 17, color: C.sub, marginTop: 4 }}>{name}</div>}
           </div>
         )}
 
         {/* 월 이동 + 이번 달 요약 */}
-        <section style={{ background: C.card, borderRadius: 16, border: "1px solid " + C.line, padding: "14px 16px 16px", marginBottom: 12 }}>
+        <section style={Object.assign({}, card, { padding: "14px 16px 18px", marginBottom: 14 })}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <button aria-label="previous month" onClick={function () { stepMonth(-1); }} disabled={mo <= 1} style={Object.assign({}, arrowBtn, { opacity: mo <= 1 ? 0.3 : 1 })}>‹</button>
-            <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: -0.3 }}>{monthTitle}</div>
-            <button aria-label="next month" onClick={function () { stepMonth(1); }} disabled={mo >= 12} style={Object.assign({}, arrowBtn, { opacity: mo >= 12 ? 0.3 : 1 })}>›</button>
+            <button className="mp-press" aria-label="previous month" onClick={function () { stepMonth(-1); }} disabled={mo <= 1} style={Object.assign({}, arrowBtn, { opacity: mo <= 1 ? 0.35 : 1 })}>‹</button>
+            <div style={{ fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em" }}>{monthTitle}</div>
+            <button className="mp-press" aria-label="next month" onClick={function () { stepMonth(1); }} disabled={mo >= 12} style={Object.assign({}, arrowBtn, { opacity: mo >= 12 ? 0.35 : 1 })}>›</button>
           </div>
           {status === "ready" && (
-            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginTop: 14, paddingTop: 14, borderTop: "1px solid " + C.line }}>
-              <div>
-                <div style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>{tx.totalAmount}</div>
-                <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: -0.8, fontVariantNumeric: "tabular-nums", marginTop: 2 }}>{won(totalAmount)}</div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>{tx.totalCount}</div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: C.rust, marginTop: 2 }}>{totalCount}{tx.countUnit}</div>
+            <div style={{ marginTop: 16, paddingTop: 16, boxShadow: "0 -0.5px 0 " + C.sep }}>
+              <div style={{ fontSize: 13, color: C.sub, fontWeight: 500 }}>{tx.totalAmount}</div>
+              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", columnGap: 12, rowGap: 8, marginTop: 4 }}>
+                <div style={Object.assign({ fontSize: 34, fontWeight: 700, letterSpacing: "-0.025em", lineHeight: 1.1 }, NUM)}>{won(totalAmount)}</div>
+                <div style={Object.assign({ flexShrink: 0, whiteSpace: "nowrap", fontSize: 13, fontWeight: 600, color: C.tint, background: C.tintSoft, borderRadius: 999, padding: "5px 10px" }, NUM)}>{tx.totalCount} {totalCount}{tx.countUnit}</div>
               </div>
             </div>
           )}
         </section>
 
-        {status === "loading" && <div style={{ padding: 40, textAlign: "center", color: C.sub }}>{tx.loading}</div>}
-        {status === "error" && <div style={{ padding: 40, textAlign: "center", color: C.bad, fontWeight: 600 }}>{tx.err}</div>}
+        {status === "loading" && <div style={{ padding: "48px 0", textAlign: "center", color: C.sub, fontSize: 15 }}>{tx.loading}</div>}
+        {status === "error" && <div style={{ background: C.badSoft, color: C.bad, borderRadius: 14, padding: "16px 18px", fontSize: 15, fontWeight: 500, lineHeight: 1.5 }}>{tx.err}</div>}
 
         {status === "ready" && (
           <>
             {/* 달력: 날짜마다 업체명 + 짧은 금액 */}
-            <section style={{ background: C.card, borderRadius: 16, border: "1px solid " + C.line, overflow: "hidden" }}>
+            <section style={Object.assign({}, card, { padding: "4px 4px 6px" })}>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))" }}>
-                {tx.wd.map(function (w, wi) { return <div key={w} style={{ textAlign: "center", fontSize: 11, fontWeight: 700, color: wi === 0 ? C.rust : wi === 6 ? C.sat : C.sub, padding: "10px 0 8px", borderBottom: "1px solid " + C.line }}>{w}</div>; })}
+                {tx.wd.map(function (w, wi) { return <div key={w} style={{ textAlign: "center", fontSize: 12, fontWeight: 600, color: wdColor(wi), padding: "10px 0 8px" }}>{w}</div>; })}
                 {cells.map(function (dd, ci) {
                   var wi = ci % 7;
-                  var rightEdge = wi === 6;
-                  var lastRow = ci >= cells.length - 7;
-                  var cellBorder = { borderRight: rightEdge ? "none" : "1px solid " + C.line, borderBottom: lastRow ? "none" : "1px solid " + C.line };
-                  if (!dd) return <div key={"e" + ci} style={Object.assign({ minHeight: 76, background: "#FCFBF9" }, cellBorder)} />;
+                  var rowTop = { boxShadow: "inset 0 0.5px 0 " + C.sep };
+                  if (!dd) return <div key={"e" + ci} style={Object.assign({ minHeight: 78 }, rowTop)} />;
                   var ds = ym + "-" + pad2(dd);
                   var list = entries.filter(function (e) { return e.date === ds; });
                   var sel = day === ds;
                   var isToday = ds === today;
                   return (
-                    <button key={ds} onClick={function () { openDay(ds); if (!list.length) setTimeout(startAddFor(ds), 0); }}
-                      style={Object.assign({ minHeight: 76, padding: "6px 3px 5px", background: sel ? C.rustSoft : "#fff", border: "none", display: "flex", flexDirection: "column", alignItems: "stretch", gap: 3, cursor: "pointer", textAlign: "left", minWidth: 0, fontFamily: FF }, cellBorder)}>
-                      <span style={{ alignSelf: "flex-start", marginLeft: 2, fontSize: 12, fontWeight: isToday ? 800 : 600, color: isToday ? "#fff" : (wi === 0 ? C.rust : wi === 6 ? C.sat : C.ink), background: isToday ? C.rust : "transparent", borderRadius: 9, padding: isToday ? "0 6px" : 0, lineHeight: "18px" }}>{dd}</span>
+                    <button key={ds} className="mp-cell" aria-label={dayTitle(ds)} onClick={function () { openDay(ds); if (!list.length) setTimeout(startAddFor(ds), 0); }}
+                      style={Object.assign({ minHeight: 78, padding: "5px 2px 6px", background: sel ? C.tintSoft : "transparent", border: "none", borderRadius: sel ? 10 : 0, display: "flex", flexDirection: "column", alignItems: "stretch", gap: 3, cursor: "pointer", textAlign: "left", minWidth: 0, fontFamily: FF }, rowTop)}>
+                      <span style={Object.assign({ alignSelf: "center", width: 24, height: 24, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: isToday ? 700 : 500, color: isToday ? "#fff" : (wi === 0 ? C.tint : wi === 6 ? C.sat : C.ink), background: isToday ? C.tint : "transparent" }, NUM)}>{dd}</span>
                       {list.slice(0, 2).map(function (e, ei) {
                         return (
-                          <span key={ei} style={{ display: "block", background: e.paid ? "#EEF3EC" : C.rustSoft, borderRadius: 5, padding: "2px 2px 2px 3px", minWidth: 0 }}>
-                            <span style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", fontSize: 10, fontWeight: 700, color: C.ink, overflow: "hidden", wordBreak: "break-all", lineHeight: "12px", letterSpacing: -0.3 }}>{e.brand}</span>
-                            <span style={{ display: "block", fontSize: 10, fontWeight: 600, color: C.rust, lineHeight: "12px", fontVariantNumeric: "tabular-nums" }}>{compactWon(e.income, lang)}</span>
+                          <span key={ei} style={{ display: "block", background: e.paid ? C.okSoft : C.tintSoft, borderRadius: 6, padding: "3px 3px 3px 4px", minWidth: 0 }}>
+                            <span style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", fontSize: 11, fontWeight: 600, color: C.ink, overflow: "hidden", wordBreak: "break-all", lineHeight: "13px" }}>{e.brand}</span>
+                            <span style={Object.assign({ display: "block", fontSize: 11, fontWeight: 600, color: e.paid ? C.ok : C.tint, lineHeight: "14px", marginTop: 1 }, NUM)}>{compactWon(e.income, lang)}</span>
                           </span>
                         );
                       })}
-                      {list.length > 2 && <span style={{ fontSize: 10, fontWeight: 700, color: C.sub, paddingLeft: 3 }}>+{list.length - 2}</span>}
+                      {list.length > 2 && <span style={{ fontSize: 11, fontWeight: 600, color: C.sub, textAlign: "center" }}>+{list.length - 2}</span>}
                     </button>
                   );
                 })}
               </div>
             </section>
-            <p style={{ fontSize: 13, color: C.sub, lineHeight: 1.6, margin: "10px 4px 18px" }}>{tx.hint}</p>
+            <p style={{ fontSize: 13, color: C.sub, lineHeight: 1.5, margin: "8px 16px 26px" }}>{tx.hint}</p>
 
             {/* 이번 달 목록 */}
-            {entries.length > 0 && <h2 style={{ fontSize: 15, fontWeight: 800, margin: "0 4px 8px" }}>{tx.list}</h2>}
+            {entries.length > 0 && <h2 style={{ fontSize: 13, fontWeight: 500, color: C.sub, margin: "0 16px 7px", textTransform: "uppercase", letterSpacing: "0.02em" }}>{tx.list}</h2>}
             {entries.length > 0 && (
-              <section style={{ background: C.card, borderRadius: 16, border: "1px solid " + C.line, overflow: "hidden" }}>
+              <section style={card}>
                 {entries.map(function (e, ei) {
                   return (
-                    <button key={(e.id || e.tmp) + "_" + ei} onClick={function () { openDay(e.date); startEdit(e); }}
-                      style={{ width: "100%", textAlign: "left", background: "#fff", border: "none", borderTop: ei ? "1px solid " + C.line : "none", padding: "13px 16px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer", fontFamily: FF }}>
-                      <span style={{ width: 38, flexShrink: 0, fontSize: 13, fontWeight: 700, color: C.sub, fontVariantNumeric: "tabular-nums" }}>{Number(e.date.slice(5, 7))}/{Number(e.date.slice(8, 10))}</span>
-                      <span style={{ flex: 1, minWidth: 0 }}>
-                        <span style={{ display: "block", fontSize: 15, fontWeight: 700, color: C.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.brand}</span>
-                        {(e.note || e.paid) && <span style={{ display: "block", fontSize: 12, color: e.paid ? "#4F7A43" : C.sub, marginTop: 1 }}>{e.paid ? "✓ " + tx.paid : e.note}</span>}
+                    <button key={(e.id || e.tmp) + "_" + ei} className="mp-row" onClick={function () { openDay(e.date); startEdit(e); }}
+                      style={{ width: "100%", textAlign: "left", background: C.card, border: "none", padding: "0 0 0 16px", display: "flex", alignItems: "stretch", gap: 12, cursor: "pointer", fontFamily: FF }}>
+                      <span style={Object.assign({ width: 40, flexShrink: 0, alignSelf: "center", fontSize: 15, fontWeight: 600, color: C.sub }, NUM)}>{Number(e.date.slice(5, 7))}/{Number(e.date.slice(8, 10))}</span>
+                      <span style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 10, padding: "12px 14px 12px 0", boxShadow: ei ? "inset 0 0.5px 0 " + C.sep : "none" }}>
+                        <span style={{ flex: 1, minWidth: 0 }}>
+                          <span style={{ display: "block", fontSize: 17, fontWeight: 500, color: C.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", letterSpacing: "-0.01em" }}>{e.brand}</span>
+                          {(e.note || e.paid) && <span style={{ display: "block", fontSize: 13, color: e.paid ? C.ok : C.sub, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.paid ? "✓ " + tx.paid : e.note}</span>}
+                        </span>
+                        <span style={Object.assign({ fontSize: 17, fontWeight: 600, color: C.ink, whiteSpace: "nowrap" }, NUM)}>{won(e.income)}</span>
+                        <span aria-hidden="true" style={{ fontSize: 20, color: C.faint, lineHeight: 1, visibility: e.paid ? "hidden" : "visible" }}>›</span>
                       </span>
-                      <span style={{ fontSize: 15, fontWeight: 700, color: C.ink, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{won(e.income)}</span>
                     </button>
                   );
                 })}
@@ -301,43 +348,49 @@ export default function ModelPortal({ token }) {
         )}
       </main>
 
-      {/* 날짜 시트 */}
+      {/* 날짜 시트: 아래에서 올라오고, 바깥을 눌러도 닫히지 않음(입력 유실 방지) */}
       {day && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(34,30,27,0.4)", zIndex: 50, display: "flex", alignItems: "flex-end" }}>
-          <div role="dialog" style={{ background: "#fff", width: "100%", maxWidth: 560, margin: "0 auto", borderRadius: "20px 20px 0 0", padding: "10px 18px calc(18px + env(safe-area-inset-bottom))", maxHeight: "88vh", overflowY: "auto", boxSizing: "border-box" }}>
-            <div style={{ width: 40, height: 4, borderRadius: 2, background: C.line, margin: "0 auto 12px" }} />
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: -0.3 }}>{dayTitle(draft ? draft.date : day)}</div>
-              <button onClick={function () { setDay(null); setDraft(null); setMsg({ text: "", ok: false }); }} style={{ border: "none", background: "transparent", fontSize: 14, fontWeight: 700, color: C.sub, padding: 6, fontFamily: FF }}>{tx.close}</button>
+        <div className="mp-scrim" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.32)", zIndex: 50, display: "flex", alignItems: "flex-end" }}>
+          <div role="dialog" aria-modal="true" aria-label={dayTitle(draft ? draft.date : day)} className="mp-sheet"
+            style={{ background: C.card, width: "100%", maxWidth: 560, margin: "0 auto", borderRadius: "22px 22px 0 0", padding: "8px 18px calc(20px + env(safe-area-inset-bottom))", maxHeight: "90vh", overflowY: "auto", boxSizing: "border-box", boxShadow: "0 -8px 40px rgba(0,0,0,0.12)" }}>
+            <div style={{ width: 36, height: 5, borderRadius: 3, background: "#D1D1D6", margin: "0 auto 14px" }} />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+              <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em" }}>{dayTitle(draft ? draft.date : day)}</div>
+              <button className="mp-press" onClick={closeSheet} aria-label={tx.close}
+                style={{ height: 32, padding: "0 14px", borderRadius: 16, border: "none", background: C.fill, fontSize: 15, fontWeight: 600, color: C.sub, fontFamily: FF, cursor: "pointer" }}>{tx.close}</button>
             </div>
 
-            {!draft && dayEntries.map(function (e, ei) {
-              return (
-                <button key={(e.id || e.tmp) + "_" + ei} onClick={function () { startEdit(e); }} disabled={e.paid}
-                  style={{ width: "100%", textAlign: "left", border: "1px solid " + C.line, background: "#fff", borderRadius: 12, padding: "12px 14px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, fontFamily: FF, cursor: e.paid ? "default" : "pointer" }}>
-                  <span style={{ minWidth: 0 }}>
-                    <span style={{ display: "block", fontSize: 15, fontWeight: 700, color: C.ink }}>{e.brand}</span>
-                    <span style={{ display: "block", fontSize: 12, color: e.paid ? "#4F7A43" : C.sub, marginTop: 2 }}>{e.paid ? "✓ " + tx.paid : (e.note || "")}</span>
-                  </span>
-                  <span style={{ fontSize: 15, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: C.ink }}>{won(e.income)}</span>
-                </button>
-              );
-            })}
-            {!draft && <button onClick={startAdd} style={{ width: "100%", padding: 15, borderRadius: 12, border: "1.5px dashed " + C.rust, background: C.rustSoft, color: C.rust, fontWeight: 800, fontSize: 15, fontFamily: FF }}>{tx.add}</button>}
+            {!draft && dayEntries.length > 0 && (
+              <div style={{ background: C.bg, borderRadius: 14, overflow: "hidden", marginBottom: 12 }}>
+                {dayEntries.map(function (e, ei) {
+                  return (
+                    <button key={(e.id || e.tmp) + "_" + ei} className="mp-row" onClick={function () { startEdit(e); }} disabled={e.paid}
+                      style={{ width: "100%", textAlign: "left", border: "none", background: C.bg, padding: "13px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, fontFamily: FF, cursor: e.paid ? "default" : "pointer", boxShadow: ei ? "inset 0 0.5px 0 " + C.sep : "none" }}>
+                      <span style={{ minWidth: 0 }}>
+                        <span style={{ display: "block", fontSize: 17, fontWeight: 500, color: C.ink }}>{e.brand}</span>
+                        {(e.paid || e.note) && <span style={{ display: "block", fontSize: 13, color: e.paid ? C.ok : C.sub, marginTop: 2 }}>{e.paid ? "✓ " + tx.paid : e.note}</span>}
+                      </span>
+                      <span style={Object.assign({ fontSize: 17, fontWeight: 600, color: C.ink, whiteSpace: "nowrap" }, NUM)}>{won(e.income)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {!draft && <button className="mp-press" onClick={startAdd} style={{ width: "100%", height: 52, borderRadius: 14, border: "none", background: C.tintSoft, color: C.tint, fontWeight: 600, fontSize: 17, fontFamily: FF, cursor: "pointer" }}>{tx.add}</button>}
 
             {draft && (
-              <div style={{ display: "grid", gap: 12 }}>
-                <label style={{ fontSize: 13, color: C.sub, fontWeight: 600 }}>{tx.brand}<input autoFocus value={draft.brand} onChange={function (e) { setDraft(Object.assign({}, draft, { brand: e.target.value })); }} style={input} /></label>
-                <label style={{ fontSize: 13, color: C.sub, fontWeight: 600 }}>{tx.amount}
+              <div style={{ display: "grid", gap: 16 }}>
+                <label><span style={fieldLabel}>{tx.brand}</span><input autoFocus value={draft.brand} onChange={function (e) { setDraft(Object.assign({}, draft, { brand: e.target.value })); }} style={input} /></label>
+                <label><span style={fieldLabel}>{tx.amount}</span>
                   <input type="text" inputMode="numeric" value={draft.income === "" || draft.income == null ? "" : Number(draft.income).toLocaleString("en-US")}
-                    onChange={function (e) { var dg = e.target.value.replace(/[^0-9]/g, "").slice(0, 10); setDraft(Object.assign({}, draft, { income: dg === "" ? "" : Number(dg) })); }} placeholder="0" style={Object.assign({}, input, { fontVariantNumeric: "tabular-nums", fontWeight: 700 })} />
+                    onChange={function (e) { var dg = e.target.value.replace(/[^0-9]/g, "").slice(0, 10); setDraft(Object.assign({}, draft, { income: dg === "" ? "" : Number(dg) })); }} placeholder="0" style={Object.assign({}, input, NUM, { fontWeight: 600, fontSize: 20 })} />
                 </label>
-                <label style={{ fontSize: 13, color: C.sub, fontWeight: 600 }}>{tx.date}<input type="date" value={draft.date} min={ym + "-01"} max={ym + "-" + pad2(days)} onChange={function (e) { setDraft(Object.assign({}, draft, { date: e.target.value })); }} style={input} /></label>
-                <label style={{ fontSize: 13, color: C.sub, fontWeight: 600 }}>{tx.note}<input value={draft.note} onChange={function (e) { setDraft(Object.assign({}, draft, { note: e.target.value })); }} style={input} /></label>
-                {msg.text && !msg.ok && <div style={{ color: C.bad, fontSize: 13, fontWeight: 600 }}>{msg.text}</div>}
-                <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-                  {isExisting && <button onClick={function () { var target = entries.find(function (x) { return draft.id !== null ? x.id === draft.id : x.tmp === draft.tmp; }); if (target) removeEntry(target); }} style={{ flex: 1, padding: 14, borderRadius: 12, border: "1px solid " + C.line, background: "#fff", color: C.bad, fontWeight: 700, fontSize: 15, fontFamily: FF }}>{tx.del}</button>}
-                  <button onClick={commitDraft} style={{ flex: 2, padding: 14, borderRadius: 12, border: "none", background: C.ink, color: "#fff", fontWeight: 800, fontSize: 15, fontFamily: FF }}>{tx.ok}</button>
+                <label><span style={fieldLabel}>{tx.date}</span><input type="date" value={draft.date} min={ym + "-01"} max={ym + "-" + pad2(days)} onChange={function (e) { setDraft(Object.assign({}, draft, { date: e.target.value })); }} style={input} /></label>
+                <label><span style={fieldLabel}>{tx.note}</span><input value={draft.note} onChange={function (e) { setDraft(Object.assign({}, draft, { note: e.target.value })); }} style={input} /></label>
+                {msg.text && !msg.ok && <div role="alert" style={{ background: C.badSoft, color: C.bad, borderRadius: 10, padding: "10px 12px", fontSize: 14, fontWeight: 500 }}>{msg.text}</div>}
+                <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                  {isExisting && <button className="mp-press" onClick={function () { var target = entries.find(function (x) { return draft.id !== null ? x.id === draft.id : x.tmp === draft.tmp; }); if (target) removeEntry(target); }} style={{ flex: 1, height: 52, borderRadius: 14, border: "none", background: C.badSoft, color: C.bad, fontWeight: 600, fontSize: 17, fontFamily: FF, cursor: "pointer" }}>{tx.del}</button>}
+                  <button className="mp-press" onClick={commitDraft} style={{ flex: 2, height: 52, borderRadius: 14, border: "none", background: C.tint, color: "#fff", fontWeight: 600, fontSize: 17, fontFamily: FF, cursor: "pointer" }}>{tx.ok}</button>
                 </div>
               </div>
             )}
@@ -345,15 +398,16 @@ export default function ModelPortal({ token }) {
         </div>
       )}
 
-      {/* 저장 바: 바뀐 내용이 있을 때만 강조 */}
+      {/* 저장 바: 바뀐 내용이 있을 때만, 반투명 재질로 콘텐츠 위에 떠 있음 */}
       {status === "ready" && !day && (dirty || msg.text) && (
-        <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, background: "rgba(250,249,246,0.96)", borderTop: "1px solid " + C.line, padding: "10px 14px calc(12px + env(safe-area-inset-bottom))", zIndex: 40 }}>
+        <div className="mp-glass mp-bar" style={{ position: "fixed", left: 0, right: 0, bottom: 0, boxShadow: "0 -0.5px 0 " + C.sep, padding: "10px 16px calc(12px + env(safe-area-inset-bottom))", zIndex: 40 }}>
           <div style={{ maxWidth: 560, margin: "0 auto" }}>
-            {msg.text && <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: msg.ok ? "#4F7A43" : C.bad }}>{msg.text}</div>}
-            {dirty && <button onClick={save} disabled={busy} style={{ width: "100%", padding: 15, borderRadius: 12, border: "none", background: C.rust, color: "#fff", fontWeight: 800, fontSize: 16, fontFamily: FF }}>{busy ? tx.saving : tx.saveCh}</button>}
+            {msg.text && <div role="status" style={{ fontSize: 14, fontWeight: 500, marginBottom: dirty ? 8 : 0, color: msg.ok ? C.ok : C.bad, textAlign: "center" }}>{msg.ok ? "✓ " : ""}{msg.text}</div>}
+            {dirty && <button className="mp-press" onClick={save} disabled={busy} style={{ width: "100%", height: 52, borderRadius: 14, border: "none", background: C.tint, color: "#fff", fontWeight: 600, fontSize: 17, fontFamily: FF, cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1 }}>{busy ? tx.saving : tx.saveCh}</button>}
+            {dirty && !msg.text && <div style={{ fontSize: 12, color: C.sub, textAlign: "center", marginTop: 6 }}>{tx.unsaved}</div>}
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
