@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { T } from "./theme";
 
 var MONTHS_LABEL = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
 var TODAY = new Date();
@@ -80,11 +81,7 @@ function migrateToNotes(saved) {
 }
 
 export default function TaskChecklistTab({ dark }) {
-  var t = {
-    bg: dark ? "#0f172a" : "#f1f5f9", card: dark ? "#1e293b" : "#fff", border: dark ? "#334155" : "#e2e8f0",
-    text: dark ? "#f1f5f9" : "#1e293b", sub: dark ? "#94a3b8" : "#64748b", input: dark ? "#0f172a" : "#fff",
-    ib: dark ? "#475569" : "#d1d5db", thead: dark ? "#0f172a" : "#f8fafc", card2: dark ? "#162032" : "#f8fafc",
-  };
+  var t = T(dark);
 
   var [loading, setLoading] = useState(true);
   var [loadFailed, setLoadFailed] = useState(false);
@@ -157,7 +154,7 @@ export default function TaskChecklistTab({ dark }) {
     return <div style={{ padding: 30, textAlign: "center", color: t.sub }}>업무 체크리스트 불러오는 중...</div>;
   }
   if (loadFailed) {
-    return <div style={{ padding: 30, textAlign: "center", color: "#ef4444", fontWeight: 700 }}>⚠️ 업무 체크리스트를 불러오지 못했습니다. 기존 메모 보호를 위해 편집을 막았습니다. 새로고침(F5) 해주세요.</div>;
+    return <div style={{ padding: 30, textAlign: "center", color: "#D92D20", fontWeight: 600 }}>⚠️ 업무 체크리스트를 불러오지 못했습니다. 기존 메모 보호를 위해 편집을 막았습니다. 새로고침(F5) 해주세요.</div>;
   }
 
   var weekTabs = weeks.map(function (mon, i) {
@@ -178,19 +175,19 @@ export default function TaskChecklistTab({ dark }) {
     <div>
       <style>{"[data-placeholder]:empty:before{content:attr(data-placeholder);color:" + t.sub + ";pointer-events:none;}"}</style>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
-        <div style={{ fontSize: 24, fontWeight: 900, color: t.text, letterSpacing: -0.5 }}>업무 체크리스트</div>
+        <div style={{ fontSize: 24, fontWeight: 700, color: t.text, letterSpacing: -0.5 }}>업무 체크리스트</div>
         <div style={{ fontSize: 11, color: t.sub }}>{saveStatus === "saving" ? "저장 중..." : saveStatus === "saved" ? "저장됨" : saveStatus === "error" ? "저장 실패" : ""}</div>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-        <select value={year} onChange={function (e) { setYear(Number(e.target.value)); }} style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 13, fontWeight: 700 }}>
+        <select value={year} onChange={function (e) { setYear(Number(e.target.value)); }} style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 13, fontWeight: 600 }}>
           {YEARS_LIST.map(function (y) { return <option key={y} value={y}>{y}년</option>; })}
         </select>
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
           {MONTHS_LABEL.map(function (label, i) {
             var m = i + 1;
             var active = m === month;
-            return <button key={m} onClick={function () { setMonth(m); }} style={{ padding: "6px 11px", borderRadius: 8, border: active ? "none" : "1px solid " + t.border, background: active ? "#4f46e5" : (dark ? t.card2 : t.card), color: active ? "#fff" : t.text, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>{label}</button>;
+            return <button key={m} onClick={function () { setMonth(m); }} style={{ padding: "6px 11px", borderRadius: 8, border: active ? "none" : "1px solid " + t.border, background: active ? "#B5462A" : (dark ? t.card2 : t.card), color: active ? "#fff" : t.text, fontWeight: 600, fontSize: 12, cursor: "pointer" }}>{label}</button>;
           })}
         </div>
         <button onClick={function () { setYear(TODAY.getFullYear()); setMonth(TODAY.getMonth() + 1); }} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid " + t.border, background: "transparent", color: t.sub, fontSize: 12, cursor: "pointer" }}>오늘</button>
@@ -207,15 +204,15 @@ export default function TaskChecklistTab({ dark }) {
               onClick={function () { setSelWeekIdx(w.idx); }}
               style={{
                 padding: "9px 14px", borderRadius: 10, cursor: "pointer", textAlign: "left",
-                border: active ? "2px solid #4f46e5" : (w.isCurrent ? "1.5px solid #4f46e5" : "1px solid " + t.border),
-                background: active ? "#4f46e5" : t.card,
+                border: active ? "2px solid #B5462A" : (w.isCurrent ? "1.5px solid #B5462A" : "1px solid " + t.border),
+                background: active ? "#B5462A" : t.card,
                 minWidth: 132,
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <span style={{ fontSize: 12.5, fontWeight: 800, color: active ? "#fff" : t.text }}>{w.label}</span>
-                {w.isCurrent && <span style={{ fontSize: 9, fontWeight: 800, color: active ? "#fff" : "#4f46e5" }}>· 이번 주</span>}
-                {!active && w.hasContent && <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4f46e5", marginLeft: "auto" }} />}
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: active ? "#fff" : t.text }}>{w.label}</span>
+                {w.isCurrent && <span style={{ fontSize: 9, fontWeight: 700, color: active ? "#fff" : "#B5462A" }}>· 이번 주</span>}
+                {!active && w.hasContent && <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#B5462A", marginLeft: "auto" }} />}
               </div>
               <div style={{ fontSize: 11, color: active ? "rgba(255,255,255,0.85)" : t.sub, marginTop: 2 }}>{w.range}</div>
             </button>
@@ -223,13 +220,13 @@ export default function TaskChecklistTab({ dark }) {
         })}
       </div>
 
-      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 4 }}>
+      <div style={{ background: t.card, borderRadius: 14, padding: 4 }}>
         <div style={{ padding: "12px 16px 6px", display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-            <span style={{ fontSize: 16, fontWeight: 900, color: t.text }}>{activeTab.label}</span>
+            <span style={{ fontSize: 16, fontWeight: 700, color: t.text }}>{activeTab.label}</span>
             <span style={{ fontSize: 12, color: t.sub }}>{activeTab.range}</span>
           </div>
-          <button onClick={saveNow} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#4f46e5", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>💾 저장</button>
+          <button onClick={saveNow} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#B5462A", color: "#fff", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>💾 저장</button>
         </div>
 
         <NoteEditor key={activeTab.periodKey} initialHtml={!activeText ? "" : (looksLikeHtml(activeText) ? activeText : textToHtml(activeText))} onChange={function (html) { updateNote(activeTab.periodKey, html); }} t={t} dark={dark} />
@@ -238,8 +235,8 @@ export default function TaskChecklistTab({ dark }) {
   );
 }
 
-var TEXT_COLORS = ["#e2e8f0", "#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#a855f7"];
-var HILITE_COLORS = ["transparent", "#fef08a", "#bbf7d0", "#bfdbfe", "#fbcfe8"];
+var TEXT_COLORS = ["#E5E5EA", "#D92D20", "#E8890C", "#248A3D", "#0A84FF", "#AF52DE"];
+var HILITE_COLORS = ["transparent", "#fef08a", "#BFE5CB", "#CFE2FB", "#fbcfe8"];
 
 // ── 서식 툴바 + contentEditable 메모 영역 ───────────────────────────────
 // 주의: 이 컴포넌트는 마운트 시 딱 한 번만 initialHtml을 채워넣고, 그 뒤로는
@@ -288,10 +285,10 @@ function NoteEditor({ initialHtml, onChange, t, dark }) {
         onClick={onClick}
         style={{
           minWidth: 32, height: 32, padding: "0 9px", borderRadius: 7, cursor: "pointer",
-          border: active ? "1.5px solid #4f46e5" : "1.5px solid " + t.border,
-          background: active ? "#4f46e5" : (dark ? "#0f172a" : "#fff"),
+          border: active ? "1.5px solid #B5462A" : "1.5px solid " + t.border,
+          background: active ? "#B5462A" : (dark ? "#2C2C2E" : "#fff"),
           color: active ? "#fff" : t.text,
-          fontSize: 14, fontWeight: 800, lineHeight: "30px",
+          fontSize: 14, fontWeight: 700, lineHeight: "30px",
         }}
       >{label}</button>
     );
@@ -300,12 +297,12 @@ function NoteEditor({ initialHtml, onChange, t, dark }) {
 
   return (
     <div>
-      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, padding: "10px 12px", borderTop: "1px solid " + t.border, borderBottom: "1px solid " + t.border, background: dark ? "#0b1220" : "#f8fafc" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, padding: "10px 12px", borderTop: "1px solid " + t.border, borderBottom: "1px solid " + t.border, background: dark ? "#1C1C1E" : "#F7F7FA" }}>
         <select
           onMouseDown={function (e) { if (editorRef.current) editorRef.current.focus(); }}
           onChange={function (e) { exec("formatBlock", e.target.value); e.target.value = ""; }}
           defaultValue=""
-          style={{ height: 32, padding: "0 8px", borderRadius: 7, border: "1.5px solid " + t.border, background: dark ? "#0f172a" : "#fff", color: t.text, fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+          style={{ height: 32, padding: "0 8px", borderRadius: 7, border: "1.5px solid " + t.border, background: dark ? "#2C2C2E" : "#fff", color: t.text, fontSize: 13, fontWeight: 600, cursor: "pointer" }}
         >
           <option value="" disabled>스타일</option>
           <option value="P">본문</option>
@@ -327,8 +324,8 @@ function NoteEditor({ initialHtml, onChange, t, dark }) {
         {HILITE_COLORS.map(function (c, i) {
           return (
             <button key={i} type="button" title={c === "transparent" ? "지우기" : c} onMouseDown={function (e) { e.preventDefault(); }} onClick={function () { exec("hiliteColor", c); }}
-              style={{ width: 20, height: 20, borderRadius: 5, border: "1.5px solid " + t.border, background: c === "transparent" ? (dark ? "#0f172a" : "#fff") : c, cursor: "pointer", position: "relative" }}>
-              {c === "transparent" && <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#ef4444" }}>✕</span>}
+              style={{ width: 20, height: 20, borderRadius: 5, border: "1.5px solid " + t.border, background: c === "transparent" ? (dark ? "#2C2C2E" : "#fff") : c, cursor: "pointer", position: "relative" }}>
+              {c === "transparent" && <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#D92D20" }}>✕</span>}
             </button>
           );
         })}

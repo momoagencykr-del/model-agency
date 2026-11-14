@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import App from "./App";
 import ProjectApp from "./ProjectApp";
 import ModelPortal from "./ModelPortal";
+import { FONT_FAMILY } from "./theme";
 
 // ── 계정 ─────────────────────────────────────────────────────────────────
 // 비밀번호 확인은 서버(/api/login)에서만 한다. 로그인 성공 시 받은 토큰을 세션에 보관하고,
@@ -38,33 +39,26 @@ function LoginScreen({ onLogin }) {
     } catch (e) { setErr("서버에 연결할 수 없습니다."); setBusy(false); }
   };
 
+  var field = { width: "100%", height: 48, border: "none", padding: "0 16px", fontSize: 16, background: "transparent", color: "#1C1C1E", outline: "none", boxSizing: "border-box" };
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0f172a", fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" }}>
-      <div style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 18, padding: 32, width: "100%", maxWidth: 340, boxSizing: "border-box" }}>
-        <div style={{ textAlign: "center", marginBottom: 24 }}>
-          <img src={process.env.PUBLIC_URL + "/badge-icon.png"} alt="MoMo Agency" style={{ width: 48, height: 48, borderRadius: 12, margin: "0 auto 12px", display: "block", objectFit: "contain" }} />
-          <div style={{ color: "#f1f5f9", fontWeight: 900, fontSize: 18 }}>MoMo Agency</div>
-          <div style={{ color: "#94a3b8", fontSize: 12, marginTop: 2 }}>내부 직원 전용 시스템</div>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F2F2F7", fontFamily: FONT_FAMILY, padding: 20, boxSizing: "border-box" }}>
+      <div style={{ width: "100%", maxWidth: 360 }}>
+        <div style={{ textAlign: "center", marginBottom: 28 }}>
+          <img src={process.env.PUBLIC_URL + "/badge-icon.png"} alt="MoMo Agency" style={{ width: 64, height: 64, borderRadius: 16, margin: "0 auto 16px", display: "block", objectFit: "contain", boxShadow: "0 8px 24px rgba(0,0,0,0.15)" }} />
+          <div style={{ color: "#1C1C1E", fontWeight: 700, fontSize: 26, letterSpacing: "-0.02em" }}>MoMo Agency</div>
+          <div style={{ color: "#6E6E73", fontSize: 14, marginTop: 4 }}>내부 직원 전용 시스템</div>
         </div>
-        <input
-          value={id}
-          onChange={function (e) { setId(e.target.value); }}
-          onKeyDown={function (e) { if (e.key === "Enter") submit(); }}
-          placeholder="아이디"
-          style={{ width: "100%", border: "1px solid #475569", borderRadius: 8, padding: "10px 12px", fontSize: 14, background: "#0f172a", color: "#f1f5f9", outline: "none", marginBottom: 10, boxSizing: "border-box" }}
-        />
-        <input
-          type="password"
-          value={pw}
-          onChange={function (e) { setPw(e.target.value); }}
-          onKeyDown={function (e) { if (e.key === "Enter") submit(); }}
-          placeholder="비밀번호"
-          style={{ width: "100%", border: "1px solid #475569", borderRadius: 8, padding: "10px 12px", fontSize: 14, background: "#0f172a", color: "#f1f5f9", outline: "none", marginBottom: 12, boxSizing: "border-box" }}
-        />
-        {err && <p style={{ color: "#ef4444", fontSize: 12, marginBottom: 12, textAlign: "center" }}>{err}</p>}
-        <button onClick={submit} style={{ width: "100%", background: "linear-gradient(135deg,#4f46e5,#7c3aed)", color: "#fff", border: "none", borderRadius: 8, padding: "11px 0", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
-          {busy ? "확인 중..." : "로그인"}
-        </button>
+        <form onSubmit={function (e) { e.preventDefault(); submit(); }}>
+          <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 2px rgba(0,0,0,0.04)" }}>
+            <input value={id} onChange={function (e) { setId(e.target.value); }} placeholder="아이디" autoComplete="username" autoFocus aria-label="아이디" style={field} />
+            <div style={{ height: 0.5, background: "#E5E5EA", marginLeft: 16 }} />
+            <input type="password" value={pw} onChange={function (e) { setPw(e.target.value); }} placeholder="비밀번호" autoComplete="current-password" aria-label="비밀번호" style={field} />
+          </div>
+          {err && <p role="alert" style={{ color: "#D92D20", fontSize: 13, margin: "12px 4px 0", textAlign: "center", fontWeight: 500 }}>{err}</p>}
+          <button type="submit" disabled={busy} style={{ width: "100%", height: 50, marginTop: 16, background: "#B5462A", color: "#fff", border: "none", borderRadius: 14, fontWeight: 600, fontSize: 16, cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1 }}>
+            {busy ? "확인 중…" : "로그인"}
+          </button>
+        </form>
       </div>
     </div>
   );
@@ -72,14 +66,14 @@ function LoginScreen({ onLogin }) {
 
 function AccessDenied({ user, onLogout }) {
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f1f5f9", fontFamily: "-apple-system,sans-serif" }}>
-      <div style={{ textAlign: "center", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, padding: "36px 32px" }}>
-        <div style={{ fontSize: 36, marginBottom: 12 }}>🔒</div>
-        <div style={{ fontWeight: 900, fontSize: 16, color: "#1e293b", marginBottom: 6 }}>접근 권한이 없습니다</div>
-        <div style={{ fontSize: 13, color: "#64748b", marginBottom: 20 }}>{user.name}님은 모델 정산관리 시스템만 이용하실 수 있습니다.</div>
-        <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-          <a href="#settlement" style={{ background: "#4f46e5", color: "#fff", borderRadius: 8, padding: "9px 18px", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>모델 정산관리로 이동</a>
-          <button onClick={onLogout} style={{ background: "transparent", border: "1px solid #e2e8f0", borderRadius: 8, padding: "9px 18px", fontWeight: 700, fontSize: 13, color: "#64748b", cursor: "pointer" }}>로그아웃</button>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F2F2F7", fontFamily: FONT_FAMILY, padding: 20 }}>
+      <div style={{ textAlign: "center", background: "#fff", borderRadius: 18, padding: "36px 28px", maxWidth: 360, boxShadow: "0 1px 2px rgba(0,0,0,0.04)" }}>
+        <div style={{ fontSize: 40, marginBottom: 12 }}>🔒</div>
+        <div style={{ fontWeight: 700, fontSize: 19, color: "#1C1C1E", marginBottom: 6, letterSpacing: "-0.02em" }}>접근 권한이 없습니다</div>
+        <div style={{ fontSize: 14, color: "#6E6E73", marginBottom: 24, lineHeight: 1.5 }}>{user.name}님은 모델 정산관리 시스템만 이용하실 수 있습니다.</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <a href="#settlement" style={{ background: "#B5462A", color: "#fff", borderRadius: 12, padding: "13px 18px", fontWeight: 600, fontSize: 15, textDecoration: "none" }}>모델 정산관리로 이동</a>
+          <button onClick={onLogout} style={{ background: "rgba(118,118,128,0.12)", border: "none", borderRadius: 12, padding: "13px 18px", fontWeight: 600, fontSize: 15, color: "#1C1C1E", cursor: "pointer" }}>로그아웃</button>
         </div>
       </div>
     </div>

@@ -1,43 +1,48 @@
 import React from "react";
 
-// ── 공용 컬러 테마 (정산관리 · 프로젝트관리 시스템이 함께 사용) ──────────────
-// 두 시스템에서 각자 복사해서 쓰던 T()를 여기 하나로 합쳤습니다.
-// 앞으로 색상을 바꿀 땐 이 파일 하나만 고치면 양쪽에 동시에 반영됩니다.
+// ── 공용 디자인 토큰 (정산관리 · 프로젝트관리 · 체크리스트가 함께 사용) ─────────
+// Apple 시스템 스타일: 그룹 배경(#F2F2F7) 위에 흰 카드, 얇은 구분선, 브랜드 틴트 1색.
+// 색상을 바꿀 땐 이 파일 하나만 고치면 모든 화면에 반영됩니다.
+export var FONT_FAMILY = "-apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Pretendard Variable', Pretendard, 'Segoe UI', 'Malgun Gothic', sans-serif";
+
 export function T(dark) {
   return {
-    bg: dark ? "#0f172a" : "#f1f5f9",
-    card: dark ? "#1e293b" : "#fff",
-    border: dark ? "#334155" : "#e2e8f0",
-    text: dark ? "#f1f5f9" : "#1e293b",
-    sub: dark ? "#94a3b8" : "#64748b",
-    input: dark ? "#0f172a" : "#fff",
-    ib: dark ? "#475569" : "#d1d5db",
-    thead: dark ? "#0f172a" : "#f8fafc",
-    card2: dark ? "#162032" : "#f8fafc",
+    bg: dark ? "#000000" : "#F2F2F7",      // 페이지 배경 (iOS grouped background)
+    card: dark ? "#1C1C1E" : "#FFFFFF",    // 카드
+    border: dark ? "#38383A" : "#E5E5EA",  // 구분선
+    text: dark ? "#F5F5F7" : "#1C1C1E",    // 본문
+    sub: dark ? "#98989D" : "#6E6E73",     // 보조 텍스트
+    input: dark ? "#2C2C2E" : "#FFFFFF",   // 입력칸 배경
+    ib: dark ? "#48484A" : "#D1D1D6",      // 입력칸 테두리
+    thead: dark ? "#2C2C2E" : "#F7F7FA",   // 표 머리
+    card2: dark ? "#2C2C2E" : "#F7F7FA",   // 카드 안의 보조 영역
+    fill: dark ? "rgba(120,120,128,0.24)" : "rgba(118,118,128,0.12)", // 회색 채움(세그먼트·칩)
+    glass: dark ? "rgba(28,28,30,0.72)" : "rgba(255,255,255,0.72)",   // 반투명 헤더·탭바
+    tintSoft: dark ? "#3A1F17" : "#FBEDE8", // 선택 항목 배경
   };
 }
 
 // ── 상태 컬러 (입금완료/미입금, 경고 등 의미가 있는 색은 항상 이 값을 씀) ──
 export const COLOR = {
-  primary: "#4f46e5",
-  primaryDark: "#3730a3",
-  success: "#10b981",
-  danger: "#ef4444",
-  warning: "#f59e0b",
-  purple: "#7c3aed",
-  cyan: "#0891b2",
+  primary: "#B5462A",      // 브랜드 틴트 (로고 M 색)
+  primaryDark: "#8E3520",
+  success: "#248A3D",
+  danger: "#D92D20",
+  warning: "#E8890C",
+  purple: "#8944AB",
+  cyan: "#0A7EA4",
 };
 
-// ── 라운드 스케일: 무분별하게 섞여있던 6~20px 값을 3단계로 정리 ─────────────
-export const RADIUS = { sm: 8, md: 12, lg: 16 };
+// ── 라운드 스케일 ─────────────
+export const RADIUS = { sm: 10, md: 12, lg: 16 };
 
-// ── 타이포 스케일: 10~19px 사이 20종 가까이 흩어져 있던 값을 8단계로 정리 ──
-export const FONT = { xs: 11, sm: 12, base: 13, md: 14, lg: 16, xl: 19, xxl: 22, display: 26 };
+// ── 타이포 스케일 ──
+export const FONT = { xs: 11, sm: 12, base: 13, md: 14, lg: 16, xl: 19, xxl: 22, display: 28 };
 
-// ── 공용 버튼 컴포넌트 (padding/radius/font-weight를 화면마다 다시 정하지 않도록) ──
+// ── 공용 버튼 컴포넌트 ──
 var baseBtnStyle = {
   border: "none",
-  fontWeight: 700,
+  fontWeight: 600,
   cursor: "pointer",
   borderRadius: RADIUS.sm,
   fontSize: FONT.sm,
@@ -51,11 +56,11 @@ export function PrimaryButton({ children, onClick, style, disabled, small }) {
       onClick={onClick}
       disabled={disabled}
       style={Object.assign({}, baseBtnStyle, {
-        background: disabled ? "#a5a6f0" : COLOR.primary,
+        background: COLOR.primary,
         color: "#fff",
         padding: small ? "6px 12px" : baseBtnStyle.padding,
         fontSize: small ? FONT.xs : FONT.sm,
-        opacity: disabled ? 0.7 : 1,
+        opacity: disabled ? 0.4 : 1,
       }, style)}
     >{children}</button>
   );
@@ -67,9 +72,8 @@ export function SecondaryButton({ children, onClick, style, dark, small }) {
     <button
       onClick={onClick}
       style={Object.assign({}, baseBtnStyle, {
-        background: "transparent",
+        background: t.fill,
         color: t.text,
-        border: "1px solid " + t.border,
         padding: small ? "6px 12px" : baseBtnStyle.padding,
         fontSize: small ? FONT.xs : FONT.sm,
       }, style)}
@@ -86,7 +90,7 @@ export function DangerButton({ children, onClick, style, outline, small }) {
         color: COLOR.danger,
         border: "1px solid " + COLOR.danger,
       } : {
-        background: COLOR.danger + "40",
+        background: "rgba(217,45,32,0.12)",
         color: COLOR.danger,
       }, {
         padding: small ? "6px 12px" : baseBtnStyle.padding,

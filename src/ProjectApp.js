@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import AppShell, { Loading, NavItem } from "./Shell";
 import { T, RADIUS, FONT, COLOR, PrimaryButton, SecondaryButton, DangerButton } from "./theme";
 
 // ── 상수 ──────────────────────────────────────────────────────────────────
@@ -383,15 +384,15 @@ function SyncCheckModal({ allProjects, onLinkIds, onClose, dark }) {
   var issues = state.res ? state.res.issues : [];
   var fixable = issues.filter(function (i) { return !i.warnOnly; }).length;
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }}>
-      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: RADIUS.lg, padding: 22, width: "100%", maxWidth: 860, maxHeight: "86vh", overflowY: "auto" }}>
-        <h3 style={{ color: t.text, fontWeight: 900, fontSize: FONT.lg, margin: "0 0 4px" }}>🔍 정산 연동 점검</h3>
+    <div className="ui-scrim" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.32)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }}>
+      <div style={{ background: t.card, borderRadius: RADIUS.lg, padding: 22, width: "100%", maxWidth: 860, maxHeight: "86vh", overflowY: "auto" }}>
+        <h3 style={{ color: t.text, fontWeight: 700, fontSize: FONT.lg, margin: "0 0 4px" }}>🔍 정산 연동 점검</h3>
         <div style={{ fontSize: FONT.xs, color: t.sub, marginBottom: 14 }}>촬영관리의 소속모델 연동건과 모델 정산관리 데이터를 대조합니다. 수정 전 목록을 확인하세요.</div>
         {state.loading && <div style={{ padding: 30, textAlign: "center", color: t.sub }}>점검 중...</div>}
         {state.error && <div style={{ padding: 30, textAlign: "center", color: COLOR.danger }}>정산 데이터를 불러오지 못했습니다.</div>}
-        {state.done && <div style={{ padding: 30, textAlign: "center", color: COLOR.success, fontWeight: 800 }}>수정 완료되었습니다. 모델 정산관리 화면을 새로고침하면 반영된 내용이 보입니다.</div>}
+        {state.done && <div style={{ padding: 30, textAlign: "center", color: COLOR.success, fontWeight: 700 }}>수정 완료되었습니다. 모델 정산관리 화면을 새로고침하면 반영된 내용이 보입니다.</div>}
         {state.res && !state.done && (
-          issues.length === 0 ? <div style={{ padding: 30, textAlign: "center", color: COLOR.success, fontWeight: 800 }}>✓ 불일치 없음 — 촬영관리와 정산관리가 일치합니다.</div> : (
+          issues.length === 0 ? <div style={{ padding: 30, textAlign: "center", color: COLOR.success, fontWeight: 700 }}>✓ 불일치 없음 — 촬영관리와 정산관리가 일치합니다.</div> : (
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: FONT.sm }}>
                 <thead><tr style={{ background: t.thead }}>{["유형", "모델", "브랜드", "촬영일/월", "내용"].map(function (h) { return <th key={h} style={{ padding: "8px", textAlign: "left", color: t.sub, whiteSpace: "nowrap" }}>{h}</th>; })}</tr></thead>
@@ -399,8 +400,8 @@ function SyncCheckModal({ allProjects, onLinkIds, onClose, dark }) {
                   {issues.map(function (i, k) {
                     return (
                       <tr key={k} style={{ borderTop: "1px solid " + t.border }}>
-                        <td style={{ padding: "7px 8px", fontWeight: 800, whiteSpace: "nowrap", color: i.warnOnly ? COLOR.warning : COLOR.danger }}>{i.kind}</td>
-                        <td style={{ padding: "7px 8px", color: t.text, fontWeight: 700, whiteSpace: "nowrap" }}>{i.model}</td>
+                        <td style={{ padding: "7px 8px", fontWeight: 700, whiteSpace: "nowrap", color: i.warnOnly ? COLOR.warning : COLOR.danger }}>{i.kind}</td>
+                        <td style={{ padding: "7px 8px", color: t.text, fontWeight: 600, whiteSpace: "nowrap" }}>{i.model}</td>
                         <td style={{ padding: "7px 8px", color: t.text }}>{i.brand}</td>
                         <td style={{ padding: "7px 8px", color: t.sub, whiteSpace: "nowrap" }}>{i.date}</td>
                         <td style={{ padding: "7px 8px", color: t.text }}>{i.detail}</td>
@@ -461,7 +462,7 @@ function normalizeLoaded(saved) {
 function Field({ label, children, t }) {
   return (
     <div style={{ marginBottom: 10 }}>
-      <div style={{ fontSize: FONT.xs, fontWeight: 700, color: t.sub, marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: FONT.xs, fontWeight: 600, color: t.sub, marginBottom: 4 }}>{label}</div>
       {children}
     </div>
   );
@@ -473,9 +474,9 @@ function inputStyle(t) {
 
 function Card({ title, value, color, sub, t }) {
   return (
-    <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: "16px 18px", flex: 1, minWidth: 150 }}>
-      <div style={{ fontSize: FONT.xs, color: t.sub, fontWeight: 700, marginBottom: 6 }}>{title}</div>
-      <div style={{ fontSize: 20, fontWeight: 900, color: color || t.text }}>{value}</div>
+    <div style={{ background: t.card, borderRadius: 14, padding: "16px 18px", flex: 1, minWidth: 150 }}>
+      <div style={{ fontSize: FONT.xs, color: t.sub, fontWeight: 600, marginBottom: 6 }}>{title}</div>
+      <div style={{ fontSize: 20, fontWeight: 700, color: color || t.text }}>{value}</div>
       {sub ? <div style={{ fontSize: 10, color: t.sub, marginTop: 4 }}>{sub}</div> : null}
     </div>
   );
@@ -484,10 +485,10 @@ function Card({ title, value, color, sub, t }) {
 function MonthPicker({ year, month, setYear, setMonth, t }) {
   return (
     <div style={{ display: "flex", gap: 6 }}>
-      <select value={year} onChange={function (e) { setYear(Number(e.target.value)); }} style={{ padding: "7px 8px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: FONT.base, fontWeight: 700 }}>
+      <select value={year} onChange={function (e) { setYear(Number(e.target.value)); }} style={{ padding: "7px 8px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: FONT.base, fontWeight: 600 }}>
         {YEARS.map(function (y) { return <option key={y} value={y}>{y}년</option>; })}
       </select>
-      <select value={month} onChange={function (e) { setMonth(Number(e.target.value)); }} style={{ padding: "7px 8px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: FONT.base, fontWeight: 700 }}>
+      <select value={month} onChange={function (e) { setMonth(Number(e.target.value)); }} style={{ padding: "7px 8px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: FONT.base, fontWeight: 600 }}>
         {MONTHS12.map(function (label, i) { return <option key={i} value={i + 1}>{label}</option>; })}
       </select>
     </div>
@@ -496,14 +497,14 @@ function MonthPicker({ year, month, setYear, setMonth, t }) {
 
 function MonthHeading({ year, month, t }) {
   return (
-    <div style={{ fontSize: 26, fontWeight: 900, color: t.text, marginBottom: 14, letterSpacing: -0.5 }}>{year}년 {month}월</div>
+    <div style={{ fontSize: 26, fontWeight: 700, color: t.text, marginBottom: 14, letterSpacing: -0.5 }}>{year}년 {month}월</div>
   );
 }
 
 function MonthStrip({ year, month, setYear, setMonth, t, dark }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-      <select value={year} onChange={function (e) { setYear(Number(e.target.value)); }} style={{ padding: "7px 8px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: FONT.base, fontWeight: 700, flexShrink: 0 }}>
+      <select value={year} onChange={function (e) { setYear(Number(e.target.value)); }} style={{ padding: "7px 8px", borderRadius: 8, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: FONT.base, fontWeight: 600, flexShrink: 0 }}>
         {YEARS.map(function (y) { return <option key={y} value={y}>{y}년</option>; })}
       </select>
       <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
@@ -511,7 +512,7 @@ function MonthStrip({ year, month, setYear, setMonth, t, dark }) {
           var m = i + 1;
           var active = m === month;
           return (
-            <button key={m} onClick={function () { setMonth(m); }} style={{ padding: "6px 11px", borderRadius: 8, border: active ? "none" : "1px solid " + t.border, background: active ? "#4f46e5" : (dark ? t.card2 : t.card), color: active ? "#fff" : t.text, fontWeight: 700, fontSize: FONT.sm, cursor: "pointer" }}>{label}</button>
+            <button key={m} onClick={function () { setMonth(m); }} style={{ padding: "6px 11px", borderRadius: 8, border: active ? "none" : "1px solid " + t.border, background: active ? "#B5462A" : (dark ? t.card2 : t.card), color: active ? "#fff" : t.text, fontWeight: 600, fontSize: FONT.sm, cursor: "pointer" }}>{label}</button>
           );
         })}
       </div>
@@ -587,9 +588,9 @@ function ProjectFormModal({ existing, defaultDate, affiliatedModels, paymentInfo
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }}>
-      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: RADIUS.lg, padding: 22, width: "100%", maxWidth: 560, maxHeight: "88vh", overflowY: "auto" }} onClick={function (e) { e.stopPropagation(); }}>
-        <h3 style={{ color: t.text, fontWeight: 900, marginBottom: 14, fontSize: 16 }}>{existing ? "촬영 정산 수정" : "촬영 정산 추가"}</h3>
+    <div className="ui-scrim" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.32)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }}>
+      <div style={{ background: t.card, borderRadius: RADIUS.lg, padding: 22, width: "100%", maxWidth: 560, maxHeight: "88vh", overflowY: "auto" }} onClick={function (e) { e.stopPropagation(); }}>
+        <h3 style={{ color: t.text, fontWeight: 700, marginBottom: 14, fontSize: 16 }}>{existing ? "촬영 정산 수정" : "촬영 정산 추가"}</h3>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <Field label="촬영 날짜 (이 날짜 기준으로 해당 월에 저장됩니다)" t={t}><input type="date" value={date} onChange={function (e) { setDate(e.target.value); }} style={inputStyle(t)} /></Field>
@@ -612,7 +613,7 @@ function ProjectFormModal({ existing, defaultDate, affiliatedModels, paymentInfo
         </div>
 
         <div style={{ margin: "14px 0 8px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-          <span style={{ fontSize: FONT.sm, fontWeight: 800, color: t.text }}>섭외 모델 내역</span>
+          <span style={{ fontSize: FONT.sm, fontWeight: 700, color: t.text }}>섭외 모델 내역</span>
           <PrimaryButton onClick={addModelRow} small>+ 모델 추가</PrimaryButton>
         </div>
 
@@ -621,7 +622,7 @@ function ProjectFormModal({ existing, defaultDate, affiliatedModels, paymentInfo
           return (
             <div key={m.id} style={{ background: t.card2, border: "1px solid " + t.border, borderRadius: 10, padding: 10, marginBottom: 8 }}>
               <div style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
-                <label style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, fontSize: 9, color: t.sub, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+                <label style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, fontSize: 9, color: t.sub, fontWeight: 600, cursor: "pointer", flexShrink: 0 }}>
                   <input type="checkbox" checked={!!m.useAffiliated} onChange={function (e) {
                     var checked = e.target.checked;
                     updateModelRowMulti(m.id, checked ? { useAffiliated: true } : { useAffiliated: false, linkedModel: "" });
@@ -644,7 +645,7 @@ function ProjectFormModal({ existing, defaultDate, affiliatedModels, paymentInfo
                   <input value={m.name} onChange={function (e) { updateModelRow(m.id, "name", e.target.value); }} placeholder="모델명" style={Object.assign({}, inputStyle(t), { flex: 1 })} />
                 )}
                 <input value={m.time || ""} onChange={function (e) { updateModelRow(m.id, "time", e.target.value); }} placeholder="시간 (예: 5H)" style={Object.assign({}, inputStyle(t), { width: 100, flexShrink: 0 })} />
-                <button onClick={function () { removeModelRow(m.id); }} style={{ width: 26, height: 26, borderRadius: 7, border: "none", background: "#ef444440", color: COLOR.danger, cursor: "pointer", fontSize: FONT.sm, flexShrink: 0 }}>✕</button>
+                <button onClick={function () { removeModelRow(m.id); }} style={{ width: 26, height: 26, borderRadius: 7, border: "none", background: "rgba(217,45,32,0.12)", color: COLOR.danger, cursor: "pointer", fontSize: FONT.sm, flexShrink: 0 }}>✕</button>
               </div>
               {m.useAffiliated && m.linkedModel ? <div style={{ fontSize: 10, color: COLOR.primary, marginBottom: 6 }}>저장 시 "{affiliatedModels[m.linkedModel] ? affiliatedModels[m.linkedModel].nameKr : ""}"의 모델 정산관리 데이터에도 자동으로 반영됩니다.</div> : null}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 6 }}>
@@ -665,17 +666,17 @@ function ProjectFormModal({ existing, defaultDate, affiliatedModels, paymentInfo
                   <input type="number" step="1" min="0" max="100" value={m.partnerRate} onChange={function (e) { updateModelRow(m.id, "partnerRate", e.target.value); }} style={inputStyle(t)} />
                 </div>
               </div>
-              <div style={{ marginBottom: 6, background: dark ? "#1a1200" : "#fffbeb", border: "1px solid " + (dark ? "#854d0e" : "#fde68a"), borderRadius: 8, padding: "8px 10px" }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: dark ? "#fbbf24" : "#92400e", marginBottom: 3 }}>모델 정산서 표시 금액 (선택 — 모델에게 축소해서 전달할 총 섭외비용)</div>
+              <div style={{ marginBottom: 6, background: dark ? "#33270F" : "#FFF8EA", border: "1px solid " + (dark ? "#9A5B00" : "#fde68a"), borderRadius: 8, padding: "8px 10px" }}>
+                <div style={{ fontSize: 10, fontWeight: 600, color: dark ? "#fbbf24" : "#9A5B00", marginBottom: 3 }}>모델 정산서 표시 금액 (선택 — 모델에게 축소해서 전달할 총 섭외비용)</div>
                 <input type="number" value={m.reportedPrice} onChange={function (e) { updateModelRow(m.id, "reportedPrice", e.target.value); }} placeholder={"비워두면 위 청구가(" + fmt(Number(m.agencyPrice) || 0) + ")와 동일하게 정산서에 표시됩니다"} style={inputStyle(t)} />
-                {m.useAffiliated && m.linkedModel ? <div style={{ fontSize: 9, color: dark ? "#fbbf24" : "#92400e", marginTop: 4 }}>모델 정산관리 정산서에는 이 금액이 "업체입금"으로 전달됩니다.</div> : null}
+                {m.useAffiliated && m.linkedModel ? <div style={{ fontSize: 9, color: dark ? "#fbbf24" : "#9A5B00", marginTop: 4 }}>모델 정산관리 정산서에는 이 금액이 "업체입금"으로 전달됩니다.</div> : null}
               </div>
               {onChangeInfo && (function () {
                 var pid = projectId + "_" + m.id;
                 var info = (paymentInfo && paymentInfo[pid]) || { regNo: "", taxType: "3.3%", bank: "", account: "", paid: false };
                 return (
                   <div style={{ paddingTop: 8, marginTop: 2, borderTop: "1px dashed " + t.border }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: COLOR.primary, marginBottom: 6 }}>모델 지급 정보 (저장 즉시 모델 지급 관리 탭에 반영됩니다)</div>
+                    <div style={{ fontSize: 10, fontWeight: 600, color: COLOR.primary, marginBottom: 6 }}>모델 지급 정보 (저장 즉시 모델 지급 관리 탭에 반영됩니다)</div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
                       <input value={info.regNo} onChange={function (e) { onChangeInfo(pid, "regNo", e.target.value); }} placeholder="주민등록번호" style={Object.assign({}, inputStyle(t), { padding: "6px 8px", fontSize: 11 })} />
                       <select value={info.taxType} onChange={function (e) { onChangeInfo(pid, "taxType", e.target.value); }} style={{ padding: "6px 8px", borderRadius: 6, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 11 }}>
@@ -691,16 +692,16 @@ function ProjectFormModal({ existing, defaultDate, affiliatedModels, paymentInfo
               })()}
               <div style={{ fontSize: FONT.xs, color: t.sub, display: "flex", gap: 12, flexWrap: "wrap" }}>
                 <span>협력사 지급액: <b style={{ color: t.text }}>{fmt(c.partnerFee)}</b></span>
-                <span>모델 라인 순수익: <b style={{ color: "#10b981" }}>{fmt(c.net)}</b></span>
+                <span>모델 라인 순수익: <b style={{ color: "#248A3D" }}>{fmt(c.net)}</b></span>
               </div>
             </div>
           );
         })}
 
-        <div style={{ marginBottom: 6, background: dark ? "#0c2a2e" : "#ecfeff", border: "1px solid " + (dark ? "#155e63" : "#a5f3fc"), borderRadius: RADIUS.md, padding: "10px 12px" }}>
+        <div style={{ marginBottom: 6, background: dark ? "#10262C" : "#E6F4F8", border: "1px solid " + (dark ? "#11505A" : "#B3E5F0"), borderRadius: RADIUS.md, padding: "10px 12px" }}>
           <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: useInterpreter ? 10 : 0 }}>
             <input type="checkbox" checked={useInterpreter} onChange={function (e) { setUseInterpreter(e.target.checked); }} />
-            <span style={{ fontSize: FONT.sm, fontWeight: 800, color: dark ? "#67e8f9" : "#0e7490" }}>🗣 통역비(or 현장매니저) 사용</span>
+            <span style={{ fontSize: FONT.sm, fontWeight: 700, color: dark ? "#7FD3E8" : "#0A6A8A" }}>🗣 통역비(or 현장매니저) 사용</span>
           </label>
           {useInterpreter && (
             <div>
@@ -713,7 +714,7 @@ function ProjectFormModal({ existing, defaultDate, affiliatedModels, paymentInfo
                 var info = (paymentInfo && paymentInfo[pid]) || { regNo: "", taxType: "3.3%", bank: "", account: "", paid: false };
                 return (
                   <div style={{ paddingTop: 8, borderTop: "1px dashed " + t.border }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: dark ? "#67e8f9" : "#0e7490", marginBottom: 6 }}>통역비(or 현장매니저) 지급 정보 (저장 즉시 모델 지급 관리 탭에 반영됩니다)</div>
+                    <div style={{ fontSize: 10, fontWeight: 600, color: dark ? "#7FD3E8" : "#0A6A8A", marginBottom: 6 }}>통역비(or 현장매니저) 지급 정보 (저장 즉시 모델 지급 관리 탭에 반영됩니다)</div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
                       <input value={info.regNo} onChange={function (e) { onChangeInfo(pid, "regNo", e.target.value); }} placeholder="주민등록번호" style={Object.assign({}, inputStyle(t), { padding: "6px 8px", fontSize: FONT.xs })} />
                       <select value={info.taxType} onChange={function (e) { onChangeInfo(pid, "taxType", e.target.value); }} style={{ padding: "6px 8px", borderRadius: RADIUS.sm, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: FONT.xs }}>
@@ -760,10 +761,10 @@ function ProjectsTab({ year, month, setYear, setMonth, allProjects, expenses, re
       {showForm && <ProjectFormModal defaultDate={defaultDateForMonth(year, month)} affiliatedModels={affiliatedModels} paymentInfo={paymentInfo} onChangeInfo={onChangeInfo} onSave={function (p) { onAdd(p); setShowForm(false); }} onClose={function () { setShowForm(false); }} dark={dark} />}
       {editing && <ProjectFormModal existing={editing} affiliatedModels={affiliatedModels} paymentInfo={paymentInfo} onChangeInfo={onChangeInfo} onSave={function (p) { onUpdate(p); setEditing(null); }} onClose={function () { setEditing(null); }} dark={dark} />}
       {deleteId && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-          <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: RADIUS.lg, padding: 24, width: "100%", maxWidth: 320, textAlign: "center" }}>
+        <div className="ui-scrim" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.32)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div style={{ background: t.card, borderRadius: RADIUS.lg, padding: 24, width: "100%", maxWidth: 320, textAlign: "center" }}>
             <div style={{ fontSize: 34, marginBottom: 10 }}>⚠️</div>
-            <h3 style={{ color: t.text, fontWeight: 900, marginBottom: 8 }}>촬영 정산 삭제</h3>
+            <h3 style={{ color: t.text, fontWeight: 700, marginBottom: 8 }}>촬영 정산 삭제</h3>
             <p style={{ color: t.sub, fontSize: FONT.base, marginBottom: 20 }}>이 건의 모든 모델 내역이 삭제됩니다.</p>
             <div style={{ display: "flex", gap: 10 }}>
               <SecondaryButton onClick={function () { setDeleteId(null); }} style={{ flex: 1 }} dark={dark}>취소</SecondaryButton>
@@ -786,10 +787,10 @@ function ProjectsTab({ year, month, setYear, setMonth, allProjects, expenses, re
       </div>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
-        <Card title={"총 섭외비용 (" + list.length + "건)"} value={fmt(totals.totalCost)} color="#4f46e5" t={t} />
-        <Card title="에이전시 수익" value={fmt(totals.agencyRevenue)} color="#7c3aed" sub="업체가 - 모델손Pay" t={t} />
-        <Card title="비용제외 순수익" value={fmt(totals.netExclOpCost)} color="#0891b2" sub="협력사 지급액 반영, 운영비 제외" t={t} />
-        <Card title="순수익" value={fmt(netProfitAfterExpenses)} color={netProfitAfterExpenses >= 0 ? "#10b981" : COLOR.danger} sub="비용제외 순수익 - 월 운영비용" t={t} />
+        <Card title={"총 섭외비용 (" + list.length + "건)"} value={fmt(totals.totalCost)} color="#B5462A" t={t} />
+        <Card title="에이전시 수익" value={fmt(totals.agencyRevenue)} color="#8944AB" sub="업체가 - 모델손Pay" t={t} />
+        <Card title="비용제외 순수익" value={fmt(totals.netExclOpCost)} color="#0A7EA4" sub="협력사 지급액 반영, 운영비 제외" t={t} />
+        <Card title="순수익" value={fmt(netProfitAfterExpenses)} color={netProfitAfterExpenses >= 0 ? "#248A3D" : COLOR.danger} sub="비용제외 순수익 - 월 운영비용" t={t} />
       </div>
 
       {list.length === 0 && <div style={{ color: t.sub, fontSize: FONT.base, padding: "30px 0", textAlign: "center" }}>{year}년 {month}월에 등록된 촬영 정산 내역이 없습니다.</div>}
@@ -799,30 +800,30 @@ function ProjectsTab({ year, month, setYear, setMonth, allProjects, expenses, re
         var dObj = p.date ? new Date(p.date + "T00:00:00") : null;
         var dayNum = dObj ? dObj.getDate() : "-";
         var weekdayLabel = dObj ? WEEKDAYS_KR[dObj.getDay()] : "";
-        var weekdayColor = dObj ? (dObj.getDay() === 0 ? "#ef4444" : (dObj.getDay() === 6 ? "#4f46e5" : t.sub)) : t.sub;
+        var weekdayColor = dObj ? (dObj.getDay() === 0 ? "#D92D20" : (dObj.getDay() === 6 ? "#B5462A" : t.sub)) : t.sub;
         return (
-          <div key={p.id} style={{ display: "flex", gap: 14, background: t.card, border: "1.5px solid " + (p.depositStatus === "입금" ? "#10b981" : t.border), borderRadius: 12, padding: 14, marginBottom: 10 }}>
+          <div key={p.id} style={{ display: "flex", gap: 14, background: t.card, border: "1.5px solid " + (p.depositStatus === "입금" ? "#248A3D" : t.border), borderRadius: 12, padding: 14, marginBottom: 10 }}>
             <div style={{ flexShrink: 0, width: 62, textAlign: "center", paddingRight: 14, borderRight: "1px solid " + t.border, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-              <div style={{ fontSize: FONT.xs, fontWeight: 700, color: weekdayColor }}>{p.date ? p.date.slice(0, 7).replace("-", ".") : ""}</div>
-              <div style={{ fontSize: 30, fontWeight: 900, color: t.text, lineHeight: 1.1 }}>{dayNum}</div>
-              <div style={{ fontSize: FONT.xs, fontWeight: 700, color: weekdayColor }}>{weekdayLabel ? weekdayLabel + "요일" : "날짜 미정"}</div>
-              {p.time ? <div style={{ fontSize: 10, fontWeight: 800, color: COLOR.primary, marginTop: 4 }}>⏱ {p.time}</div> : null}
+              <div style={{ fontSize: FONT.xs, fontWeight: 600, color: weekdayColor }}>{p.date ? p.date.slice(0, 7).replace("-", ".") : ""}</div>
+              <div style={{ fontSize: 30, fontWeight: 700, color: t.text, lineHeight: 1.1 }}>{dayNum}</div>
+              <div style={{ fontSize: FONT.xs, fontWeight: 600, color: weekdayColor }}>{weekdayLabel ? weekdayLabel + "요일" : "날짜 미정"}</div>
+              {p.time ? <div style={{ fontSize: 10, fontWeight: 700, color: COLOR.primary, marginTop: 4 }}>⏱ {p.time}</div> : null}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
-                <div style={{ fontSize: 17, fontWeight: 900, color: t.text }}>{p.brand}</div>
-                <button onClick={function () { onUpdate(Object.assign({}, p, { depositStatus: p.depositStatus === "입금" ? "미입금" : "입금" })); }} title="클릭해서 입금 상태 전환" style={{ display: "inline-block", padding: "3px 8px", borderRadius: 6, fontSize: 10, fontWeight: 700, border: "none", cursor: "pointer", background: p.depositStatus === "입금" ? "#d1fae5" : "#fee2e2", color: p.depositStatus === "입금" ? "#065f46" : "#991b1b", flexShrink: 0 }}>{p.depositStatus === "입금" ? "✓ 입금완료" : "미입금"}</button>
+                <div style={{ fontSize: 17, fontWeight: 700, color: t.text }}>{p.brand}</div>
+                <button onClick={function () { onUpdate(Object.assign({}, p, { depositStatus: p.depositStatus === "입금" ? "미입금" : "입금" })); }} title="클릭해서 입금 상태 전환" style={{ display: "inline-block", padding: "3px 8px", borderRadius: 6, fontSize: 10, fontWeight: 600, border: "none", cursor: "pointer", background: p.depositStatus === "입금" ? "#E3F4E8" : "#FDECEA", color: p.depositStatus === "입금" ? "#1B6B32" : "#9B1C14", flexShrink: 0 }}>{p.depositStatus === "입금" ? "✓ 입금완료" : "미입금"}</button>
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(230px,1fr))", gap: 8, marginTop: 10 }}>
-                <div style={{ background: dark ? "#1e2a4a" : "#eef2ff", border: "1px solid " + (dark ? "#3730a3" : "#c7d2fe"), borderRadius: 10, padding: "12px 14px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                <div style={{ background: dark ? "#3A1F17" : "#FBEDE8", border: "1px solid " + (dark ? "#8E3520" : "#F0CFC4"), borderRadius: 10, padding: "12px 14px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                    <span style={{ fontSize: FONT.sm, color: COLOR.primary, fontWeight: 700 }}>총 섭외비용</span>
-                    <span style={{ fontSize: 17, fontWeight: 900, color: t.text }}>{fmt(p.totalCost)}</span>
+                    <span style={{ fontSize: FONT.sm, color: COLOR.primary, fontWeight: 600 }}>총 섭외비용</span>
+                    <span style={{ fontSize: 17, fontWeight: 700, color: t.text }}>{fmt(p.totalCost)}</span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: FONT.sm, color: COLOR.primary, fontWeight: 700 }}>순수익</span>
-                    <span style={{ fontSize: 17, fontWeight: 900, color: "#10b981" }}>{fmt(agg.net)}</span>
+                    <span style={{ fontSize: FONT.sm, color: COLOR.primary, fontWeight: 600 }}>순수익</span>
+                    <span style={{ fontSize: 17, fontWeight: 700, color: "#248A3D" }}>{fmt(agg.net)}</span>
                   </div>
                 </div>
                 {(p.models || []).length > 0 ? (p.models || []).map(function (m, i2) {
@@ -831,8 +832,8 @@ function ProjectsTab({ year, month, setYear, setMonth, allProjects, expenses, re
                   return (
                     <div key={i2} style={{ background: t.card2, border: "1px solid " + t.border, borderRadius: 10, padding: "12px 14px" }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                        <span style={{ fontSize: 17, fontWeight: 900, color: t.text }}>{m.name}</span>
-                        {timeLabel ? <span style={{ fontSize: FONT.base, fontWeight: 800, color: "#4f46e5" }}>⏱ {timeLabel}</span> : null}
+                        <span style={{ fontSize: 17, fontWeight: 700, color: t.text }}>{m.name}</span>
+                        {timeLabel ? <span style={{ fontSize: FONT.base, fontWeight: 700, color: "#B5462A" }}>⏱ {timeLabel}</span> : null}
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: FONT.base, color: t.sub }}>
                         <div>섭외료 <b style={{ color: t.text }}>{fmt(m.agencyPrice)}</b></div>
@@ -842,7 +843,7 @@ function ProjectsTab({ year, month, setYear, setMonth, allProjects, expenses, re
                       </div>
                       <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid " + t.border, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <span style={{ fontSize: FONT.sm, color: t.sub }}>모델 라인 순수익</span>
-                        <span style={{ fontSize: FONT.lg, fontWeight: 900, color: "#10b981" }}>{fmt(c.net)}</span>
+                        <span style={{ fontSize: FONT.lg, fontWeight: 700, color: "#248A3D" }}>{fmt(c.net)}</span>
                       </div>
                     </div>
                   );
@@ -878,9 +879,9 @@ function RecurringManager({ recurringExpenses, onChange, dark, t }) {
   };
 
   return (
-    <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 12, overflow: "hidden", marginBottom: 16 }}>
+    <div style={{ background: t.card, borderRadius: 12, overflow: "hidden", marginBottom: 16 }}>
       <div style={{ padding: "10px 12px", background: t.thead, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-        <span style={{ fontSize: FONT.sm, fontWeight: 800, color: t.text }}>정기 운영비 항목 (매월/분기별 자동 반영 · 매번 재입력 불필요)</span>
+        <span style={{ fontSize: FONT.sm, fontWeight: 700, color: t.text }}>정기 운영비 항목 (매월/분기별 자동 반영 · 매번 재입력 불필요)</span>
         <PrimaryButton onClick={addTemplate} small>+ 정기 항목 추가</PrimaryButton>
       </div>
       {recurringExpenses.length === 0 && <div style={{ padding: 16, textAlign: "center", color: t.sub, fontSize: 12 }}>등록된 정기 항목이 없습니다. 월세·인건비처럼 매달 고정으로 나가는 비용을 등록해두면 매월 자동으로 반영됩니다.</div>}
@@ -898,7 +899,7 @@ function RecurringManager({ recurringExpenses, onChange, dark, t }) {
               <option value="quarterly">분기별(3개월)</option>
             </select>
             <input type="month" value={tp.startMonth} onChange={function (e) { updateTemplate(tp.id, "startMonth", e.target.value); }} style={{ padding: "6px 8px", borderRadius: 7, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 11 }} />
-            <button onClick={function () { removeTemplate(tp.id); }} style={{ width: 26, height: 26, borderRadius: 7, border: "none", background: "#ef444440", color: COLOR.danger, cursor: "pointer", fontSize: 12 }}>✕</button>
+            <button onClick={function () { removeTemplate(tp.id); }} style={{ width: 26, height: 26, borderRadius: 7, border: "none", background: "rgba(217,45,32,0.12)", color: COLOR.danger, cursor: "pointer", fontSize: 12 }}>✕</button>
           </div>
         );
       })}
@@ -936,19 +937,19 @@ function ExpensesTab({ year, month, setYear, setMonth, expenses, recurringExpens
       </div>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
-        <Card title="비용제외 순수익 합계" value={fmt(projTotals.netExclOpCost)} color="#0891b2" t={t} />
-        <Card title={"월 운영비용 합계 (정기+일회성)"} value={fmt(expTotal)} color="#f59e0b" t={t} />
-        <Card title="회사 순익 (운영비 차감 후)" value={fmt(companyNetProfit)} color={companyNetProfit >= 0 ? "#10b981" : COLOR.danger} t={t} />
+        <Card title="비용제외 순수익 합계" value={fmt(projTotals.netExclOpCost)} color="#0A7EA4" t={t} />
+        <Card title={"월 운영비용 합계 (정기+일회성)"} value={fmt(expTotal)} color="#E8890C" t={t} />
+        <Card title="회사 순익 (운영비 차감 후)" value={fmt(companyNetProfit)} color={companyNetProfit >= 0 ? "#248A3D" : COLOR.danger} t={t} />
       </div>
 
       <RecurringManager recurringExpenses={recurringExpenses} onChange={onChangeRecurring} dark={dark} t={t} />
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
-        <span style={{ fontSize: FONT.base, fontWeight: 800, color: t.text }}>이번 달 운영비 내역</span>
+        <span style={{ fontSize: FONT.base, fontWeight: 700, color: t.text }}>이번 달 운영비 내역</span>
         <PrimaryButton onClick={addRow}>+ 이번 달 항목 추가</PrimaryButton>
       </div>
-      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 12, overflow: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1.6fr 0.6fr 40px", gap: 8, padding: "10px 12px", background: t.thead, fontSize: FONT.xs, fontWeight: 800, color: t.sub }}>
+      <div style={{ background: t.card, borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1.6fr 0.6fr 40px", gap: 8, padding: "10px 12px", background: t.thead, fontSize: FONT.xs, fontWeight: 700, color: t.sub }}>
           <div>항목명</div><div>금액</div><div>설명</div><div>부가세10%</div><div></div>
         </div>
         {combinedList.length === 0 && <div style={{ padding: 20, textAlign: "center", color: t.sub, fontSize: 12 }}>등록된 운영비 항목이 없습니다.</div>}
@@ -957,7 +958,7 @@ function ExpensesTab({ year, month, setYear, setMonth, expenses, recurringExpens
             return (
               <div key={e.id} style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1.6fr 0.6fr 40px", gap: 8, padding: "8px 12px", borderTop: "1px solid " + t.border, alignItems: "center", opacity: 0.9 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, color: t.text, fontSize: FONT.base, fontWeight: 600 }}>
-                  <span style={{ fontSize: 9, fontWeight: 800, color: COLOR.primary, background: dark ? "#1e293b" : "#eef2ff", padding: "2px 6px", borderRadius: 5 }}>정기</span>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: COLOR.primary, background: dark ? "#1C1C1E" : "#FBEDE8", padding: "2px 6px", borderRadius: 5 }}>정기</span>
                   {e.item}
                 </div>
                 <div style={{ color: t.text, fontSize: 13 }}>{fmt(e.amount)}</div>
@@ -973,7 +974,7 @@ function ExpensesTab({ year, month, setYear, setMonth, expenses, recurringExpens
               <input type="number" value={e.amount} onChange={function (ev) { updateRow(e.id, "amount", ev.target.value); }} style={inputStyle(t)} />
               <input value={e.desc} onChange={function (ev) { updateRow(e.id, "desc", ev.target.value); }} style={inputStyle(t)} />
               <input type="checkbox" checked={!!e.vat} onChange={function (ev) { updateRow(e.id, "vat", ev.target.checked); }} style={{ width: 18, height: 18 }} />
-              <button onClick={function () { removeRow(e.id); }} style={{ width: 26, height: 26, borderRadius: 7, border: "none", background: "#ef444440", color: COLOR.danger, cursor: "pointer", fontSize: 12 }}>✕</button>
+              <button onClick={function () { removeRow(e.id); }} style={{ width: 26, height: 26, borderRadius: 7, border: "none", background: "rgba(217,45,32,0.12)", color: COLOR.danger, cursor: "pointer", fontSize: 12 }}>✕</button>
             </div>
           );
         })}
@@ -1094,38 +1095,38 @@ function PaymentsTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
         <MonthHeading year={year} month={month} t={t} />
         <button
           onClick={function () { downloadPaymentsCSV(rows, year, month); }}
-          style={{ padding: "8px 14px", borderRadius: 9, border: "none", background: COLOR.primary, color: "#fff", fontWeight: 700, fontSize: FONT.sm, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}
+          style={{ padding: "8px 14px", borderRadius: 9, border: "none", background: COLOR.primary, color: "#fff", fontWeight: 600, fontSize: FONT.sm, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}
         >📥 인건비 제출용 다운로드</button>
       </div>
       <div style={{ marginBottom: 14 }}>
         <MonthStrip year={year} month={month} setYear={setYear} setMonth={setMonth} t={t} dark={dark} />
       </div>
-      <div style={{ fontSize: FONT.sm, color: t.sub, fontWeight: 700, marginBottom: 10 }}>지급 예정일: {dueDateLabel(mKey)} (익월말)</div>
+      <div style={{ fontSize: FONT.sm, color: t.sub, fontWeight: 600, marginBottom: 10 }}>지급 예정일: {dueDateLabel(mKey)} (익월말)</div>
 
       {overdue.length > 0 && (
-        <div style={{ background: dark ? "#2a1508" : "#fff7ed", border: "2px solid #f97316", borderRadius: 12, padding: "12px 14px", marginBottom: 14 }}>
+        <div style={{ background: dark ? "#2E1C10" : "#FFF4EA", border: "2px solid #E8650C", borderRadius: 12, padding: "12px 14px", marginBottom: 14 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-            <div style={{ fontSize: FONT.md, fontWeight: 900, color: dark ? "#fdba74" : "#c2410c" }}>⚠️ 지난 달 미지급 건 {overdue.length}건 <span style={{ fontSize: FONT.sm, fontWeight: 700 }}>· 합계 {fmt(overdueTotal)}</span></div>
-            <button onClick={function () { setOverdueOpen(!overdueOpen); }} style={{ padding: "5px 12px", borderRadius: 7, border: "1px solid #f97316", background: overdueOpen ? "#f97316" : "transparent", color: overdueOpen ? "#fff" : (dark ? "#fdba74" : "#c2410c"), fontWeight: 800, fontSize: FONT.xs, cursor: "pointer" }}>{overdueOpen ? "접기 ▲" : "열기 ▼"}</button>
+            <div style={{ fontSize: FONT.md, fontWeight: 700, color: dark ? "#F2B48A" : "#B5470B" }}>⚠️ 지난 달 미지급 건 {overdue.length}건 <span style={{ fontSize: FONT.sm, fontWeight: 600 }}>· 합계 {fmt(overdueTotal)}</span></div>
+            <button onClick={function () { setOverdueOpen(!overdueOpen); }} style={{ padding: "5px 12px", borderRadius: 7, border: "1px solid #E8650C", background: overdueOpen ? "#E8650C" : "transparent", color: overdueOpen ? "#fff" : (dark ? "#F2B48A" : "#B5470B"), fontWeight: 700, fontSize: FONT.xs, cursor: "pointer" }}>{overdueOpen ? "접기 ▲" : "열기 ▼"}</button>
           </div>
           {overdueOpen && <div style={{ overflowX: "auto", marginTop: 8 }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: FONT.sm, minWidth: 720 }}>
               <thead>
                 <tr style={{ color: t.sub }}>
-                  {["촬영일", "브랜드", "구분", "이름", "지급할 금액", "지급 예정일(경과)", "처리"].map(function (h) { return <th key={h} style={{ padding: "6px 8px", textAlign: "left", fontWeight: 800, whiteSpace: "nowrap" }}>{h}</th>; })}
+                  {["촬영일", "브랜드", "구분", "이름", "지급할 금액", "지급 예정일(경과)", "처리"].map(function (h) { return <th key={h} style={{ padding: "6px 8px", textAlign: "left", fontWeight: 700, whiteSpace: "nowrap" }}>{h}</th>; })}
                 </tr>
               </thead>
               <tbody>
                 {overdue.map(function (o) {
                   return (
-                    <tr key={o.src + o.key} style={{ borderTop: "1px solid " + (dark ? "#7c2d12" : "#fed7aa") }}>
+                    <tr key={o.src + o.key} style={{ borderTop: "1px solid " + (dark ? "#6E2D0B" : "#FAD3B4") }}>
                       <td style={{ padding: "6px 8px", color: t.text, whiteSpace: "nowrap" }}>{o.date}</td>
                       <td style={{ padding: "6px 8px", color: t.text, whiteSpace: "nowrap" }}>{o.brand}</td>
                       <td style={{ padding: "6px 8px", color: t.sub, whiteSpace: "nowrap", fontSize: FONT.xs }}>{o.role}</td>
-                      <td style={{ padding: "6px 8px", color: t.text, fontWeight: 800, whiteSpace: "nowrap" }}>{o.name}</td>
-                      <td style={{ padding: "6px 8px", color: t.text, fontWeight: 800, whiteSpace: "nowrap" }}>{fmt(o.amount)}</td>
-                      <td style={{ padding: "6px 8px", color: COLOR.danger, fontWeight: 700, whiteSpace: "nowrap" }}>{o.due}</td>
-                      <td style={{ padding: "6px 8px" }}><button onClick={o.onToggle} style={{ padding: "4px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 800, fontSize: FONT.xs, background: "#fee2e2", color: "#991b1b" }}>미입금 → 입금완료</button></td>
+                      <td style={{ padding: "6px 8px", color: t.text, fontWeight: 700, whiteSpace: "nowrap" }}>{o.name}</td>
+                      <td style={{ padding: "6px 8px", color: t.text, fontWeight: 700, whiteSpace: "nowrap" }}>{fmt(o.amount)}</td>
+                      <td style={{ padding: "6px 8px", color: COLOR.danger, fontWeight: 600, whiteSpace: "nowrap" }}>{o.due}</td>
+                      <td style={{ padding: "6px 8px" }}><button onClick={o.onToggle} style={{ padding: "4px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: FONT.xs, background: "#FDECEA", color: "#9B1C14" }}>미입금 → 입금완료</button></td>
                     </tr>
                   );
                 })}
@@ -1137,17 +1138,17 @@ function PaymentsTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
         <Card title="지급 대상 손Pay 합계" value={fmt(totalHandPay)} t={t} />
-        <Card title="공제/부가세 합계" value={fmt(totalDeduction)} color="#f59e0b" t={t} />
-        <Card title="최종 지급 합계" value={fmt(totalFinal)} color="#10b981" t={t} />
-        <Card title={"통역비(or 현장매니저) 합계 (" + interpCount + "건)"} value={fmt(interpHandPay)} color="#0e7490" t={t} />
+        <Card title="공제/부가세 합계" value={fmt(totalDeduction)} color="#E8890C" t={t} />
+        <Card title="최종 지급 합계" value={fmt(totalFinal)} color="#248A3D" t={t} />
+        <Card title={"통역비(or 현장매니저) 합계 (" + interpCount + "건)"} value={fmt(interpHandPay)} color="#0A6A8A" t={t} />
       </div>
 
-      <div style={{ overflowX: "auto", background: t.card, border: "1px solid " + t.border, borderRadius: 12 }}>
+      <div style={{ overflowX: "auto", background: t.card, borderRadius: 12 }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: FONT.sm, minWidth: 920 }}>
           <thead>
             <tr style={{ background: t.thead, color: t.sub }}>
               {["촬영날짜", "브랜드", "구분", "이름 (모델·통역/매니저)", "주민등록번호", "손 Pay", "공제방식", "공제액", "최종 입금액", "입금은행", "입금계좌", "지급여부"].map(function (h) {
-                return <th key={h} style={{ padding: "9px 8px", textAlign: "left", fontWeight: 800, whiteSpace: "nowrap" }}>{h}</th>;
+                return <th key={h} style={{ padding: "9px 8px", textAlign: "left", fontWeight: 700, whiteSpace: "nowrap" }}>{h}</th>;
               })}
             </tr>
           </thead>
@@ -1161,8 +1162,8 @@ function PaymentsTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
                 <tr key={r.pid} style={{ borderTop: "1px solid " + t.border }}>
                   <td style={{ padding: "7px 8px", color: t.text, whiteSpace: "nowrap" }}>{r.date}</td>
                   <td style={{ padding: "7px 8px", color: t.text, whiteSpace: "nowrap" }}>{r.brand}</td>
-                  <td style={{ padding: "7px 8px", whiteSpace: "nowrap" }}><span style={{ fontSize: FONT.xs, fontWeight: 700, padding: "2px 7px", borderRadius: 6, background: r.role === "통역비(or 현장매니저)" ? (dark ? "#0c2a2e" : "#ecfeff") : (dark ? "#1e2a4a" : "#eef2ff"), color: r.role === "통역비(or 현장매니저)" ? (dark ? "#67e8f9" : "#0e7490") : COLOR.primary }}>{r.role}</span></td>
-                  <td style={{ padding: "7px 8px", color: t.text, fontWeight: 700, whiteSpace: "nowrap" }}>{r.modelName}</td>
+                  <td style={{ padding: "7px 8px", whiteSpace: "nowrap" }}><span style={{ fontSize: FONT.xs, fontWeight: 600, padding: "2px 7px", borderRadius: 6, background: r.role === "통역비(or 현장매니저)" ? (dark ? "#10262C" : "#E6F4F8") : (dark ? "#3A1F17" : "#FBEDE8"), color: r.role === "통역비(or 현장매니저)" ? (dark ? "#7FD3E8" : "#0A6A8A") : COLOR.primary }}>{r.role}</span></td>
+                  <td style={{ padding: "7px 8px", color: t.text, fontWeight: 600, whiteSpace: "nowrap" }}>{r.modelName}</td>
                   <td style={{ padding: "7px 8px" }}><input value={r.regNo} onChange={function (e) { update(r.pid, "regNo", e.target.value); }} placeholder="주민등록번호" style={Object.assign({}, inputStyle(t), { width: 130, padding: "5px 8px" })} /></td>
                   <td style={{ padding: "7px 8px", color: t.text, whiteSpace: "nowrap" }}>{fmt(r.handPay)}</td>
                   <td style={{ padding: "7px 8px" }}>
@@ -1173,11 +1174,11 @@ function PaymentsTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
                     </select>
                   </td>
                   <td style={{ padding: "7px 8px", color: COLOR.danger, whiteSpace: "nowrap" }}>{c.label === "-" ? "-" : (r.taxType === "vat10" ? "+" : "-") + fmt(c.deduction).replace("₩", "₩")}</td>
-                  <td style={{ padding: "7px 8px", color: t.text, fontWeight: 800, whiteSpace: "nowrap" }}>{fmt(c.final)}</td>
+                  <td style={{ padding: "7px 8px", color: t.text, fontWeight: 700, whiteSpace: "nowrap" }}>{fmt(c.final)}</td>
                   <td style={{ padding: "7px 8px" }}><input value={r.bank} onChange={function (e) { update(r.pid, "bank", e.target.value); }} placeholder="은행" style={Object.assign({}, inputStyle(t), { width: 70, padding: "5px 8px" })} /></td>
                   <td style={{ padding: "7px 8px" }}><input value={r.account} onChange={function (e) { update(r.pid, "account", e.target.value); }} placeholder="계좌번호" style={Object.assign({}, inputStyle(t), { width: 140, padding: "5px 8px" })} /></td>
                   <td style={{ padding: "7px 8px" }}>
-                    <button onClick={function () { update(r.pid, "paid", !r.paid); }} style={{ padding: "4px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: FONT.xs, background: r.paid ? "#d1fae5" : "#fee2e2", color: r.paid ? "#065f46" : "#991b1b" }}>{r.paid ? "입금완료" : "미입금"}</button>
+                    <button onClick={function () { update(r.pid, "paid", !r.paid); }} style={{ padding: "4px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 600, fontSize: FONT.xs, background: r.paid ? "#E3F4E8" : "#FDECEA", color: r.paid ? "#1B6B32" : "#9B1C14" }}>{r.paid ? "입금완료" : "미입금"}</button>
                   </td>
                 </tr>
               );
@@ -1202,7 +1203,7 @@ function monthOptionsAcrossYears() {
 }
 
 function CumulativeChart({ points, dark, t, color }) {
-  var lineColor = color || "#4f46e5";
+  var lineColor = color || "#B5462A";
   var w = 100, h = 130;
   var maxVal = Math.max.apply(null, points.map(function (p) { return p.cum; }).concat([1]));
   var minVal = Math.min.apply(null, points.map(function (p) { return p.cum; }).concat([0]));
@@ -1237,7 +1238,7 @@ function CumulativeChart({ points, dark, t, color }) {
           return (
             <div key={i} style={{ textAlign: "center", flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 9, color: t.sub, whiteSpace: "nowrap" }}>{p.label}</div>
-              <div style={{ fontSize: 10, fontWeight: 800, color: lineColor, whiteSpace: "nowrap" }}>{Math.round(p.cum / 10000)}만</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: lineColor, whiteSpace: "nowrap" }}>{Math.round(p.cum / 10000)}만</div>
             </div>
           );
         })}
@@ -1281,38 +1282,38 @@ function DashboardTab({ year, setYear, allProjects, expenses, recurringExpenses,
     cum += cumMode === "cost" ? b.totalCost : b.netProfit;
     return { label: b.label, cum: cum };
   });
-  var cumColor = cumMode === "cost" ? "#4f46e5" : "#0891b2";
+  var cumColor = cumMode === "cost" ? "#B5462A" : "#0A7EA4";
 
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
-        <div style={{ fontSize: 26, fontWeight: 900, color: t.text, letterSpacing: -0.5 }}>실적 대시보드</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, background: t.card, border: "1px solid " + t.border, borderRadius: 10, padding: "6px 8px" }}>
-          <span style={{ fontSize: FONT.xs, color: t.sub, fontWeight: 700 }}>기간</span>
-          <select value={fromIdx} onChange={function (e) { setFromIdx(Number(e.target.value)); }} style={{ padding: "5px 8px", borderRadius: 7, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: FONT.sm, fontWeight: 700 }}>
+        <div style={{ fontSize: 26, fontWeight: 700, color: t.text, letterSpacing: -0.5 }}>실적 대시보드</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, background: t.card, borderRadius: 10, padding: "6px 8px" }}>
+          <span style={{ fontSize: FONT.xs, color: t.sub, fontWeight: 600 }}>기간</span>
+          <select value={fromIdx} onChange={function (e) { setFromIdx(Number(e.target.value)); }} style={{ padding: "5px 8px", borderRadius: 7, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: FONT.sm, fontWeight: 600 }}>
             {allOpts.map(function (o, i) { return <option key={i} value={i}>{o.label}</option>; })}
           </select>
           <span style={{ color: t.sub }}>~</span>
-          <select value={toIdx} onChange={function (e) { setToIdx(Number(e.target.value)); }} style={{ padding: "5px 8px", borderRadius: 7, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: FONT.sm, fontWeight: 700 }}>
+          <select value={toIdx} onChange={function (e) { setToIdx(Number(e.target.value)); }} style={{ padding: "5px 8px", borderRadius: 7, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: FONT.sm, fontWeight: 600 }}>
             {allOpts.map(function (o, i) { return <option key={i} value={i}>{o.label}</option>; })}
           </select>
         </div>
       </div>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
-        <Card title="기간 전체 섭외비용" value={fmt(rangeCost)} color="#4f46e5" t={t} />
-        <Card title="비용제외 순수익 합계" value={fmt(rangeNet)} color="#0891b2" t={t} />
-        <Card title="운영비용 합계" value={fmt(rangeExpense)} color="#f59e0b" t={t} />
-        <Card title="회사 순익 합계" value={fmt(rangeCompanyNet)} color={rangeCompanyNet >= 0 ? "#10b981" : COLOR.danger} t={t} />
-        <Card title="총 촬영건수" value={rangeShootCount + "건"} color="#8b5cf6" t={t} />
+        <Card title="기간 전체 섭외비용" value={fmt(rangeCost)} color="#B5462A" t={t} />
+        <Card title="비용제외 순수익 합계" value={fmt(rangeNet)} color="#0A7EA4" t={t} />
+        <Card title="운영비용 합계" value={fmt(rangeExpense)} color="#E8890C" t={t} />
+        <Card title="회사 순익 합계" value={fmt(rangeCompanyNet)} color={rangeCompanyNet >= 0 ? "#248A3D" : COLOR.danger} t={t} />
+        <Card title="총 촬영건수" value={rangeShootCount + "건"} color="#AF52DE" t={t} />
       </div>
 
-      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: "18px 20px", marginBottom: 16 }}>
+      <div style={{ background: t.card, borderRadius: 14, padding: "18px 20px", marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
-          <h3 style={{ color: t.text, fontWeight: 900, fontSize: FONT.md, margin: 0 }}>월별 섭외비용 · 회사 순익 · 촬영건수</h3>
+          <h3 style={{ color: t.text, fontWeight: 700, fontSize: FONT.md, margin: 0 }}>월별 섭외비용 · 회사 순익 · 촬영건수</h3>
           <div style={{ display: "flex", gap: 12, fontSize: FONT.xs, color: t.sub }}>
-            <span><span style={{ color: "#4f46e5" }}>■</span> 총 섭외비용</span>
-            <span><span style={{ color: "#10b981" }}>■</span> 회사 순익</span>
+            <span><span style={{ color: "#B5462A" }}>■</span> 총 섭외비용</span>
+            <span><span style={{ color: "#248A3D" }}>■</span> 회사 순익</span>
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 160, paddingBottom: 4, overflowX: "auto" }}>
@@ -1321,31 +1322,31 @@ function DashboardTab({ year, setYear, allProjects, expenses, recurringExpenses,
             var nh = b.totalCost > 0 && b.companyNet > 0 ? Math.min(Math.round((b.companyNet / maxCost) * 140), h) : 0;
             return (
               <div key={i} style={{ flex: "1 0 24px", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, minWidth: 24 }}>
-                {b.totalCost > 0 && <div style={{ fontSize: 9, color: b.isNow ? "#4f46e5" : t.sub, fontWeight: b.isNow ? 900 : 600, whiteSpace: "nowrap" }}>{Math.round(b.totalCost / 10000)}만</div>}
+                {b.totalCost > 0 && <div style={{ fontSize: 9, color: b.isNow ? "#B5462A" : t.sub, fontWeight: b.isNow ? 700 : 500, whiteSpace: "nowrap" }}>{Math.round(b.totalCost / 10000)}만</div>}
                 <div style={{ width: "100%", display: "flex", flexDirection: "column", justifyContent: "flex-end", height: 140 }}>
                   {b.totalCost > 0 ? (
-                    <div style={{ width: "100%", height: h, borderRadius: "4px 4px 0 0", overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "flex-end", border: b.isNow ? "2px solid #4f46e5" : "none" }}>
-                      <div style={{ width: "100%", flex: 1, background: dark ? "#1e293b" : "#e2e8f0" }} />
-                      <div style={{ width: "100%", height: nh, background: "#10b981" }} />
+                    <div style={{ width: "100%", height: h, borderRadius: "4px 4px 0 0", overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "flex-end", border: b.isNow ? "2px solid #B5462A" : "none" }}>
+                      <div style={{ width: "100%", flex: 1, background: dark ? "#1C1C1E" : "#E5E5EA" }} />
+                      <div style={{ width: "100%", height: nh, background: "#248A3D" }} />
                     </div>
                   ) : (
                     <div style={{ width: "100%", height: 2, background: t.border, borderRadius: 2 }} />
                   )}
                 </div>
-                <div style={{ fontSize: 10, color: b.isNow ? "#4f46e5" : t.sub, fontWeight: b.isNow ? 900 : 600, whiteSpace: "nowrap" }}>{b.month}</div>
-                <div style={{ fontSize: 9, color: "#8b5cf6", fontWeight: 700, whiteSpace: "nowrap" }}>{b.shootCount > 0 ? b.shootCount + "건" : ""}</div>
+                <div style={{ fontSize: 10, color: b.isNow ? "#B5462A" : t.sub, fontWeight: b.isNow ? 700 : 500, whiteSpace: "nowrap" }}>{b.month}</div>
+                <div style={{ fontSize: 9, color: "#AF52DE", fontWeight: 600, whiteSpace: "nowrap" }}>{b.shootCount > 0 ? b.shootCount + "건" : ""}</div>
               </div>
             );
           })}
         </div>
       </div>
 
-      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: "18px 20px", marginBottom: 16 }}>
+      <div style={{ background: t.card, borderRadius: 14, padding: "18px 20px", marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 4 }}>
-          <h3 style={{ color: t.text, fontWeight: 900, fontSize: FONT.md, margin: 0 }}>누적 매출 추이</h3>
+          <h3 style={{ color: t.text, fontWeight: 700, fontSize: FONT.md, margin: 0 }}>누적 매출 추이</h3>
           <div style={{ display: "flex", gap: 4 }}>
-            <button onClick={function () { setCumMode("cost"); }} style={{ padding: "4px 10px", borderRadius: 7, border: "1px solid " + t.border, cursor: "pointer", fontSize: FONT.xs, fontWeight: 700, background: cumMode === "cost" ? "#4f46e5" : "transparent", color: cumMode === "cost" ? "#fff" : t.sub }}>총 섭외비용</button>
-            <button onClick={function () { setCumMode("net"); }} style={{ padding: "4px 10px", borderRadius: 7, border: "1px solid " + t.border, cursor: "pointer", fontSize: FONT.xs, fontWeight: 700, background: cumMode === "net" ? "#0891b2" : "transparent", color: cumMode === "net" ? "#fff" : t.sub }}>순매출(비용제외)</button>
+            <button onClick={function () { setCumMode("cost"); }} style={{ padding: "4px 10px", borderRadius: 7, border: "1px solid " + t.border, cursor: "pointer", fontSize: FONT.xs, fontWeight: 600, background: cumMode === "cost" ? "#B5462A" : "transparent", color: cumMode === "cost" ? "#fff" : t.sub }}>총 섭외비용</button>
+            <button onClick={function () { setCumMode("net"); }} style={{ padding: "4px 10px", borderRadius: 7, border: "1px solid " + t.border, cursor: "pointer", fontSize: FONT.xs, fontWeight: 600, background: cumMode === "net" ? "#0A7EA4" : "transparent", color: cumMode === "net" ? "#fff" : t.sub }}>순매출(비용제외)</button>
           </div>
         </div>
         <p style={{ fontSize: FONT.xs, color: t.sub, marginBottom: 12 }}>선택 기간 동안 {cumMode === "cost" ? "섭외비용" : "순매출(비용제외 순수익)"}이 누적되는 추이입니다.</p>
@@ -1355,17 +1356,17 @@ function DashboardTab({ year, setYear, allProjects, expenses, recurringExpenses,
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(180px,1fr))", gap: 10 }}>
         {bars.map(function (b, i) {
           return (
-            <div key={i} style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 12, padding: "12px 14px" }}>
+            <div key={i} style={{ background: t.card, borderRadius: 12, padding: "12px 14px" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                <div style={{ fontSize: FONT.sm, fontWeight: 800, color: t.text }}>{b.month}</div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: "#8b5cf6" }}>{b.shootCount}건</div>
+                <div style={{ fontSize: FONT.sm, fontWeight: 700, color: t.text }}>{b.month}</div>
+                <div style={{ fontSize: 10, fontWeight: 600, color: "#AF52DE" }}>{b.shootCount}건</div>
               </div>
               <div style={{ fontSize: 10, color: t.sub }}>섭외비용</div>
-              <div style={{ fontSize: FONT.base, fontWeight: 800, color: t.text, marginBottom: 4 }}>{fmt(b.totalCost)}</div>
+              <div style={{ fontSize: FONT.base, fontWeight: 700, color: t.text, marginBottom: 4 }}>{fmt(b.totalCost)}</div>
               <div style={{ fontSize: 10, color: t.sub }}>운영비용</div>
-              <div style={{ fontSize: FONT.base, fontWeight: 800, color: COLOR.warning, marginBottom: 4 }}>{fmt(b.expense)}</div>
+              <div style={{ fontSize: FONT.base, fontWeight: 700, color: COLOR.warning, marginBottom: 4 }}>{fmt(b.expense)}</div>
               <div style={{ fontSize: 10, color: t.sub }}>회사 순익</div>
-              <div style={{ fontSize: FONT.base, fontWeight: 800, color: b.companyNet >= 0 ? "#10b981" : "#ef4444" }}>{fmt(b.companyNet)}</div>
+              <div style={{ fontSize: FONT.base, fontWeight: 700, color: b.companyNet >= 0 ? "#248A3D" : "#D92D20" }}>{fmt(b.companyNet)}</div>
             </div>
           );
         })}
@@ -1408,10 +1409,10 @@ function CalendarDetailModal({ project, paymentInfo, onChangeInfo, affiliatedMod
   }
   if (confirmDelete) {
     return (
-      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-        <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: RADIUS.lg, padding: 24, width: "100%", maxWidth: 320, textAlign: "center" }}>
+      <div className="ui-scrim" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.32)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+        <div style={{ background: t.card, borderRadius: RADIUS.lg, padding: 24, width: "100%", maxWidth: 320, textAlign: "center" }}>
           <div style={{ fontSize: 34, marginBottom: 10 }}>⚠️</div>
-          <h3 style={{ color: t.text, fontWeight: 900, marginBottom: 8 }}>촬영 정산 삭제</h3>
+          <h3 style={{ color: t.text, fontWeight: 700, marginBottom: 8 }}>촬영 정산 삭제</h3>
           <p style={{ color: t.sub, fontSize: FONT.base, marginBottom: 20 }}>이 건의 모든 모델 내역이 삭제됩니다.</p>
           <div style={{ display: "flex", gap: 10 }}>
             <SecondaryButton onClick={function () { setConfirmDelete(false); }} style={{ flex: 1 }} dark={dark}>취소</SecondaryButton>
@@ -1422,32 +1423,32 @@ function CalendarDetailModal({ project, paymentInfo, onChangeInfo, affiliatedMod
     );
   }
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }}>
-      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: RADIUS.lg, padding: 22, width: "100%", maxWidth: 480, maxHeight: "85vh", overflowY: "auto" }} onClick={function (e) { e.stopPropagation(); }}>
+    <div className="ui-scrim" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.32)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }}>
+      <div style={{ background: t.card, borderRadius: RADIUS.lg, padding: 22, width: "100%", maxWidth: 480, maxHeight: "85vh", overflowY: "auto" }} onClick={function (e) { e.stopPropagation(); }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
           <div>
-            <div style={{ fontSize: FONT.xs, color: t.sub, fontWeight: 700 }}>{project.date}{project.time ? " · ⏱ " + project.time : ""}</div>
-            <div style={{ fontSize: FONT.xl, fontWeight: 900, color: t.text }}>{project.brand}</div>
+            <div style={{ fontSize: FONT.xs, color: t.sub, fontWeight: 600 }}>{project.date}{project.time ? " · ⏱ " + project.time : ""}</div>
+            <div style={{ fontSize: FONT.xl, fontWeight: 700, color: t.text }}>{project.brand}</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ display: "inline-block", padding: "3px 8px", borderRadius: 6, fontSize: 10, fontWeight: 700, background: project.depositStatus === "입금" ? "#d1fae5" : "#fee2e2", color: project.depositStatus === "입금" ? "#065f46" : "#991b1b" }}>{project.depositStatus || "미입금"}</span>
-            <button onClick={function () { setEditingProject(true); }} style={{ padding: "3px 9px", borderRadius: 6, fontSize: 10, fontWeight: 700, border: "1px solid #4f46e5", background: "transparent", color: COLOR.primary, cursor: "pointer" }}>✎ 촬영 정보 수정</button>
-            {onRemoveProject && <button onClick={function () { setConfirmDelete(true); }} style={{ padding: "3px 9px", borderRadius: 6, fontSize: 10, fontWeight: 700, border: "1px solid " + COLOR.danger, background: "transparent", color: COLOR.danger, cursor: "pointer" }}>삭제</button>}
+            <span style={{ display: "inline-block", padding: "3px 8px", borderRadius: 6, fontSize: 10, fontWeight: 600, background: project.depositStatus === "입금" ? "#E3F4E8" : "#FDECEA", color: project.depositStatus === "입금" ? "#1B6B32" : "#9B1C14" }}>{project.depositStatus || "미입금"}</span>
+            <button onClick={function () { setEditingProject(true); }} style={{ padding: "3px 9px", borderRadius: 6, fontSize: 10, fontWeight: 600, border: "1px solid #B5462A", background: "transparent", color: COLOR.primary, cursor: "pointer" }}>✎ 촬영 정보 수정</button>
+            {onRemoveProject && <button onClick={function () { setConfirmDelete(true); }} style={{ padding: "3px 9px", borderRadius: 6, fontSize: 10, fontWeight: 600, border: "1px solid " + COLOR.danger, background: "transparent", color: COLOR.danger, cursor: "pointer" }}>삭제</button>}
           </div>
         </div>
 
         <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
           <div style={{ flex: 1, background: t.card2, border: "1px solid " + t.border, borderRadius: 10, padding: "10px 12px" }}>
             <div style={{ fontSize: 10, color: t.sub }}>총 섭외비용</div>
-            <div style={{ fontSize: FONT.lg, fontWeight: 900, color: t.text }}>{fmt(project.totalCost)}</div>
+            <div style={{ fontSize: FONT.lg, fontWeight: 700, color: t.text }}>{fmt(project.totalCost)}</div>
           </div>
           <div style={{ flex: 1, background: t.card2, border: "1px solid " + t.border, borderRadius: 10, padding: "10px 12px" }}>
             <div style={{ fontSize: 10, color: t.sub }}>순수익</div>
-            <div style={{ fontSize: FONT.lg, fontWeight: 900, color: "#10b981" }}>{fmt(agg.net)}</div>
+            <div style={{ fontSize: FONT.lg, fontWeight: 700, color: "#248A3D" }}>{fmt(agg.net)}</div>
           </div>
         </div>
 
-        <div style={{ fontSize: FONT.sm, fontWeight: 800, color: t.text, marginBottom: 6 }}>모델별 내역 · 지급정보 (클릭해서 수정, 섭외료/손Pay 등은 위 "✎ 촬영 정보 수정"에서 변경)</div>
+        <div style={{ fontSize: FONT.sm, fontWeight: 700, color: t.text, marginBottom: 6 }}>모델별 내역 · 지급정보 (클릭해서 수정, 섭외료/손Pay 등은 위 "✎ 촬영 정보 수정"에서 변경)</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
           {(project.models || []).map(function (m, i2) {
             var c = calcModel(m);
@@ -1458,8 +1459,8 @@ function CalendarDetailModal({ project, paymentInfo, onChangeInfo, affiliatedMod
             return (
               <div key={i2} style={{ background: t.card2, border: "1px solid " + t.border, borderRadius: 10, padding: "10px 12px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                  <span style={{ fontSize: FONT.md, fontWeight: 900, color: t.text }}>{m.name}</span>
-                  {timeLabel ? <span style={{ fontSize: FONT.sm, fontWeight: 800, color: "#4f46e5" }}>⏱ {timeLabel}</span> : null}
+                  <span style={{ fontSize: FONT.md, fontWeight: 700, color: t.text }}>{m.name}</span>
+                  {timeLabel ? <span style={{ fontSize: FONT.sm, fontWeight: 700, color: "#B5462A" }}>⏱ {timeLabel}</span> : null}
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, fontSize: FONT.sm, color: t.sub, marginBottom: 8 }}>
                   <div>섭외료 <b style={{ color: t.text }}>{fmt(m.agencyPrice)}</b></div>
@@ -1469,11 +1470,11 @@ function CalendarDetailModal({ project, paymentInfo, onChangeInfo, affiliatedMod
                 </div>
                 <div style={{ marginBottom: 8, paddingTop: 6, borderTop: "1px solid " + t.border, display: "flex", justifyContent: "space-between" }}>
                   <span style={{ fontSize: FONT.xs, color: t.sub }}>모델 라인 순수익</span>
-                  <span style={{ fontSize: FONT.base, fontWeight: 900, color: "#10b981" }}>{fmt(c.net)}</span>
+                  <span style={{ fontSize: FONT.base, fontWeight: 700, color: "#248A3D" }}>{fmt(c.net)}</span>
                 </div>
 
                 <div style={{ paddingTop: 6, borderTop: "1px dashed " + t.border }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: COLOR.primary, marginBottom: 6 }}>지급 정보 (모델 지급 관리 연동)</div>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: COLOR.primary, marginBottom: 6 }}>지급 정보 (모델 지급 관리 연동)</div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 6 }}>
                     <input value={info.regNo} onChange={function (e) { onChangeInfo(pid, "regNo", e.target.value); }} placeholder="주민등록번호" style={Object.assign({}, inputStyle(t), { padding: "6px 8px", fontSize: 11 })} />
                     <select value={info.taxType} onChange={function (e) { onChangeInfo(pid, "taxType", e.target.value); }} style={{ padding: "6px 8px", borderRadius: 6, border: "1px solid " + t.ib, background: t.input, color: t.text, fontSize: 11 }}>
@@ -1486,7 +1487,7 @@ function CalendarDetailModal({ project, paymentInfo, onChangeInfo, affiliatedMod
                   </div>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <span style={{ fontSize: FONT.xs, color: t.sub }}>최종 입금액 <b style={{ color: t.text }}>{fmt(pc.final)}</b></span>
-                    <button onClick={function () { onChangeInfo(pid, "paid", !info.paid); }} style={{ padding: "4px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 700, fontSize: FONT.xs, background: info.paid ? "#d1fae5" : "#fee2e2", color: info.paid ? "#065f46" : "#991b1b" }}>{info.paid ? "입금완료" : "미입금"}</button>
+                    <button onClick={function () { onChangeInfo(pid, "paid", !info.paid); }} style={{ padding: "4px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 600, fontSize: FONT.xs, background: info.paid ? "#E3F4E8" : "#FDECEA", color: info.paid ? "#1B6B32" : "#9B1C14" }}>{info.paid ? "입금완료" : "미입금"}</button>
                   </div>
                 </div>
               </div>
@@ -1496,7 +1497,7 @@ function CalendarDetailModal({ project, paymentInfo, onChangeInfo, affiliatedMod
 
         {project.note ? <div style={{ fontSize: FONT.xs, color: t.sub, marginBottom: 12, borderTop: "1px solid " + t.border, paddingTop: 8 }}>비고: {project.note}</div> : null}
 
-        <button onClick={onClose} style={{ width: "100%", padding: "10px 0", borderRadius: 9, border: "1px solid " + t.border, background: "transparent", color: t.text, fontWeight: 700, cursor: "pointer" }}>닫기</button>
+        <button onClick={onClose} style={{ width: "100%", padding: "10px 0", borderRadius: 9, border: "1px solid " + t.border, background: "transparent", color: t.text, fontWeight: 600, cursor: "pointer" }}>닫기</button>
       </div>
     </div>
   );
@@ -1577,7 +1578,7 @@ function CalendarTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
       <div style={{ fontSize: FONT.sm, color: t.sub, marginBottom: 12 }}>촬영 카드를 클릭하면 모델별 지급 정보(주민등록번호, 공제방식, 계좌, 입금여부)를 바로 등록·수정할 수 있고, 모델 지급 관리 탭에도 동일하게 반영됩니다. 카드의 동그라미를 누르면 입금완료 상태를 바로 전환할 수 있습니다.</div>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
-        <Card title="총 섭외비용" value={fmt(monthTotalCost)} color="#4f46e5" t={t} />
+        <Card title="총 섭외비용" value={fmt(monthTotalCost)} color="#B5462A" t={t} />
         <Card title="촬영 건수" value={monthProjectCount + "건"} t={t} />
         <Card title="섭외 모델 수" value={monthModelCount + "명"} t={t} />
       </div>
@@ -1593,23 +1594,23 @@ function CalendarTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
       </div>
 
       {q ? (
-        <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 16 }}>
-          <div style={{ fontSize: FONT.base, fontWeight: 800, color: t.text, marginBottom: 12 }}>{year}년 전체 검색 결과 · {yearMatches.length}건</div>
+        <div style={{ background: t.card, borderRadius: 14, padding: 16 }}>
+          <div style={{ fontSize: FONT.base, fontWeight: 700, color: t.text, marginBottom: 12 }}>{year}년 전체 검색 결과 · {yearMatches.length}건</div>
           {yearMatches.length === 0 && <div style={{ fontSize: FONT.sm, color: t.sub, textAlign: "center", padding: "20px 0" }}>일치하는 촬영 건이 없습니다.</div>}
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {yearMatches.map(function (p) {
               var names = (p.models || []).map(function (m) { return m.name; }).filter(Boolean).join(", ");
               var isPaid = p.depositStatus === "입금";
               return (
-                <button key={p.id} onClick={function () { setSelected(p); }} style={{ textAlign: "left", position: "relative", display: "flex", alignItems: "center", gap: 12, background: isPaid ? (dark ? "#0a2015" : "#f0fdf4") : t.card2, border: "1px solid " + (isPaid ? "#10b981" : t.border), borderRadius: 9, padding: "10px 36px 10px 12px", cursor: "pointer", width: "100%", boxSizing: "border-box" }}>
-                  <span style={{ fontSize: FONT.xs, fontWeight: 700, color: t.sub, flexShrink: 0, width: 74 }}>{p.date}</span>
-                  <span style={{ fontSize: FONT.base, fontWeight: 800, color: t.text, flexShrink: 0 }}>{p.brand}{p.note ? " 📝" : ""}</span>
-                  <span style={{ fontSize: FONT.sm, color: COLOR.primary, fontWeight: 700, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{names}</span>
-                  <span style={{ fontSize: FONT.base, fontWeight: 800, color: t.text, flexShrink: 0 }}>{fmt(p.totalCost)}</span>
+                <button key={p.id} onClick={function () { setSelected(p); }} style={{ textAlign: "left", position: "relative", display: "flex", alignItems: "center", gap: 12, background: isPaid ? (dark ? "#14281B" : "#F0F8F2") : t.card2, border: "1px solid " + (isPaid ? "#248A3D" : t.border), borderRadius: 9, padding: "10px 36px 10px 12px", cursor: "pointer", width: "100%", boxSizing: "border-box" }}>
+                  <span style={{ fontSize: FONT.xs, fontWeight: 600, color: t.sub, flexShrink: 0, width: 74 }}>{p.date}</span>
+                  <span style={{ fontSize: FONT.base, fontWeight: 700, color: t.text, flexShrink: 0 }}>{p.brand}{p.note ? " 📝" : ""}</span>
+                  <span style={{ fontSize: FONT.sm, color: COLOR.primary, fontWeight: 600, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{names}</span>
+                  <span style={{ fontSize: FONT.base, fontWeight: 700, color: t.text, flexShrink: 0 }}>{fmt(p.totalCost)}</span>
                   <span
                     onClick={function (ev) { ev.stopPropagation(); toggleDeposit(p); }}
                     title={isPaid ? "입금완료 (클릭 시 미입금으로 전환)" : "미입금 (클릭 시 입금완료로 전환)"}
-                    style={{ position: "absolute", top: "50%", right: 10, transform: "translateY(-50%)", width: 14, height: 14, borderRadius: "50%", background: isPaid ? "#10b981" : "transparent", border: "1.5px solid " + (isPaid ? "#10b981" : t.sub), cursor: "pointer" }}
+                    style={{ position: "absolute", top: "50%", right: 10, transform: "translateY(-50%)", width: 14, height: 14, borderRadius: "50%", background: isPaid ? "#248A3D" : "transparent", border: "1.5px solid " + (isPaid ? "#248A3D" : t.sub), cursor: "pointer" }}
                   />
                 </button>
               );
@@ -1617,10 +1618,10 @@ function CalendarTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
           </div>
         </div>
       ) : (
-      <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 14, padding: 14, overflowX: "auto" }}>
+      <div style={{ background: t.card, borderRadius: 14, padding: 14, overflowX: "auto" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 6, minWidth: 700, width: "100%" }}>
           {WEEKDAYS_KR.map(function (w, i) {
-            return <div key={w} style={{ textAlign: "center", fontSize: 15, fontWeight: 900, color: i === 0 ? "#ef4444" : (i === 6 ? "#4f46e5" : t.sub), padding: "5px 0", boxSizing: "border-box" }}>{w}</div>;
+            return <div key={w} style={{ textAlign: "center", fontSize: 15, fontWeight: 700, color: i === 0 ? "#D92D20" : (i === 6 ? "#B5462A" : t.sub), padding: "5px 0", boxSizing: "border-box" }}>{w}</div>;
           })}
           {cells.map(function (d, idx) {
             if (d === null) return <div key={idx} style={{ aspectRatio: "1.35", boxSizing: "border-box" }} />;
@@ -1629,13 +1630,13 @@ function CalendarTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
             var isToday = dateStr === todayStr;
             var weekday = idx % 7;
             return (
-              <div key={idx} style={{ aspectRatio: "1.35", boxSizing: "border-box", borderRadius: 8, border: isToday ? "2px solid #4f46e5" : "1px solid " + t.border, background: t.card2, padding: "6px 6px", display: "flex", flexDirection: "column", gap: 3, overflow: "hidden" }}>
+              <div key={idx} style={{ aspectRatio: "1.35", boxSizing: "border-box", borderRadius: 8, border: isToday ? "2px solid #B5462A" : "1px solid " + t.border, background: t.card2, padding: "6px 6px", display: "flex", flexDirection: "column", gap: 3, overflow: "hidden" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-                  <div style={{ fontSize: 17, fontWeight: 900, color: weekday === 0 ? "#ef4444" : (weekday === 6 ? "#4f46e5" : t.text) }}>{d}</div>
+                  <div style={{ fontSize: 17, fontWeight: 700, color: weekday === 0 ? "#D92D20" : (weekday === 6 ? "#B5462A" : t.text) }}>{d}</div>
                   <button
                     onClick={function () { setAddingDate(dateStr); }}
                     title="촬영 등록"
-                    style={{ width: 18, height: 18, borderRadius: 5, border: "1px solid " + t.border, background: "transparent", color: t.sub, cursor: "pointer", fontSize: FONT.sm, fontWeight: 900, lineHeight: "16px", padding: 0, flexShrink: 0, boxSizing: "border-box" }}
+                    style={{ width: 18, height: 18, borderRadius: 5, border: "1px solid " + t.border, background: "transparent", color: t.sub, cursor: "pointer", fontSize: FONT.sm, fontWeight: 700, lineHeight: "16px", padding: 0, flexShrink: 0, boxSizing: "border-box" }}
                   >+</button>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 3, overflowY: "auto", flex: 1, minHeight: 0 }}>
@@ -1643,15 +1644,15 @@ function CalendarTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
                     var names = (p.models || []).map(function (m) { return m.name; }).filter(Boolean).join(", ");
                     var isPaid = p.depositStatus === "입금";
                     return (
-                      <button key={p.id} onClick={function () { setSelected(p); }} style={{ textAlign: "left", position: "relative", background: isPaid ? (dark ? "#0a2015" : "#f0fdf4") : (dark ? "#1e2a4a" : "#eef2ff"), border: "1px solid " + (isPaid ? "#10b981" : (dark ? "#3730a3" : "#c7d2fe")), borderRadius: 6, padding: "5px 22px 5px 7px", cursor: "pointer", width: "100%", flexShrink: 0, boxSizing: "border-box" }}>
+                      <button key={p.id} onClick={function () { setSelected(p); }} style={{ textAlign: "left", position: "relative", background: isPaid ? (dark ? "#14281B" : "#F0F8F2") : (dark ? "#3A1F17" : "#FBEDE8"), border: "1px solid " + (isPaid ? "#248A3D" : (dark ? "#8E3520" : "#F0CFC4")), borderRadius: 6, padding: "5px 22px 5px 7px", cursor: "pointer", width: "100%", flexShrink: 0, boxSizing: "border-box" }}>
                         <span
                           onClick={function (ev) { ev.stopPropagation(); toggleDeposit(p); }}
                           title={isPaid ? "입금완료 (클릭 시 미입금으로 전환)" : "미입금 (클릭 시 입금완료로 전환)"}
-                          style={{ position: "absolute", top: 5, right: 5, width: 13, height: 13, borderRadius: "50%", background: isPaid ? "#10b981" : "transparent", border: "1.5px solid " + (isPaid ? "#10b981" : t.sub), cursor: "pointer" }}
+                          style={{ position: "absolute", top: 5, right: 5, width: 13, height: 13, borderRadius: "50%", background: isPaid ? "#248A3D" : "transparent", border: "1.5px solid " + (isPaid ? "#248A3D" : t.sub), cursor: "pointer" }}
                         />
-                        <div style={{ fontSize: FONT.sm, fontWeight: 800, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.brand}{p.note ? " 📝" : ""}</div>
+                        <div style={{ fontSize: FONT.sm, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.brand}{p.note ? " 📝" : ""}</div>
                         <div style={{ fontSize: 10, color: t.sub, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{names}{p.time ? " · " + p.time : ""}</div>
-                        <div style={{ fontSize: FONT.xs, fontWeight: 800, color: "#4f46e5" }}>{fmt(p.totalCost)}</div>
+                        <div style={{ fontSize: FONT.xs, fontWeight: 700, color: "#B5462A" }}>{fmt(p.totalCost)}</div>
                       </button>
                     );
                   })}
@@ -1878,101 +1879,37 @@ export default function ProjectApp({ currentUser, onLogout }) {
     };
   }, []);
 
-  var t = T(dark);
   var canUndo = historyIdx.current > 0;
   var canRedo = historyIdx.current < historyRef.current.length - 1;
 
-  if (loading) {
-    return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: t.bg }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 32, marginBottom: 12 }}>⏳</div>
-          <div style={{ fontWeight: 700, color: "#4f46e5" }}>데이터 불러오는 중...</div>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <Loading dark={dark} />;
 
   var navItems = [["calendar", "촬영 캘린더", "📅"], ["projects", "월별 촬영 정산내역", "🎬"], ["dashboard", "실적 대시보드", "📈"], ["expenses", "운영비용", "🧾"], ["payments", "모델 지급 관리", "💸"]];
 
   var NavContent = (
     <div style={{ padding: 8 }}>
       {navItems.map(function (item) {
-        return (
-          <button key={item[0]} onClick={function () { setTab(item[0]); setMobileNavOpen(false); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", borderRadius: 9, border: "none", cursor: "pointer", background: tab === item[0] ? "#4f46e5" : "transparent", color: tab === item[0] ? "#fff" : t.sub, fontWeight: 700, fontSize: FONT.base, marginBottom: 2, textAlign: "left" }}>
-            <span>{item[2]}</span>{item[1]}
-          </button>
-        );
+        return <NavItem key={item[0]} active={tab === item[0]} icon={item[2]} label={item[1]} dark={dark} onClick={function () { setTab(item[0]); setMobileNavOpen(false); }} />;
       })}
     </div>
   );
 
   return (
-    <div style={{ minHeight: "100vh", background: t.bg, fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" }}>
-      {isMobile && mobileNavOpen && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 200 }} onClick={function () { setMobileNavOpen(false); }}>
-          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 220, background: t.card, borderRight: "1px solid " + t.border, boxShadow: "4px 0 20px rgba(0,0,0,0.2)", overflowY: "auto" }} onClick={function (e) { e.stopPropagation(); }}>
-            <div style={{ padding: "14px 14px 8px", borderBottom: "1px solid " + t.border, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontWeight: 900, color: t.text, fontSize: 14 }}>메뉴</span>
-              <button onClick={function () { setMobileNavOpen(false); }} style={{ background: "none", border: "none", color: t.sub, cursor: "pointer", fontSize: 20 }}>x</button>
-            </div>
-            {NavContent}
-          </div>
-        </div>
-      )}
-
-      <header style={{ background: t.card, borderBottom: "1px solid " + t.border, padding: "8px 16px", display: "flex", alignItems: "center", gap: 10, position: "sticky", top: 0, zIndex: 10, boxShadow: "0 1px 6px rgba(0,0,0,0.08)" }}>
-        {isMobile && (
-          <button onClick={function () { setMobileNavOpen(true); }} style={{ width: 30, height: 30, borderRadius: 7, border: "1px solid " + t.border, background: "transparent", color: t.text, cursor: "pointer", fontSize: FONT.lg, display: "flex", alignItems: "center", justifyContent: "center" }}>☰</button>
-        )}
-        <img src={process.env.PUBLIC_URL + "/badge-icon.png"} alt="MoMo Agency" style={{ width: 34, height: 34, borderRadius: 9, flexShrink: 0, objectFit: "contain" }} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 900, color: t.text, fontSize: 17, lineHeight: 1.15, letterSpacing: -0.3 }}>촬영 프로젝트 관리 시스템</div>
-          <div style={{ fontSize: 10, color: t.sub }}>MoMo Agency · 촬영 정산 · 회사 손익 관리</div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
-          <a href="#settlement" style={{ height: 28, padding: "0 10px", borderRadius: 6, border: "1px solid " + t.border, display: "flex", alignItems: "center", fontWeight: 700, fontSize: FONT.xs, color: t.text, textDecoration: "none" }}>모델 정산관리 →</a>
-          <button onClick={undo} disabled={!canUndo} title="실행취소" style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid " + t.border, background: canUndo ? t.card : "transparent", color: canUndo ? t.text : t.sub, cursor: canUndo ? "pointer" : "not-allowed", fontSize: FONT.base, display: "flex", alignItems: "center", justifyContent: "center" }}>↩</button>
-          <button onClick={redo} disabled={!canRedo} title="되돌리기" style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid " + t.border, background: canRedo ? t.card : "transparent", color: canRedo ? t.text : t.sub, cursor: canRedo ? "pointer" : "not-allowed", fontSize: FONT.base, display: "flex", alignItems: "center", justifyContent: "center" }}>↪</button>
-          <button onClick={handleSave} disabled={saveStatus === "saving"} style={{ height: 28, padding: "0 10px", borderRadius: 6, border: "none", cursor: saveStatus === "saving" ? "not-allowed" : "pointer", fontWeight: 700, fontSize: FONT.xs, background: saveStatus === "saved" ? "#d1fae5" : saveStatus === "error" ? "#fee2e2" : unsaved ? "#4f46e5" : (dark ? "#1e293b" : "#e2e8f0"), color: saveStatus === "saved" ? "#065f46" : saveStatus === "error" ? "#991b1b" : unsaved ? "#fff" : t.sub }}>
-            {saveStatus === "saving" ? "저장 중..." : saveStatus === "saved" ? "저장됨" : saveStatus === "error" ? "실패" : unsaved ? "저장" : "저장됨"}
-          </button>
-          <button onClick={function () { setDark(function (v) { return !v; }); }} style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid " + t.border, background: t.card, color: t.text, cursor: "pointer", fontSize: FONT.md, display: "flex", alignItems: "center", justifyContent: "center" }}>{dark ? "☀" : "🌙"}</button>
-          {currentUser && <span style={{ fontSize: FONT.xs, color: t.sub, marginLeft: 2, whiteSpace: "nowrap" }}>{currentUser.name}</span>}
-          {onLogout && <button onClick={onLogout} title="로그아웃" style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid " + t.border, background: t.card, color: t.sub, cursor: "pointer", fontSize: FONT.base, display: "flex", alignItems: "center", justifyContent: "center" }}>🚪</button>}
-        </div>
-      </header>
-
-      <div style={{ maxWidth: "100%", margin: "0 auto", padding: "12px " + (isMobile ? "12px" : "16px"), display: "flex", gap: 14, paddingBottom: isMobile ? 70 : 16 }}>
-        {!isMobile && (
-          <aside style={{ width: 175, flexShrink: 0 }}>
-            <div style={{ background: t.card, border: "1px solid " + t.border, borderRadius: 12, position: "sticky", top: 56 }}>
-              {NavContent}
-            </div>
-          </aside>
-        )}
-        <main style={{ flex: 1, minWidth: 0 }}>
-          {tab === "dashboard" && <DashboardTab year={year} setYear={setYear} allProjects={allProjects} expenses={expenses} recurringExpenses={recurringExpenses} dark={dark} />}
-          {tab === "projects" && <ProjectsTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} expenses={expenses} recurringExpenses={recurringExpenses} affiliatedModels={affiliatedModels} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} onAdd={addProject} onUpdate={updateProject} onRemove={removeProject} onLinkIds={assignLinkIds} dark={dark} />}
-          {loadError && <div style={{ background: "#fef2f2", border: "1.5px solid #ef4444", color: "#991b1b", borderRadius: 10, padding: "10px 14px", marginBottom: 12, fontSize: 13, fontWeight: 700 }}>⚠️ 서버 데이터를 불러오지 못해 이 기기에 저장된 사본을 표시 중입니다. 새로고침(F5) 후 작업해주세요. (저장 시 서버 내용은 지워지지 않고 병합됩니다)</div>}
-          {tab === "calendar" && <CalendarTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} affiliatedModels={affiliatedModels} onUpdateProject={updateProject} onAddProject={addProject} onRemoveProject={removeProject} dark={dark} />}
-          {tab === "expenses" && <ExpensesTab year={year} month={month} setYear={setYear} setMonth={setMonth} expenses={expenses} recurringExpenses={recurringExpenses} allProjects={allProjects} onChange={changeExpenses} onChangeRecurring={changeRecurringExpenses} dark={dark} />}
-          {tab === "payments" && <PaymentsTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} dark={dark} />}
-        </main>
-      </div>
-
-      {isMobile && (
-        <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: t.card, borderTop: "1px solid " + t.border, display: "flex", zIndex: 50, boxShadow: "0 -2px 10px rgba(0,0,0,0.1)" }}>
-          {navItems.map(function (item) {
-            return (
-              <button key={item[0]} onClick={function () { setTab(item[0]); }} style={{ flex: 1, padding: "8px 4px 10px", border: "none", background: "transparent", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                <span style={{ fontSize: tab === item[0] ? 20 : 16 }}>{item[2]}</span>
-                <span style={{ fontSize: 9, fontWeight: 700, color: tab === item[0] ? "#4f46e5" : t.sub, whiteSpace: "nowrap" }}>{item[1]}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
+    <AppShell dark={dark} isMobile={isMobile} nav={NavContent}
+      mobileNavOpen={mobileNavOpen} setMobileNavOpen={setMobileNavOpen}
+      title="촬영 프로젝트 관리 시스템" subtitle="MoMo Agency · 촬영 정산 · 회사 손익 관리"
+      switchHref="#settlement" switchLabel="모델 정산관리 →" switchShort="정산 →"
+      undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo}
+      onSave={handleSave} saveStatus={saveStatus} unsaved={unsaved}
+      onToggleDark={function () { setDark(function (v) { return !v; }); }}
+      currentUser={currentUser} onLogout={onLogout}
+      loadError={loadError ? "서버 데이터를 불러오지 못해 이 기기에 저장된 사본을 표시 중입니다. 새로고침(F5) 후 작업해주세요. (저장 시 서버 내용은 지워지지 않고 병합됩니다)" : null}
+      tabs={navItems} tab={tab} setTab={setTab}>
+      {tab === "dashboard" && <DashboardTab year={year} setYear={setYear} allProjects={allProjects} expenses={expenses} recurringExpenses={recurringExpenses} dark={dark} />}
+      {tab === "projects" && <ProjectsTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} expenses={expenses} recurringExpenses={recurringExpenses} affiliatedModels={affiliatedModels} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} onAdd={addProject} onUpdate={updateProject} onRemove={removeProject} onLinkIds={assignLinkIds} dark={dark} />}
+      {tab === "calendar" && <CalendarTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} affiliatedModels={affiliatedModels} onUpdateProject={updateProject} onAddProject={addProject} onRemoveProject={removeProject} dark={dark} />}
+      {tab === "expenses" && <ExpensesTab year={year} month={month} setYear={setYear} setMonth={setMonth} expenses={expenses} recurringExpenses={recurringExpenses} allProjects={allProjects} onChange={changeExpenses} onChangeRecurring={changeRecurringExpenses} dark={dark} />}
+      {tab === "payments" && <PaymentsTab year={year} month={month} setYear={setYear} setMonth={setMonth} allProjects={allProjects} paymentInfo={paymentInfo} onChangeInfo={changePaymentInfo} dark={dark} />}
+    </AppShell>
   );
 }
