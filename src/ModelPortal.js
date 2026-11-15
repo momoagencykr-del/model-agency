@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { parseRequest } from "./parseRequest";
 
 // ── 모델 전용 촬영 입력 화면 (카톡 링크로 접속, 로그인 없음) ────────────────────
 // 달력에서 날짜를 눌러 촬영을 추가하고 [저장]을 누르면 모델 정산관리 시스템에 바로 반영된다.
@@ -7,60 +8,66 @@ var L = {
     hint: "날짜를 눌러 촬영을 추가하세요. 저장하면 바로 정산에 반영됩니다.", saveCh: "변경사항 저장", logTitle: "님의 촬영 기록",
     title: "촬영 입력", hello: "님, 안녕하세요", intro: "촬영한 날짜를 눌러 [+ 촬영 추가]로 입력하고, 마지막에 [저장]을 눌러주세요. 저장하면 바로 정산에 반영됩니다.",
     totalCount: "이번 달 촬영", countUnit: "건", totalAmount: "고객사로부터 받는 금액 합계", add: "+ 촬영 추가",
-    date: "촬영일", brand: "브랜드 / 고객사", amount: "고객사로부터 받는 금액 (원)", note: "메모 (선택)", payer: "입금자명 (선택)", payDate: "예상 입금일 (선택)", contact: "담당자 연락처 또는 이메일 (선택)", payOn: "입금 예정",
+    date: "촬영일", brand: "브랜드 / 고객사", amount: "고객사로부터 받는 금액 (원)", note: "메모 (선택)", payer: "입금자명", payDate: "예상 입금일 (선택)", contact: "담당자 연락처 또는 이메일", payOn: "입금 예정",
     save: "저장", saving: "저장 중...", saved: "저장되었습니다. 정산에 반영됐어요.", unsaved: "저장하지 않은 변경사항이 있습니다",
     del: "삭제", ok: "확인", close: "닫기", paid: "입금 완료 · 수정 불가", list: "이번 달 입력 내역", none: "아직 입력한 촬영이 없습니다. 달력에서 날짜를 눌러 추가하세요.",
-    need: "브랜드와 금액을 입력해주세요", invalid: "링크가 올바르지 않습니다. 담당자에게 새 링크를 요청해주세요.", loading: "불러오는 중...", err: "오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
+    paste: "📋 요청서 붙여넣기", pasteHint: "고객사에게 받은 섭외 요청서를 그대로 붙여넣으면 알맞은 칸에 자동으로 채워져요.", pasteBtn: "자동으로 채우기", pastePh: "여기에 붙여넣기", filled: "{n}칸을 채웠어요. 내용을 확인해주세요.", noneFound: "읽을 수 있는 항목을 찾지 못했어요. 직접 입력해주세요.", payerMissing: "입금자명은 요청서에 없어서 직접 입력해주세요.", otherMonth: "요청서의 촬영일({d})이 지금 보고 있는 달이 아니에요. 달력에서 그 달로 이동한 뒤 다시 붙여넣어 주세요.",
+    need: "브랜드, 금액, 입금자명, 담당자 연락처를 모두 입력해주세요", invalid: "링크가 올바르지 않습니다. 담당자에게 새 링크를 요청해주세요.", loading: "불러오는 중...", err: "오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
     leave: "저장하지 않은 내용이 있습니다. 다른 달로 이동할까요?", wd: ["일","월","화","수","목","금","토"],
   },
   en: {
     hint: "Tap a day to add a shoot. Saved shoots go straight into your settlement.", saveCh: "Save changes", logTitle: "'s shoots",
     title: "Your shoots", hello: ", hello", intro: "Tap the day you had a shoot, add it with [+ Add shoot], then press [Save]. Saved shoots go straight into your settlement.",
     totalCount: "Shoots this month", countUnit: "", totalAmount: "Total received from clients", add: "+ Add shoot",
-    date: "Shoot date", brand: "Brand / client", amount: "Amount from client (KRW)", note: "Note (optional)", payer: "Payer name (optional)", payDate: "Expected payment date (optional)", contact: "Client contact phone or email (optional)", payOn: "Payment due",
+    date: "Shoot date", brand: "Brand / client", amount: "Amount from client (KRW)", note: "Note (optional)", payer: "Payer name", payDate: "Expected payment date (optional)", contact: "Client contact phone or email", payOn: "Payment due",
     save: "Save", saving: "Saving...", saved: "Saved. Added to your settlement.", unsaved: "You have unsaved changes",
     del: "Delete", ok: "OK", close: "Close", paid: "Paid · cannot be changed", list: "This month's shoots", none: "No shoots yet. Tap a day on the calendar to add one.",
-    need: "Please enter the brand and amount", invalid: "This link is not valid. Please ask us for a new link.", loading: "Loading...", err: "Something went wrong. Please try again.",
+    paste: "📋 Paste request", pasteHint: "Paste the booking request you got from the client (Korean is fine) and the fields fill in for you.", pasteBtn: "Fill in automatically", pastePh: "Paste here", filled: "Filled {n} fields. Please check them.", noneFound: "Couldn't read any fields. Please fill them in yourself.", payerMissing: "The request has no payer name, so please enter it yourself.", otherMonth: "The shoot date in the request ({d}) isn't in this month. Move to that month on the calendar and paste again.",
+    need: "Please enter the brand, amount, payer name and client contact", invalid: "This link is not valid. Please ask us for a new link.", loading: "Loading...", err: "Something went wrong. Please try again.",
     leave: "You have unsaved changes. Move to another month?", wd: ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],
   },
   ru: {
     hint: "Нажмите на день, чтобы добавить съёмку. После сохранения она сразу попадает в расчёт.", saveCh: "Сохранить изменения", logTitle: " — ваши съёмки",
     title: "Ваши съёмки", hello: ", здравствуйте", intro: "Нажмите на день съёмки, добавьте её кнопкой [+ Добавить съёмку] и нажмите [Сохранить]. Сохранённые съёмки сразу попадают в расчёт.",
     totalCount: "Съёмок за месяц", countUnit: "", totalAmount: "Итого получено от клиентов", add: "+ Добавить съёмку",
-    date: "Дата съёмки", brand: "Бренд / клиент", amount: "Сумма от клиента (KRW)", note: "Заметка (необязательно)", payer: "Имя плательщика (необязательно)", payDate: "Ожидаемая дата оплаты (необязательно)", contact: "Телефон или email контактного лица (необязательно)", payOn: "Оплата",
+    date: "Дата съёмки", brand: "Бренд / клиент", amount: "Сумма от клиента (KRW)", note: "Заметка (необязательно)", payer: "Имя плательщика", payDate: "Ожидаемая дата оплаты (необязательно)", contact: "Телефон или email контактного лица", payOn: "Оплата",
     save: "Сохранить", saving: "Сохранение...", saved: "Сохранено. Добавлено в расчёт.", unsaved: "Есть несохранённые изменения",
     del: "Удалить", ok: "Готово", close: "Закрыть", paid: "Оплачено · изменить нельзя", list: "Съёмки за месяц", none: "Съёмок пока нет. Нажмите на день в календаре, чтобы добавить.",
-    need: "Укажите бренд и сумму", invalid: "Ссылка недействительна. Попросите у нас новую ссылку.", loading: "Загрузка...", err: "Произошла ошибка. Попробуйте позже.",
+    paste: "📋 Вставить заявку", pasteHint: "Вставьте заявку от клиента (можно на корейском) — поля заполнятся автоматически.", pasteBtn: "Заполнить автоматически", pastePh: "Вставьте сюда", filled: "Заполнено полей: {n}. Проверьте их.", noneFound: "Не удалось распознать поля. Заполните их вручную.", payerMissing: "В заявке нет имени плательщика — введите его вручную.", otherMonth: "Дата съёмки в заявке ({d}) не в этом месяце. Перейдите к нужному месяцу и вставьте снова.",
+    need: "Укажите бренд, сумму, имя плательщика и контакт клиента", invalid: "Ссылка недействительна. Попросите у нас новую ссылку.", loading: "Загрузка...", err: "Произошла ошибка. Попробуйте позже.",
     leave: "Есть несохранённые изменения. Перейти к другому месяцу?", wd: ["Вс","Пн","Вт","Ср","Чт","Пт","Сб"],
   },
   fr: {
     hint: "Touchez un jour pour ajouter un shooting. Une fois enregistré, il est ajouté à votre règlement.", saveCh: "Enregistrer", logTitle: " — vos shootings",
     title: "Vos shootings", hello: ", bonjour", intro: "Touchez le jour du shooting, ajoutez-le avec [+ Ajouter un shooting], puis appuyez sur [Enregistrer]. Les shootings enregistrés sont ajoutés directement à votre règlement.",
     totalCount: "Shootings ce mois-ci", countUnit: "", totalAmount: "Total reçu des clients", add: "+ Ajouter un shooting",
-    date: "Date du shooting", brand: "Marque / client", amount: "Montant reçu du client (KRW)", note: "Note (facultatif)", payer: "Nom du payeur (facultatif)", payDate: "Date de paiement prévue (facultatif)", contact: "Téléphone ou e-mail du contact (facultatif)", payOn: "Paiement prévu",
+    date: "Date du shooting", brand: "Marque / client", amount: "Montant reçu du client (KRW)", note: "Note (facultatif)", payer: "Nom du payeur", payDate: "Date de paiement prévue (facultatif)", contact: "Téléphone ou e-mail du contact", payOn: "Paiement prévu",
     save: "Enregistrer", saving: "Enregistrement...", saved: "Enregistré. Ajouté à votre règlement.", unsaved: "Modifications non enregistrées",
     del: "Supprimer", ok: "OK", close: "Fermer", paid: "Payé · non modifiable", list: "Shootings du mois", none: "Aucun shooting pour l'instant. Touchez un jour du calendrier pour en ajouter.",
-    need: "Veuillez saisir la marque et le montant", invalid: "Ce lien n'est pas valide. Demandez-nous un nouveau lien.", loading: "Chargement...", err: "Une erreur s'est produite. Réessayez plus tard.",
+    paste: "📋 Coller la demande", pasteHint: "Collez la demande reçue du client (le coréen convient) et les champs se remplissent automatiquement.", pasteBtn: "Remplir automatiquement", pastePh: "Collez ici", filled: "{n} champs remplis. Vérifiez-les.", noneFound: "Aucun champ reconnu. Remplissez-les vous-même.", payerMissing: "La demande n'indique pas le payeur : saisissez-le vous-même.", otherMonth: "La date du shooting ({d}) n'est pas dans ce mois. Allez à ce mois dans le calendrier et collez à nouveau.",
+    need: "Veuillez saisir la marque, le montant, le nom du payeur et le contact du client", invalid: "Ce lien n'est pas valide. Demandez-nous un nouveau lien.", loading: "Chargement...", err: "Une erreur s'est produite. Réessayez plus tard.",
     leave: "Modifications non enregistrées. Changer de mois ?", wd: ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"],
   },
   pt: {
     hint: "Toque em um dia para adicionar um trabalho. Ao salvar, ele entra direto no seu acerto.", saveCh: "Salvar alterações", logTitle: " — seus trabalhos",
     title: "Seus trabalhos", hello: ", olá", intro: "Toque no dia do trabalho, adicione com [+ Adicionar trabalho] e depois toque em [Salvar]. Os trabalhos salvos entram direto no seu acerto.",
     totalCount: "Trabalhos no mês", countUnit: "", totalAmount: "Total recebido dos clientes", add: "+ Adicionar trabalho",
-    date: "Data do trabalho", brand: "Marca / cliente", amount: "Valor recebido do cliente (KRW)", note: "Observação (opcional)", payer: "Nome do pagador (opcional)", payDate: "Data prevista de pagamento (opcional)", contact: "Telefone ou e-mail do contato (opcional)", payOn: "Pagamento previsto",
+    date: "Data do trabalho", brand: "Marca / cliente", amount: "Valor recebido do cliente (KRW)", note: "Observação (opcional)", payer: "Nome do pagador", payDate: "Data prevista de pagamento (opcional)", contact: "Telefone ou e-mail do contato", payOn: "Pagamento previsto",
     save: "Salvar", saving: "Salvando...", saved: "Salvo. Incluído no seu acerto.", unsaved: "Há alterações não salvas",
     del: "Excluir", ok: "OK", close: "Fechar", paid: "Pago · não pode ser alterado", list: "Trabalhos do mês", none: "Nenhum trabalho ainda. Toque em um dia do calendário para adicionar.",
-    need: "Informe a marca e o valor", invalid: "Este link não é válido. Peça um novo link para nós.", loading: "Carregando...", err: "Ocorreu um erro. Tente novamente mais tarde.",
+    paste: "📋 Colar pedido", pasteHint: "Cole o pedido recebido do cliente (pode ser em coreano) e os campos são preenchidos automaticamente.", pasteBtn: "Preencher automaticamente", pastePh: "Cole aqui", filled: "{n} campos preenchidos. Confira-os.", noneFound: "Nenhum campo reconhecido. Preencha manualmente.", payerMissing: "O pedido não tem o nome do pagador; preencha manualmente.", otherMonth: "A data do trabalho no pedido ({d}) não é deste mês. Vá para esse mês no calendário e cole de novo.",
+    need: "Informe a marca, o valor, o nome do pagador e o contato do cliente", invalid: "Este link não é válido. Peça um novo link para nós.", loading: "Carregando...", err: "Ocorreu um erro. Tente novamente mais tarde.",
     leave: "Há alterações não salvas. Mudar de mês?", wd: ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"],
   },
   es: {
     hint: "Toca un día para agregar un trabajo. Al guardar, se agrega directamente a tu liquidación.", saveCh: "Guardar cambios", logTitle: " — tus trabajos",
     title: "Tus trabajos", hello: ", hola", intro: "Toca el día del trabajo, agrégalo con [+ Agregar trabajo] y luego pulsa [Guardar]. Los trabajos guardados se agregan directamente a tu liquidación.",
     totalCount: "Trabajos este mes", countUnit: "", totalAmount: "Total recibido de clientes", add: "+ Agregar trabajo",
-    date: "Fecha del trabajo", brand: "Marca / cliente", amount: "Monto recibido del cliente (KRW)", note: "Nota (opcional)", payer: "Nombre del pagador (opcional)", payDate: "Fecha de pago prevista (opcional)", contact: "Teléfono o correo del contacto (opcional)", payOn: "Pago previsto",
+    date: "Fecha del trabajo", brand: "Marca / cliente", amount: "Monto recibido del cliente (KRW)", note: "Nota (opcional)", payer: "Nombre del pagador", payDate: "Fecha de pago prevista (opcional)", contact: "Teléfono o correo del contacto", payOn: "Pago previsto",
     save: "Guardar", saving: "Guardando...", saved: "Guardado. Agregado a tu liquidación.", unsaved: "Hay cambios sin guardar",
     del: "Eliminar", ok: "OK", close: "Cerrar", paid: "Pagado · no se puede cambiar", list: "Trabajos del mes", none: "Aún no hay trabajos. Toca un día del calendario para agregar uno.",
-    need: "Indica la marca y el monto", invalid: "Este enlace no es válido. Pídenos un enlace nuevo.", loading: "Cargando...", err: "Ocurrió un error. Inténtalo más tarde.",
+    paste: "📋 Pegar solicitud", pasteHint: "Pega la solicitud que recibiste del cliente (puede estar en coreano) y los campos se llenan solos.", pasteBtn: "Llenar automáticamente", pastePh: "Pega aquí", filled: "Se llenaron {n} campos. Revísalos.", noneFound: "No se reconoció ningún campo. Llénalos manualmente.", payerMissing: "La solicitud no trae el nombre del pagador; escríbelo manualmente.", otherMonth: "La fecha del trabajo en la solicitud ({d}) no es de este mes. Ve a ese mes en el calendario y pega de nuevo.",
+    need: "Indica la marca, el monto, el nombre del pagador y el contacto del cliente", invalid: "Este enlace no es válido. Pídenos un enlace nuevo.", loading: "Cargando...", err: "Ocurrió un error. Inténtalo más tarde.",
     leave: "Hay cambios sin guardar. ¿Cambiar de mes?", wd: ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"],
   },
 };
@@ -102,6 +109,10 @@ export default function ModelPortal({ token }) {
   var [draft, setDraft] = useState(null);      // 추가/수정 중인 건
   var [busy, setBusy] = useState(false);
   var [msg, setMsg] = useState({ text: "", ok: false });
+  var [miss, setMiss] = useState([]);          // 비어 있는 필수 칸 (빨간 테두리)
+  var [pasteOpen, setPasteOpen] = useState(false);
+  var [pasteText, setPasteText] = useState("");
+  var [pasteMsg, setPasteMsg] = useState({ text: "", ok: false });
 
   var dirty = !sameJ(entries, savedEntries);
 
@@ -126,17 +137,25 @@ export default function ModelPortal({ token }) {
     return function () { window.removeEventListener("beforeunload", h); };
   }, [dirty]);
 
+  // 저장 완료 메시지는 3초 뒤 사라짐
+  useEffect(function () {
+    if (!msg.ok) return;
+    var tm = setTimeout(function () { setMsg({ text: "", ok: false }); }, 3000);
+    return function () { clearTimeout(tm); };
+  }, [msg]);
+
   var changeMonth = function (key) {
     if (key === ym) return;
     if (dirty && !window.confirm(tx.leave)) return;
     setYm(key);
   };
 
-  var save = function () {
+  var save = function (list) {
+    list = Array.isArray(list) ? list : entries;
     setBusy(true); setMsg({ text: "", ok: false });
     fetch("/api/model-portal", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ t: token, month: ym, entries: entries.map(function (e) { return { id: e.id, date: e.date, brand: e.brand, income: e.income, note: e.note, payerName: e.payerName || "", expectedPayDate: e.expectedPayDate || "", clientContact: e.clientContact || "" }; }) }),
+      body: JSON.stringify({ t: token, month: ym, entries: list.map(function (e) { return { id: e.id, date: e.date, brand: e.brand, income: e.income, note: e.note, payerName: e.payerName || "", expectedPayDate: e.expectedPayDate || "", clientContact: e.clientContact || "" }; }) }),
     }).then(function (r) { if (!r.ok) throw new Error("save"); return r.json(); })
       .then(function (j) { setEntries(j.entries); setSavedEntries(j.entries); setBusy(false); setMsg({ text: tx.saved, ok: true }); })
       .catch(function () { setBusy(false); setMsg({ text: tx.err, ok: false }); });
@@ -147,21 +166,53 @@ export default function ModelPortal({ token }) {
   var startAdd = function () { setDraft({ id: null, tmp: "n" + Date.now(), date: day, brand: "", income: "", note: "", payerName: "", expectedPayDate: "", clientContact: "" }); };
   var startAddFor = function (ds) { return function () { setDraft({ id: null, tmp: "n" + Date.now(), date: ds, brand: "", income: "", note: "", payerName: "", expectedPayDate: "", clientContact: "" }); }; };
   var startEdit = function (e) { if (!e.paid) setDraft(Object.assign({}, e)); };
+  // 입력창이 바뀔 때마다 붙여넣기·오류 표시를 초기화
+  var draftKey = draft ? (draft.id !== null ? "i" + draft.id : draft.tmp) : "";
+  useEffect(function () { setMiss([]); setPasteOpen(false); setPasteText(""); setPasteMsg({ text: "", ok: false }); }, [draftKey]);
+  var setField = function (k, v) {
+    setDraft(function (d) { var o = Object.assign({}, d); o[k] = v; return o; });
+    if (miss.indexOf(k) >= 0) setMiss(miss.filter(function (x) { return x !== k; }));
+  };
+  // 저장하면 바로 서버에 반영하고 달력 화면으로 돌아감
+  var finish = function (next) {
+    setEntries(next); setDay(null); setDraft(null);
+    save(next);
+  };
   var commitDraft = function () {
-    if (!draft.brand.trim() || !(Number(draft.income) > 0)) { setMsg({ text: tx.need, ok: false }); return; }
+    var need = [];
+    if (!draft.brand.trim()) need.push("brand");
+    if (!(Number(draft.income) > 0)) need.push("income");
+    if (!(draft.payerName || "").trim()) need.push("payerName");
+    if (!(draft.clientContact || "").trim()) need.push("clientContact");
+    if (need.length) { setMiss(need); setMsg({ text: tx.need, ok: false }); return; }
     setMsg({ text: "", ok: false });
-    setEntries(function (prev) {
-      var key = draft.id !== null ? "id" : "tmp";
-      var exists = prev.some(function (e) { return e[key] !== undefined && e[key] === draft[key]; });
-      var row = { id: draft.id, tmp: draft.tmp, date: draft.date, brand: draft.brand.trim(), income: Number(draft.income), note: draft.note, payerName: (draft.payerName || "").trim(), expectedPayDate: draft.expectedPayDate || "", clientContact: (draft.clientContact || "").trim(), paid: false };
-      var next = exists ? prev.map(function (e) { return e[key] === draft[key] ? row : e; }) : prev.concat([row]);
-      return next.sort(function (a, b) { return a.date.localeCompare(b.date); });
-    });
-    setDraft(null);
+    var key = draft.id !== null ? "id" : "tmp";
+    var exists = entries.some(function (e) { return e[key] !== undefined && e[key] === draft[key]; });
+    var row = { id: draft.id, tmp: draft.tmp, date: draft.date, brand: draft.brand.trim(), income: Number(draft.income), note: draft.note, payerName: (draft.payerName || "").trim(), expectedPayDate: draft.expectedPayDate || "", clientContact: (draft.clientContact || "").trim(), paid: false };
+    var next = exists ? entries.map(function (e) { return e[key] === draft[key] ? row : e; }) : entries.concat([row]);
+    finish(next.sort(function (a, b) { return a.date.localeCompare(b.date); }));
   };
   var removeEntry = function (e) {
-    setEntries(function (prev) { return prev.filter(function (x) { return x !== e; }); });
-    setDraft(null);
+    finish(entries.filter(function (x) { return x !== e; }));
+  };
+  // 요청서 붙여넣기 → 칸별 자동 채우기 (메모는 기존 내용 뒤에 덧붙임)
+  var applyPaste = function (text) {
+    var r = parseRequest(text, y);
+    var d = Object.assign({}, draft);
+    var n = 0;
+    var put = function (k, v) { if (v) { d[k] = v; n++; } };
+    put("brand", r.brand); put("income", r.income); put("payerName", r.payerName); put("clientContact", r.clientContact); put("expectedPayDate", r.expectedPayDate);
+    var other = "";
+    if (r.date) { if (r.date.slice(0, 7) === ym) { d.date = r.date; n++; } else other = r.date; }
+    if (r.note) { d.note = !d.note ? r.note : d.note.indexOf(r.note) >= 0 ? d.note : d.note + " · " + r.note; n++; }
+    setDraft(d);
+    setMiss(miss.filter(function (k) { return !d[k]; }));
+    var parts = [];
+    if (n) parts.push(tx.filled.replace("{n}", n)); else parts.push(tx.noneFound);
+    if (other) parts.push(tx.otherMonth.replace("{d}", Number(other.slice(5, 7)) + "/" + Number(other.slice(8, 10))));
+    if (n && !d.payerName) parts.push(tx.payerMissing);
+    setPasteMsg({ text: parts.join(" "), ok: !!n && !other && !!d.payerName });
+    if (n) { setPasteOpen(false); setPasteText(""); }
   };
 
   // ── 디자인 토큰 (Apple 스타일) ──────────────────────────────────────────────
@@ -177,6 +228,7 @@ export default function ModelPortal({ token }) {
   var card = { background: C.card, borderRadius: 14, overflow: "hidden" };
   var fieldLabel = { display: "block", fontSize: 13, color: C.sub, fontWeight: 500, margin: "0 4px 6px" };
   var input = { width: "100%", height: 46, padding: "0 14px", borderRadius: 11, border: "none", fontSize: 17, boxSizing: "border-box", background: C.fill, color: C.ink, fontFamily: FF };
+  var fieldStyle = function (k) { return miss.indexOf(k) >= 0 ? Object.assign({}, input, { boxShadow: "0 0 0 2px " + C.bad + " inset", background: C.badSoft }) : input; };
   var loc = LOCALE[lang] || "en-US";
   var totalCount = entries.length;
   var totalAmount = entries.reduce(function (s, e) { return s + (Number(e.income) || 0); }, 0);
@@ -388,20 +440,41 @@ export default function ModelPortal({ token }) {
 
             {draft && (
               <div style={{ display: "grid", gap: 16 }}>
-                <label><span style={fieldLabel}>{tx.brand}</span><input autoFocus value={draft.brand} onChange={function (e) { setDraft(Object.assign({}, draft, { brand: e.target.value })); }} style={input} /></label>
-                <label><span style={fieldLabel}>{tx.amount}</span>
+                {/* 요청서 붙여넣기: 고객사 섭외 요청서를 통째로 붙여넣으면 칸별로 자동 입력 */}
+                <div style={{ background: C.bg, borderRadius: 14, padding: pasteOpen ? "12px 12px 12px" : 0 }}>
+                  {!pasteOpen ? (
+                    <button className="mp-press" onClick={function () { setPasteOpen(true); setPasteMsg({ text: "", ok: false }); }}
+                      style={{ width: "100%", minHeight: 48, borderRadius: 14, border: "1.5px dashed " + C.tint, background: C.tintSoft, color: C.tint, fontWeight: 600, fontSize: 16, fontFamily: FF, cursor: "pointer", padding: "10px 14px" }}>{tx.paste}</button>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.5, margin: "0 2px 8px" }}>{tx.pasteHint}</div>
+                      <textarea autoFocus value={pasteText} placeholder={tx.pastePh} rows={6}
+                        onChange={function (e) { setPasteText(e.target.value); }}
+                        onPaste={function (e) { var t = (e.clipboardData && e.clipboardData.getData("text")) || ""; if (t.trim()) { e.preventDefault(); setPasteText(t); applyPaste(t); } }}
+                        style={Object.assign({}, input, { height: "auto", minHeight: 130, padding: "12px 14px", fontSize: 15, lineHeight: 1.5, resize: "vertical", background: "#fff" })} />
+                      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                        <button className="mp-press" onClick={function () { setPasteOpen(false); setPasteText(""); }} style={{ flex: 1, height: 44, borderRadius: 12, border: "none", background: C.fill, color: C.sub, fontWeight: 600, fontSize: 15, fontFamily: FF, cursor: "pointer" }}>{tx.close}</button>
+                        <button className="mp-press" disabled={!pasteText.trim()} onClick={function () { applyPaste(pasteText); }} style={{ flex: 2, height: 44, borderRadius: 12, border: "none", background: C.tint, color: "#fff", fontWeight: 600, fontSize: 15, fontFamily: FF, cursor: "pointer", opacity: pasteText.trim() ? 1 : 0.4 }}>{tx.pasteBtn}</button>
+                      </div>
+                    </>
+                  )}
+                </div>
+                {pasteMsg.text && <div role="status" style={{ background: pasteMsg.ok ? C.okSoft : "#FFF4DC", color: pasteMsg.ok ? C.ok : "#8A5300", borderRadius: 10, padding: "10px 12px", fontSize: 14, fontWeight: 500, lineHeight: 1.45 }}>{pasteMsg.ok ? "✓ " : ""}{pasteMsg.text}</div>}
+
+                <label><span style={fieldLabel}>{tx.brand} <b style={{ color: C.tint }}>*</b></span><input value={draft.brand} onChange={function (e) { setField("brand", e.target.value); }} style={fieldStyle("brand")} /></label>
+                <label><span style={fieldLabel}>{tx.amount} <b style={{ color: C.tint }}>*</b></span>
                   <input type="text" inputMode="numeric" value={draft.income === "" || draft.income == null ? "" : Number(draft.income).toLocaleString("en-US")}
-                    onChange={function (e) { var dg = e.target.value.replace(/[^0-9]/g, "").slice(0, 10); setDraft(Object.assign({}, draft, { income: dg === "" ? "" : Number(dg) })); }} placeholder="0" style={Object.assign({}, input, NUM, { fontWeight: 600, fontSize: 20 })} />
+                    onChange={function (e) { var dg = e.target.value.replace(/[^0-9]/g, "").slice(0, 10); setField("income", dg === "" ? "" : Number(dg)); }} placeholder="0" style={Object.assign({}, fieldStyle("income"), NUM, { fontWeight: 600, fontSize: 20 })} />
                 </label>
-                <label><span style={fieldLabel}>{tx.date}</span><input type="date" value={draft.date} min={ym + "-01"} max={ym + "-" + pad2(days)} onChange={function (e) { setDraft(Object.assign({}, draft, { date: e.target.value })); }} style={input} /></label>
-                <label><span style={fieldLabel}>{tx.payer}</span><input value={draft.payerName || ""} autoComplete="off" onChange={function (e) { setDraft(Object.assign({}, draft, { payerName: e.target.value })); }} style={input} /></label>
-                <label><span style={fieldLabel}>{tx.payDate}</span><input type="date" value={draft.expectedPayDate || ""} onChange={function (e) { setDraft(Object.assign({}, draft, { expectedPayDate: e.target.value })); }} style={input} /></label>
-                <label><span style={fieldLabel}>{tx.contact}</span><input value={draft.clientContact || ""} autoComplete="off" placeholder="010-0000-0000 / name@company.com" onChange={function (e) { setDraft(Object.assign({}, draft, { clientContact: e.target.value })); }} style={input} /></label>
-                <label><span style={fieldLabel}>{tx.note}</span><input value={draft.note} onChange={function (e) { setDraft(Object.assign({}, draft, { note: e.target.value })); }} style={input} /></label>
+                <label><span style={fieldLabel}>{tx.date}</span><input type="date" value={draft.date} min={ym + "-01"} max={ym + "-" + pad2(days)} onChange={function (e) { if (e.target.value) setField("date", e.target.value); }} style={input} /></label>
+                <label><span style={fieldLabel}>{tx.payer} <b style={{ color: C.tint }}>*</b></span><input value={draft.payerName || ""} autoComplete="off" onChange={function (e) { setField("payerName", e.target.value); }} style={fieldStyle("payerName")} /></label>
+                <label><span style={fieldLabel}>{tx.payDate}</span><input type="date" value={draft.expectedPayDate || ""} onChange={function (e) { setField("expectedPayDate", e.target.value); }} style={input} /></label>
+                <label><span style={fieldLabel}>{tx.contact} <b style={{ color: C.tint }}>*</b></span><input value={draft.clientContact || ""} autoComplete="off" placeholder="010-0000-0000 / name@company.com" onChange={function (e) { setField("clientContact", e.target.value); }} style={fieldStyle("clientContact")} /></label>
+                <label><span style={fieldLabel}>{tx.note}</span><input value={draft.note} onChange={function (e) { setField("note", e.target.value); }} style={input} /></label>
                 {msg.text && !msg.ok && <div role="alert" style={{ background: C.badSoft, color: C.bad, borderRadius: 10, padding: "10px 12px", fontSize: 14, fontWeight: 500 }}>{msg.text}</div>}
                 <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                  {isExisting && <button className="mp-press" onClick={function () { var target = entries.find(function (x) { return draft.id !== null ? x.id === draft.id : x.tmp === draft.tmp; }); if (target) removeEntry(target); }} style={{ flex: 1, height: 52, borderRadius: 14, border: "none", background: C.badSoft, color: C.bad, fontWeight: 600, fontSize: 17, fontFamily: FF, cursor: "pointer" }}>{tx.del}</button>}
-                  <button className="mp-press" onClick={commitDraft} style={{ flex: 2, height: 52, borderRadius: 14, border: "none", background: C.tint, color: "#fff", fontWeight: 600, fontSize: 17, fontFamily: FF, cursor: "pointer" }}>{tx.ok}</button>
+                  {isExisting && <button className="mp-press" disabled={busy} onClick={function () { var target = entries.find(function (x) { return draft.id !== null ? x.id === draft.id : x.tmp === draft.tmp; }); if (target) removeEntry(target); }} style={{ flex: 1, height: 52, borderRadius: 14, border: "none", background: C.badSoft, color: C.bad, fontWeight: 600, fontSize: 17, fontFamily: FF, cursor: "pointer" }}>{tx.del}</button>}
+                  <button className="mp-press" disabled={busy} onClick={commitDraft} style={{ flex: 2, height: 52, borderRadius: 14, border: "none", background: C.tint, color: "#fff", fontWeight: 600, fontSize: 17, fontFamily: FF, cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1 }}>{tx.save}</button>
                 </div>
               </div>
             )}
