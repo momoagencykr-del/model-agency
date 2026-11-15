@@ -197,7 +197,7 @@ export default function ModelPortal({ token }) {
   };
   // 요청서 붙여넣기 → 칸별 자동 채우기 (메모는 기존 내용 뒤에 덧붙임)
   var applyPaste = function (text) {
-    var r = parseRequest(text, y);
+    var r = parseRequest(text, y, draft.date);
     var d = Object.assign({}, draft);
     var n = 0;
     var put = function (k, v) { if (v) { d[k] = v; n++; } };
