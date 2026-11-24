@@ -521,6 +521,16 @@ function MonthStrip({ year, month, setYear, setMonth, t, dark }) {
 }
 
 // ── 촬영 정산 추가/수정 모달 ──────────────────────────────────────────────
+// 금액 입력칸: 입력하는 즉시 1,000,000 처럼 콤마 표시, 저장값은 숫자 문자열
+function MoneyInput({ value, onChange, style, placeholder }) {
+  var shown = value === "" || value === null || value === undefined ? "" : Number(String(value).replace(/[^0-9-]/g, "")).toLocaleString("en-US");
+  return (
+    <input type="text" inputMode="numeric" value={shown} placeholder={placeholder}
+      onChange={function (e) { var d = e.target.value.replace(/[^0-9]/g, "").slice(0, 12); onChange(d); }}
+      style={Object.assign({ fontVariantNumeric: "tabular-nums" }, style)} />
+  );
+}
+
 function ProjectFormModal({ existing, defaultDate, affiliatedModels, paymentInfo, onChangeInfo, onSave, onClose, dark }) {
   affiliatedModels = affiliatedModels || {};
   var t = T(dark);
@@ -540,8 +550,14 @@ function ProjectFormModal({ existing, defaultDate, affiliatedModels, paymentInfo
 
   var modelSum = modelSumAgencyPrice(models);
 
+  // 촬영 시간 자동 입력: 모델별 시간이 비어 있거나 기존 촬영 시간과 같으면 함께 바뀜 (모델별로 다르게 고친 값은 유지)
+  var handleTimeChange = function (v) {
+    var prev = time;
+    setTime(v);
+    setModels(function (rows) { return rows.map(function (m) { return (!m.time || m.time === prev) ? Object.assign({}, m, { time: v }) : m; }); });
+  };
   var addModelRow = function () {
-    setModels(models.concat([{ id: uid(), name: "", time: "", agencyPrice: "", reportedPrice: "", handPay: "", opCost: "", partnerRate: 0, useAffiliated: false, linkedModel: "" }]));
+    setModels(models.concat([{ id: uid(), name: "", time: time, agencyPrice: "", reportedPrice: "", handPay: "", opCost: "", partnerRate: 0, useAffiliated: false, linkedModel: "" }]));
   };
   var removeModelRow = function (id) {
     setModels(models.filter(function (m) { return m.id !== id; }));
@@ -594,12 +610,12 @@ function ProjectFormModal({ existing, defaultDate, affiliatedModels, paymentInfo
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <Field label="촬영 날짜 (이 날짜 기준으로 해당 월에 저장됩니다)" t={t}><input type="date" value={date} onChange={function (e) { setDate(e.target.value); }} style={inputStyle(t)} /></Field>
-          <Field label="촬영 시간" t={t}><input value={time} onChange={function (e) { setTime(e.target.value); }} placeholder="예: Full, 4H" style={inputStyle(t)} /></Field>
+          <Field label="촬영 시간" t={t}><input value={time} onChange={function (e) { handleTimeChange(e.target.value); }} placeholder="예: Full, 4H" style={inputStyle(t)} /></Field>
         </div>
         <Field label="촬영 브랜드" t={t}><input value={brand} onChange={function (e) { setBrand(e.target.value); }} style={inputStyle(t)} /></Field>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <Field label="총 섭외비용 (클라이언트 청구액)" t={t}>
-            <input type="number" value={totalCost} onChange={function (e) { handleTotalCostChange(e.target.value); }} style={inputStyle(t)} />
+            <MoneyInput value={totalCost} onChange={function (v) { handleTotalCostChange(v); }} style={inputStyle(t)} />
             <div style={{ fontSize: 10, color: Number(totalCost) === modelSum ? t.sub : COLOR.warning, marginTop: 3, fontWeight: Number(totalCost) === modelSum ? 400 : 700 }}>
               모델 업체가 합계: {fmt(modelSum)}{Number(totalCost) !== modelSum ? " (입력값과 다름)" : ""}
             </div>
@@ -651,15 +667,15 @@ function ProjectFormModal({ existing, defaultDate, affiliatedModels, paymentInfo
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 6 }}>
                 <div>
                   <div style={{ fontSize: 10, color: t.sub, marginBottom: 3 }}>모델 업체가 (청구가)</div>
-                  <input type="number" value={m.agencyPrice} onChange={function (e) { updateModelRow(m.id, "agencyPrice", e.target.value); }} style={inputStyle(t)} />
+                  <MoneyInput value={m.agencyPrice} onChange={function (v) { updateModelRow(m.id, "agencyPrice", v); }} style={inputStyle(t)} />
                 </div>
                 <div>
                   <div style={{ fontSize: 10, color: t.sub, marginBottom: 3 }}>모델 손 Pay</div>
-                  <input type="number" value={m.handPay} onChange={function (e) { updateModelRow(m.id, "handPay", e.target.value); }} style={inputStyle(t)} />
+                  <MoneyInput value={m.handPay} onChange={function (v) { updateModelRow(m.id, "handPay", v); }} style={inputStyle(t)} />
                 </div>
                 <div>
                   <div style={{ fontSize: 10, color: t.sub, marginBottom: 3 }}>운영비 (교통/통역 등)</div>
-                  <input type="number" value={m.opCost} onChange={function (e) { updateModelRow(m.id, "opCost", e.target.value); }} style={inputStyle(t)} />
+                  <MoneyInput value={m.opCost} onChange={function (v) { updateModelRow(m.id, "opCost", v); }} style={inputStyle(t)} />
                 </div>
                 <div>
                   <div style={{ fontSize: 10, color: t.sub, marginBottom: 3 }}>협력사 지급비율 (%)</div>
@@ -668,7 +684,7 @@ function ProjectFormModal({ existing, defaultDate, affiliatedModels, paymentInfo
               </div>
               <div style={{ marginBottom: 6, background: dark ? "#33270F" : "#FFF8EA", border: "1px solid " + (dark ? "#9A5B00" : "#fde68a"), borderRadius: 8, padding: "8px 10px" }}>
                 <div style={{ fontSize: 10, fontWeight: 600, color: dark ? "#fbbf24" : "#9A5B00", marginBottom: 3 }}>모델 정산서 표시 금액 (선택 — 모델에게 축소해서 전달할 총 섭외비용)</div>
-                <input type="number" value={m.reportedPrice} onChange={function (e) { updateModelRow(m.id, "reportedPrice", e.target.value); }} placeholder={"비워두면 위 청구가(" + fmt(Number(m.agencyPrice) || 0) + ")와 동일하게 정산서에 표시됩니다"} style={inputStyle(t)} />
+                <MoneyInput value={m.reportedPrice} onChange={function (v) { updateModelRow(m.id, "reportedPrice", v); }} placeholder={"비워두면 위 청구가(" + fmt(Number(m.agencyPrice) || 0) + ")와 동일하게 정산서에 표시됩니다"} style={inputStyle(t)} />
                 {m.useAffiliated && m.linkedModel ? <div style={{ fontSize: 9, color: dark ? "#fbbf24" : "#9A5B00", marginTop: 4 }}>모델 정산관리 정산서에는 이 금액이 "업체입금"으로 전달됩니다.</div> : null}
               </div>
               {onChangeInfo && (function () {
@@ -707,7 +723,7 @@ function ProjectFormModal({ existing, defaultDate, affiliatedModels, paymentInfo
             <div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 8 }}>
                 <input value={interpName} onChange={function (e) { setInterpName(e.target.value); }} placeholder="통역비(or 현장매니저) 이름" style={inputStyle(t)} />
-                <input type="number" value={interpFee} onChange={function (e) { setInterpFee(e.target.value); }} placeholder="통역비" style={inputStyle(t)} />
+                <MoneyInput value={interpFee} onChange={function (v) { setInterpFee(v); }} placeholder="통역비" style={inputStyle(t)} />
               </div>
               {onChangeInfo && (function () {
                 var pid = projectId + "_interpreter";
@@ -889,7 +905,7 @@ function RecurringManager({ recurringExpenses, onChange, dark, t }) {
         return (
           <div key={tp.id} style={{ display: "grid", gridTemplateColumns: "1.3fr 0.9fr 1.3fr 0.55fr 1fr 1fr 40px", gap: 6, padding: "8px 12px", borderTop: "1px solid " + t.border, alignItems: "center" }}>
             <input value={tp.item} onChange={function (e) { updateTemplate(tp.id, "item", e.target.value); }} placeholder="예: 사무실 월세" style={inputStyle(t)} />
-            <input type="number" value={tp.amount} onChange={function (e) { updateTemplate(tp.id, "amount", e.target.value); }} style={inputStyle(t)} />
+            <MoneyInput value={tp.amount} onChange={function (v) { updateTemplate(tp.id, "amount", v); }} style={inputStyle(t)} />
             <input value={tp.desc} onChange={function (e) { updateTemplate(tp.id, "desc", e.target.value); }} placeholder="설명" style={inputStyle(t)} />
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
               <input type="checkbox" checked={!!tp.vat} onChange={function (e) { updateTemplate(tp.id, "vat", e.target.checked); }} style={{ width: 18, height: 18 }} />
@@ -971,7 +987,7 @@ function ExpensesTab({ year, month, setYear, setMonth, expenses, recurringExpens
           return (
             <div key={e.id} style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1.6fr 0.6fr 40px", gap: 8, padding: "8px 12px", borderTop: "1px solid " + t.border, alignItems: "center" }}>
               <input value={e.item} onChange={function (ev) { updateRow(e.id, "item", ev.target.value); }} placeholder="예: 이번 달 일회성 지출" style={inputStyle(t)} />
-              <input type="number" value={e.amount} onChange={function (ev) { updateRow(e.id, "amount", ev.target.value); }} style={inputStyle(t)} />
+              <MoneyInput value={e.amount} onChange={function (v) { updateRow(e.id, "amount", v); }} style={inputStyle(t)} />
               <input value={e.desc} onChange={function (ev) { updateRow(e.id, "desc", ev.target.value); }} style={inputStyle(t)} />
               <input type="checkbox" checked={!!e.vat} onChange={function (ev) { updateRow(e.id, "vat", ev.target.checked); }} style={{ width: 18, height: 18 }} />
               <button onClick={function () { removeRow(e.id); }} style={{ width: 26, height: 26, borderRadius: 7, border: "none", background: "rgba(217,45,32,0.12)", color: COLOR.danger, cursor: "pointer", fontSize: 12 }}>✕</button>
@@ -1581,6 +1597,7 @@ function CalendarTab({ year, month, setYear, setMonth, allProjects, paymentInfo,
         <Card title="총 섭외비용" value={fmt(monthTotalCost)} color="#B5462A" t={t} />
         <Card title="촬영 건수" value={monthProjectCount + "건"} t={t} />
         <Card title="섭외 모델 수" value={monthModelCount + "명"} t={t} />
+        <Card title="순수익" value={fmt(monthProjectTotals(monthList).netProfit)} color={monthProjectTotals(monthList).netProfit < 0 ? "#ef4444" : "#10b981"} t={t} />
       </div>
 
       <div style={{ marginBottom: 14, position: "relative", maxWidth: 320 }}>
